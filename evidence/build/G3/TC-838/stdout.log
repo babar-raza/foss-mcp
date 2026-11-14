@@ -1,0 +1,282 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-njyii48f\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+.................................................................        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-njyii48f\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+.................................................................        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-njyii48f\.junit-0.xml"
+--- stdout ---
+FFFFF...F.FFFF..FF..F................................................... [ 34%]
+........................................................................ [ 68%]
+.................................................................        [100%]
+================================== FAILURES ===================================
+_ test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches[workbooks] _
+
+query = 'workbooks'
+
+    @pytest.mark.parametrize("query", ["workbooks", "Workbooks", "WORKBOOKS"])
+    def test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches(query: str) -> None:
+        names = _names(search_symbols(_workbook_store(), SYNTHETIC_SCOPE, query))  # type: ignore[arg-type]
+    
+>       assert names[0] == "Workbook", names
+E       AssertionError: ['WorkbookSettings', 'WorkbookSaveException']
+E       assert 'WorkbookSettings' == 'Workbook'
+E         
+E         - Workbook
+E         + WorkbookSettings
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:104: AssertionError
+_ test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches[Workbooks] _
+
+query = 'Workbooks'
+
+    @pytest.mark.parametrize("query", ["workbooks", "Workbooks", "WORKBOOKS"])
+    def test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches(query: str) -> None:
+        names = _names(search_symbols(_workbook_store(), SYNTHETIC_SCOPE, query))  # type: ignore[arg-type]
+    
+>       assert names[0] == "Workbook", names
+E       AssertionError: ['WorkbookSettings', 'WorkbookSaveException']
+E       assert 'WorkbookSettings' == 'Workbook'
+E         
+E         - Workbook
+E         + WorkbookSettings
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:104: AssertionError
+_ test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches[WORKBOOKS] _
+
+query = 'WORKBOOKS'
+
+    @pytest.mark.parametrize("query", ["workbooks", "Workbooks", "WORKBOOKS"])
+    def test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches(query: str) -> None:
+        names = _names(search_symbols(_workbook_store(), SYNTHETIC_SCOPE, query))  # type: ignore[arg-type]
+    
+>       assert names[0] == "Workbook", names
+E       AssertionError: ['WorkbookSettings', 'WorkbookSaveException']
+E       assert 'WorkbookSettings' == 'Workbook'
+E         
+E         - Workbook
+E         + WorkbookSettings
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:104: AssertionError
+_ test_the_plural_hit_is_labelled_an_inflected_exact_name_and_prefix_hits_stay_partial _
+
+    def test_the_plural_hit_is_labelled_an_inflected_exact_name_and_prefix_hits_stay_partial() -> None:
+        result = search_symbols(_workbook_store(), SYNTHETIC_SCOPE, "workbooks")  # type: ignore[arg-type]
+    
+        assert not isinstance(result, Miss)
+        by_name = {(extract_fqn(match.text) or "").split(".")[-1]: match for match in result}
+>       assert by_name["Workbook"].match_kind == "inflected_name"
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'Workbook'
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:112: KeyError
+________ test_the_longer_prefix_matches_are_kept_after_the_plural_hit _________
+
+    def test_the_longer_prefix_matches_are_kept_after_the_plural_hit() -> None:
+        names = _names(search_symbols(_workbook_store(), SYNTHETIC_SCOPE, "workbooks"))  # type: ignore[arg-type]
+    
+>       assert set(names) == {"Workbook", "WorkbookSettings", "WorkbookSaveException"}
+E       AssertionError: assert {'WorkbookSav...bookSettings'} == {'Workbook', ...bookSettings'}
+E         
+E         Extra items in the right set:
+E         'Workbook'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:121: AssertionError
+____________ test_a_es_plural_names_the_type_before_prefix_matches ____________
+
+    def test_a_es_plural_names_the_type_before_prefix_matches() -> None:
+        store = _InMemoryStore(
+            _type_chunk("Aspose.Cells.Boxesque"),
+            _type_chunk("Aspose.Cells.Box"),
+        )
+    
+        names = _names(search_symbols(store, SYNTHETIC_SCOPE, "boxes"))  # type: ignore[arg-type]
+    
+>       assert names[0] == "Box", names
+E       AssertionError: ['Boxesque']
+E       assert 'Boxesque' == 'Box'
+E         
+E         - Box
+E         + Boxesque
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:158: AssertionError
+_________________ test_workbooks_names_workbook_on_cells_net __________________
+
+real_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4B30C17F0>
+
+    def test_workbooks_names_workbook_on_cells_net(real_store: GenerationManifestStore) -> None:
+        names = _names(search_symbols(real_store, CELLS_NET, "workbooks"))
+    
+>       assert names[0] == "Workbook", names
+E       AssertionError: ['WorkbookSettings', 'WorkbookSaveException']
+E       assert 'WorkbookSettings' == 'Workbook'
+E         
+E         - Workbook
+E         + WorkbookSettings
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:182: AssertionError
+__________ test_workbooks_through_lookup_names_workbook_on_cells_net __________
+
+real_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4B30C17F0>
+
+    def test_workbooks_through_lookup_names_workbook_on_cells_net(real_store: GenerationManifestStore) -> None:
+        for query in ("workbooks", "Workbooks", "workbooks methods"):
+>           assert "Workbook" in _lookup_names(lookup(real_store, CELLS_NET, query))[:3], query
+E           AssertionError: workbooks
+E           assert 'Workbook' in ['WorkbookSettings', 'WorkbookSaveException']
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:188: AssertionError
+_ test_other_plural_type_names_on_real_pilots_name_the_type[scope0-Workbooks-Workbook] _
+
+real_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4B30C17F0>
+scope = Scope(family='cells', platform='net', source_kind='self_extracted')
+query = 'Workbooks', type_name = 'Workbook'
+
+    @pytest.mark.parametrize(
+        ("scope", "query", "type_name"),
+        [
+            (CELLS_NET, "Workbooks", "Workbook"),
+            (CELLS_NET, "AutoFilters", "AutoFilter"),
+            (CELLS_NET, "styles", "Style"),
+            (SLIDES_NET, "presentations", "Presentation"),
+            (SLIDES_NET, "Tables", "Table"),
+            (SLIDES_NET, "IShapes", "IShape"),
+        ],
+    )
+    def test_other_plural_type_names_on_real_pilots_name_the_type(
+        real_store: GenerationManifestStore, scope: Scope, query: str, type_name: str
+    ) -> None:
+        result = search_symbols(real_store, scope, query)
+    
+>       assert type_name in _names(result)[:3], (query, _names(result))
+E       AssertionError: ('Workbooks', ['WorkbookSettings', 'WorkbookSaveException'])
+E       assert 'Workbook' in ['WorkbookSettings', 'WorkbookSaveException']
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:207: AssertionError
+_ test_other_plural_type_names_on_real_pilots_name_the_type[scope1-AutoFilters-AutoFilter] _
+
+real_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4B30C17F0>
+scope = Scope(family='cells', platform='net', source_kind='self_extracted')
+query = 'AutoFilters', type_name = 'AutoFilter'
+
+    @pytest.mark.parametrize(
+        ("scope", "query", "type_name"),
+        [
+            (CELLS_NET, "Workbooks", "Workbook"),
+            (CELLS_NET, "AutoFilters", "AutoFilter"),
+            (CELLS_NET, "styles", "Style"),
+            (SLIDES_NET, "presentations", "Presentation"),
+            (SLIDES_NET, "Tables", "Table"),
+            (SLIDES_NET, "IShapes", "IShape"),
+        ],
+    )
+    def test_other_plural_type_names_on_real_pilots_name_the_type(
+        real_store: GenerationManifestStore, scope: Scope, query: str, type_name: str
+    ) -> None:
+        result = search_symbols(real_store, scope, query)
+    
+>       assert type_name in _names(result)[:3], (query, _names(result))
+E       AssertionError: ('AutoFilters', ['AutoFilterSortConditionCollection', 'AutoFilterSortState', 'AutoFilterSortCondition'])
+E       assert 'AutoFilter' in ['AutoFilterSortConditionCollection', 'AutoFilterSortState', 'AutoFilterSortCondition']
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:207: AssertionError
+_ test_other_plural_type_names_on_real_pilots_name_the_type[scope4-Tables-Table] _
+
+real_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4B30C17F0>
+scope = Scope(family='slides', platform='net', source_kind='self_extracted')
+query = 'Tables', type_name = 'Table'
+
+    @pytest.mark.parametrize(
+        ("scope", "query", "type_name"),
+        [
+            (CELLS_NET, "Workbooks", "Workbook"),
+            (CELLS_NET, "AutoFilters", "AutoFilter"),
+            (CELLS_NET, "styles", "Style"),
+            (SLIDES_NET, "presentations", "Presentation"),
+            (SLIDES_NET, "Tables", "Table"),
+            (SLIDES_NET, "IShapes", "IShape"),
+        ],
+    )
+    def test_other_plural_type_names_on_real_pilots_name_the_type(
+        real_store: GenerationManifestStore, scope: Scope, query: str, type_name: str
+    ) -> None:
+        result = search_symbols(real_store, scope, query)
+    
+>       assert type_name in _names(result)[:3], (query, _names(result))
+E       AssertionError: ('Tables', ['TableStylePreset'])
+E       assert 'Table' in ['TableStylePreset']
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:207: AssertionError
+_ test_other_plural_type_names_on_real_pilots_name_the_type[scope5-IShapes-IShape] _
+
+real_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4B30C17F0>
+scope = Scope(family='slides', platform='net', source_kind='self_extracted')
+query = 'IShapes', type_name = 'IShape'
+
+    @pytest.mark.parametrize(
+        ("scope", "query", "type_name"),
+        [
+            (CELLS_NET, "Workbooks", "Workbook"),
+            (CELLS_NET, "AutoFilters", "AutoFilter"),
+            (CELLS_NET, "styles", "Style"),
+            (SLIDES_NET, "presentations", "Presentation"),
+            (SLIDES_NET, "Tables", "Table"),
+            (SLIDES_NET, "IShapes", "IShape"),
+        ],
+    )
+    def test_other_plural_type_names_on_real_pilots_name_the_type(
+        real_store: GenerationManifestStore, scope: Scope, query: str, type_name: str
+    ) -> None:
+        result = search_symbols(real_store, scope, query)
+    
+>       assert type_name in _names(result)[:3], (query, _names(result))
+E       AssertionError: ('IShapes', ['IShapeStyle'])
+E       assert 'IShape' in ['IShapeStyle']
+
+tests\mcp\tools\test_search_symbols_plural_and_prefix_precedence.py:207: AssertionError
+________________ test_a_plural_type_name_still_names_the_type _________________
+
+cells_net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B4E3B6B890>
+
+    def test_a_plural_type_name_still_names_the_type(cells_net_store: GenerationManifestStore) -> None:
+        for query in ("workbooks", "workbooks methods"):
+>           assert "Workbook" in _symbol_names(lookup(cells_net_store, CELLS_NET, query))[:3], query
+E           AssertionError: workbooks
+E           assert 'Workbook' in ['WorkbookSettings', 'WorkbookSaveException']
+
+tests\mcp\tools\test_lookup_forgiveness.py:120: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches[workbooks]
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches[Workbooks]
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_a_plural_type_name_ranks_the_type_before_longer_prefix_matches[WORKBOOKS]
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_the_plural_hit_is_labelled_an_inflected_exact_name_and_prefix_hits_stay_partial
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_the_longer_prefix_matches_are_kept_after_the_plural_hit
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_a_es_plural_names_the_type_before_prefix_matches
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_workbooks_names_workbook_on_cells_net
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_workbooks_through_lookup_names_workbook_on_cells_net
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_other_plural_type_names_on_real_pilots_name_the_type[scope0-Workbooks-Workbook]
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_other_plural_type_names_on_real_pilots_name_the_type[scope1-AutoFilters-AutoFilter]
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_other_plural_type_names_on_real_pilots_name_the_type[scope4-Tables-Table]
+FAILED tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py::test_other_plural_type_names_on_real_pilots_name_the_type[scope5-IShapes-IShape]
+FAILED tests/mcp/tools/test_lookup_forgiveness.py::test_a_plural_type_name_still_names_the_type
+
+--- stderr ---
+
