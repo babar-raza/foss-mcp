@@ -764,6 +764,34 @@ def _first_paragraph(lines: Sequence[str], skip: set[int], start: int, stop: int
     return ""
 
 
+def _demote_headings(text: str) -> str:
+    """*text* with every Markdown heading one level deeper (capped at level 6), outside fenced code.
+
+    A section kept under ``### <heading>`` is a level-two README section made a level-three one; its own
+    ``###`` children must therefore become ``####``, or they would read as that section's SIBLINGS and
+    the section's heading would own only its lead-in (G3/TC-817: ``doc_candidates`` carves a section by
+    its heading, up to the next heading of the same or a higher level).
+    """
+    kept: list[str] = []
+    marker: str | None = None
+    for line in text.split("\n"):
+        if marker is not None:
+            if _closes_fence(line, marker):
+                marker = None
+            kept.append(line)
+            continue
+        opener = _fence_opener(line)
+        if opener is not None:
+            marker = opener.group("fence")
+            kept.append(line)
+            continue
+        heading = _ATX_HEADING_RE.match(line)
+        if heading is not None and len(heading.group("hashes")) < 6:
+            line = f"{line[: heading.start('hashes')]}#{line[heading.start('hashes') :]}"
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def _apply_section_fallback(
     level_two: Sequence[tuple[str, str]],
     sections: Mapping[str, str],
@@ -811,7 +839,7 @@ def _apply_section_fallback(
         if index not in consumed and body.strip() and _section_key(heading) not in _BOILERPLATE_SECTIONS
     ]
     if kept:
-        extras = "\n\n".join(f"### {heading}\n\n{body}" for heading, body in kept)
+        extras = "\n\n".join(f"### {heading}\n\n{_demote_headings(body)}" for heading, body in kept)
         existing = result.get("Key Capabilities")
         result["Key Capabilities"] = extras if existing is None else f"{existing}\n\n{extras}"
 
