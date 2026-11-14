@@ -99,17 +99,17 @@ examples:
     os.remove(path)
     print("OK")
   code_sha256: bc41d42d3a6635a6a26487d9bca62d96f2e553c902e2d73642ae3719746ac0db
-- title: Set Core and Custom Document Properties and Delete One
-  description: Adapted from the upstream tests/test_document_properties.py suite. Sets core document properties and three custom properties, removes one custom property and checks the count and presence of the rest, saves and reopens the presentation, then confirms the core properties and the surviving custom properties round-tripped.
+- title: Fill Layout Placeholders on a New Slide and Verify Persistence
+  description: Adds a slide from the Title and Content layout, lists the layout's placeholder shapes by name, fills the slide's title and content placeholders through text_frame.text, saves and reopens the presentation, then confirms the layout and both placeholder texts survived the round trip. The pinned build's Shape.placeholder property is not populated, so placeholders are identified by shape name.
   symbols:
-  - DocumentProperties.title
-  - DocumentProperties.set_custom_property_value
-  - DocumentProperties.count_of_custom_properties
-  - DocumentProperties.remove_custom_property
-  - DocumentProperties.contains_custom_property
-  - DocumentProperties.get_custom_property_value
+  - Presentation.layout_slides
+  - SlideCollection.add_empty_slide
+  - Slide.layout_slide
+  - Shape.name
+  - AutoShape.text_frame
+  - TextFrame.text
   code: |
-    # Authored example: set core and custom document properties, remove one custom property, then confirm the rest survive a save/reload round trip.
+    # Authored example: add a slide from a layout, enumerate the layout's placeholders, fill them with text and confirm the text survives a save/reload round trip.
     import os
     import tempfile
 
@@ -117,41 +117,42 @@ examples:
     from aspose.slides_foss.export import SaveFormat
 
     with Presentation() as prs:
-        props = prs.document_properties
-        props.title = "Quarterly Review"
-        props.author = "Jane Doe"
-        props.category = "Finance"
-        props.set_custom_property_value("Reviewed", True)
-        props.set_custom_property_value("Revision", 3)
-        props.set_custom_property_value("Draft", "no")
+        layout = next(item for item in prs.layout_slides if item.name == "Title and Content")
+        layout_names = [shape.name for shape in layout.shapes]
+        print("layout placeholders:", layout_names)
+        assert "Title 1" in layout_names and "Content Placeholder 2" in layout_names
 
-        print("custom property count before remove:", props.count_of_custom_properties)
-        assert props.count_of_custom_properties == 3
-        props.remove_custom_property("Draft")
-        print("custom property count after remove:", props.count_of_custom_properties)
-        assert props.count_of_custom_properties == 2
-        assert props.contains_custom_property("Draft") is False
-        assert props.contains_custom_property("Revision") is True
+        slide = prs.slides.add_empty_slide(layout)
+        print("slide layout:", slide.layout_slide.name)
+        assert slide.layout_slide.name == "Title and Content"
 
-        path = os.path.join(tempfile.gettempdir(), "authored_document_properties_example.pptx")
+        # A slide made from a layout carries only the title and body placeholders; the date, footer and
+        # slide-number placeholders stay on the layout.
+        placeholders = {shape.name: shape for shape in slide.shapes}
+        print("slide placeholders:", sorted(placeholders))
+        assert sorted(placeholders) == ["Content Placeholder 2", "Title 1"]
+
+        placeholders["Title 1"].text_frame.text = "Quarterly Review"
+        placeholders["Content Placeholder 2"].text_frame.text = "Revenue grew 12 percent"
+        assert placeholders["Title 1"].text_frame.text == "Quarterly Review"
+        slide_index = len(prs.slides) - 1
+
+        path = os.path.join(tempfile.gettempdir(), "authored_placeholder_example.pptx")
         prs.save(path, SaveFormat.PPTX)
 
     with Presentation(path) as reloaded:
-        reloaded_props = reloaded.document_properties
-        print("reloaded title:", reloaded_props.title, "author:", reloaded_props.author)
-        assert reloaded_props.title == "Quarterly Review"
-        assert reloaded_props.author == "Jane Doe"
-        assert reloaded_props.category == "Finance"
-        assert reloaded_props.count_of_custom_properties == 2
-
-        revision_out = [None]
-        reloaded_props.get_custom_property_value("Revision", revision_out)
-        print("reloaded revision:", revision_out[0])
-        assert revision_out[0] == 3
+        reloaded_slide = reloaded.slides[slide_index]
+        reloaded_text = {shape.name: shape.text_frame.text for shape in reloaded_slide.shapes}
+        print("reloaded text:", reloaded_text)
+        assert reloaded_slide.layout_slide.name == "Title and Content"
+        assert reloaded_text == {
+            "Title 1": "Quarterly Review",
+            "Content Placeholder 2": "Revenue grew 12 percent",
+        }
 
     os.remove(path)
     print("OK")
-  code_sha256: 6448dbd7c3f5d7a833b5d2689e942e6837795b751aafa9553b399f32966e371f
+  code_sha256: 8176237f01e99018d7736231d0ecdd2cbca4b2f2dc6f8855b76d5f980dd24233
 - title: Group Two Rectangles and Lock the Group Against Ungrouping
   description: Adapted from the upstream tests/test_group_shape.py suite. Groups two auto shapes added inside a group shape, sets the group's name and locks it against ungrouping, saves and reopens the presentation, then confirms the group, its two children and the lock flag all survived the round trip.
   symbols:

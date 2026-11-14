@@ -2,11 +2,12 @@
 
 ``tests/fixtures/furnished/slides_python/authored_examples.yaml`` holds five minimal, labelled
 examples written against the real public API of ``aspose-slides-foss`` at the pinned commit. The
-pinned repository ships no ``examples/``-style sample directory at all, so each example is adapted
+pinned repository ships no ``examples/``-style sample directory at all, so four of them are adapted
 from a real upstream ``tests/test_*.py`` suite method (table creation/merge, comment authors and
-filtering, document properties, group shapes, and slide transitions) with the ``pytest`` fixture
+filtering, group shapes, and slide transitions) and one is authored from the real behaviour of the pinned
+build (filling a layout's placeholders by name, TC-825); the ``pytest`` fixture
 scaffolding (``tmp_pptx``, bare ``assert``-only bodies with no ``print``/round trip of their own)
-replaced by a real, standalone save/reopen round trip plus printed output. This file proves they
+is replaced by a real, standalone save/reopen round trip plus printed output. This file proves they
 are well-formed, labelled, tied to the chart's pinned commit and use only symbols that resolve in
 the pilot's extraction. Whether they run is decided later by the ingestion verifier, never here:
 nothing in this file imports the library, runs an example, or reaches a network.
@@ -226,3 +227,69 @@ def test_every_example_prints_and_asserts_real_output(index: int) -> None:
     code = _example(index)["code"]
     assert "print(" in code
     assert "assert " in code
+
+
+# --- TC-825: the placeholder-filling example replaced the document-properties example -------------
+
+PLACEHOLDER_SYMBOLS = {
+    "Presentation.layout_slides",
+    "SlideCollection.add_empty_slide",
+    "Slide.layout_slide",
+    "AutoShape.text_frame",
+    "TextFrame.text",
+}
+KEPT_TITLE_WORDS = {
+    "table": "Create a Table, Merge Cells and Verify Round-Trip Persistence",
+    "comment": "Add Comments From Two Authors and Filter a Slide's Comments by Author",
+    "group": "Group Two Rectangles and Lock the Group Against Ungrouping",
+    "transition": "Apply a Circle Slide Transition With a Timed Automatic Advance",
+}
+MAX_TITLE_WORDS = 12
+
+
+def _placeholder_examples() -> list[dict]:
+    return [example for example in _document()["examples"] if PLACEHOLDER_SYMBOLS <= set(example["symbols"])]
+
+
+def test_exactly_one_example_fills_layout_placeholders() -> None:
+    found = _placeholder_examples()
+    assert len(found) == 1, [example["title"] for example in found]
+    assert "Presentation.layout_slides" in found[0]["symbols"]
+
+
+def test_the_placeholder_example_title_names_placeholder_and_layout_in_twelve_words_or_fewer() -> None:
+    title = _placeholder_examples()[0]["title"]
+    lowered = title.lower()
+    assert "placeholder" in lowered
+    assert "layout" in lowered
+    assert len(title.split()) <= MAX_TITLE_WORDS, title
+
+
+def test_the_placeholder_example_code_enumerates_fills_and_reloads() -> None:
+    code = _placeholder_examples()[0]["code"]
+    # The layout lookup and the shapes the layout carries.
+    assert "prs.layout_slides" in code
+    assert "layout.shapes" in code
+    # A slide made from that layout.
+    assert "add_empty_slide(layout)" in code
+    assert "slide.layout_slide.name" in code
+    # The placeholders are filled through text_frame.text.
+    assert re.search(r'\["Title 1"\]\.text_frame\.text = "', code)
+    assert re.search(r'\["Content Placeholder 2"\]\.text_frame\.text = "', code)
+    # The presentation is saved, reopened and the filled text asserted on the reloaded slide.
+    assert "prs.save(path, SaveFormat.PPTX)" in code
+    assert "Presentation(path) as reloaded" in code
+    assert re.search(r"assert reloaded_text == \{", code)
+    assert '"Title 1": "Quarterly Review"' in code
+    assert '"Content Placeholder 2": "Revenue grew 12 percent"' in code
+
+
+def test_the_four_kept_examples_remain_and_the_document_properties_example_is_gone() -> None:
+    titles = [example["title"] for example in _document()["examples"]]
+    for topic, title in KEPT_TITLE_WORDS.items():
+        assert title in titles, topic
+    assert len(titles) == EXPECTED_EXAMPLES
+    for example in _document()["examples"]:
+        assert "document properties" not in example["title"].lower(), example["title"]
+        assert not any(symbol.startswith("DocumentProperties") for symbol in example["symbols"])
+        assert "document_properties" not in example["code"]
