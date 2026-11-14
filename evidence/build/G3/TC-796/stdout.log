@@ -1,0 +1,738 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells_round2_gaps.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_hazards_round2_disclosures.py tests/config/test_cells_cpp_manifest.py tests/config/test_cells_rust_manifest.py tests/config/test_product_manifests.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dsdfrb6z\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+...........................................                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells_round2_gaps.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_hazards_round2_disclosures.py tests/config/test_cells_cpp_manifest.py tests/config/test_cells_rust_manifest.py tests/config/test_product_manifests.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dsdfrb6z\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+...........................................                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/cells__typescript.yaml, M config/products/cells/cpp.yaml, M config/products/cells/go.yaml, M config/products/cells/rust.yaml, M config/products/cells/typescript.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells_round2_gaps.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_hazards_round2_disclosures.py tests/config/test_cells_cpp_manifest.py tests/config/test_cells_rust_manifest.py tests/config/test_product_manifests.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dsdfrb6z\.junit-0.xml"
+--- stdout ---
+.FFFFFFFFFFFFF..F.....................................FF..F............. [ 38%]
+.FFF...F..............................F..........FFF..............FFFF.. [ 77%]
+....FF.FF..................................                              [100%]
+================================== FAILURES ===================================
+_ test_each_new_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[CELLS-TYPESCRIPT-006] _
+
+defect_id = 'CELLS-TYPESCRIPT-006'
+
+    @pytest.mark.parametrize("defect_id", NEW_IDS)
+    def test_each_new_id_equals_a_real_ledger_issue_id_and_appears_exactly_once(defect_id: str) -> None:
+        issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
+        ledger = [issue for issue in issues if issue["id"] == defect_id]
+        assert len(ledger) == 1, f"{defect_id} is not a real docs/round2/issues.json id"
+        assert ledger[0]["pilot"] == "cells/typescript"
+    
+        ids = [defect["id"] for defect in _load_registry_document()["defects"]]
+>       assert ids.count(defect_id) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000002E42DD15980>('CELLS-TYPESCRIPT-006')
+E        +    where <built-in method count of list object at 0x000002E42DD15980> = ['CELLS-TYPESCRIPT-003', 'CELLS-TYPESCRIPT-004', 'CELLS-TYPESCRIPT-005', 'CELLS-TYPESCRIPT-008', 'CELLS-TYPESCRIPT-011', 'CELLS-TYPESCRIPT-013'].count
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:96: AssertionError
+_ test_each_new_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[CELLS-TYPESCRIPT-009] _
+
+defect_id = 'CELLS-TYPESCRIPT-009'
+
+    @pytest.mark.parametrize("defect_id", NEW_IDS)
+    def test_each_new_id_equals_a_real_ledger_issue_id_and_appears_exactly_once(defect_id: str) -> None:
+        issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
+        ledger = [issue for issue in issues if issue["id"] == defect_id]
+        assert len(ledger) == 1, f"{defect_id} is not a real docs/round2/issues.json id"
+        assert ledger[0]["pilot"] == "cells/typescript"
+    
+        ids = [defect["id"] for defect in _load_registry_document()["defects"]]
+>       assert ids.count(defect_id) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000002E42CBBDFC0>('CELLS-TYPESCRIPT-009')
+E        +    where <built-in method count of list object at 0x000002E42CBBDFC0> = ['CELLS-TYPESCRIPT-003', 'CELLS-TYPESCRIPT-004', 'CELLS-TYPESCRIPT-005', 'CELLS-TYPESCRIPT-008', 'CELLS-TYPESCRIPT-011', 'CELLS-TYPESCRIPT-013'].count
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:96: AssertionError
+_ test_each_entry_is_open_version_scoped_method_kind_with_a_real_date[CELLS-TYPESCRIPT-006] _
+
+defect_id = 'CELLS-TYPESCRIPT-006'
+
+    @pytest.mark.parametrize("defect_id", NEW_IDS)
+    def test_each_entry_is_open_version_scoped_method_kind_with_a_real_date(defect_id: str) -> None:
+>       defect = _defect(defect_id)
+                 ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'CELLS-TYPESCRIPT-006'
+
+    def _defect(defect_id: str) -> KnownDefect:
+>       (match,) = [defect for defect in load_known_defects("cells", "typescript") if defect.id == defect_id]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:67: ValueError
+_ test_each_entry_is_open_version_scoped_method_kind_with_a_real_date[CELLS-TYPESCRIPT-009] _
+
+defect_id = 'CELLS-TYPESCRIPT-009'
+
+    @pytest.mark.parametrize("defect_id", NEW_IDS)
+    def test_each_entry_is_open_version_scoped_method_kind_with_a_real_date(defect_id: str) -> None:
+>       defect = _defect(defect_id)
+                 ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'CELLS-TYPESCRIPT-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+>       (match,) = [defect for defect in load_known_defects("cells", "typescript") if defect.id == defect_id]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:67: ValueError
+______ test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus _______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000002E42DE24440>
+
+    def test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus(corpus: ConformanceCorpus) -> None:
+        pilot = corpus.pilots["cells__typescript"]
+        real_fqns = {fqn for chunk in pilot.symbol_chunks() if (fqn := extract_fqn(chunk["text"])) is not None}
+        for defect_id in NEW_IDS:
+>           for ref in _defect(defect_id).subject.refs:
+                       ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'CELLS-TYPESCRIPT-006'
+
+    def _defect(defect_id: str) -> KnownDefect:
+>       (match,) = [defect for defect in load_known_defects("cells", "typescript") if defect.id == defect_id]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:67: ValueError
+___ test_006_names_the_first_worksheet_trigger_and_the_toJson_safe_pattern ____
+
+    def test_006_names_the_first_worksheet_trigger_and_the_toJson_safe_pattern() -> None:
+>       defect = _defect("CELLS-TYPESCRIPT-006")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'CELLS-TYPESCRIPT-006'
+
+    def _defect(defect_id: str) -> KnownDefect:
+>       (match,) = [defect for defect in load_known_defects("cells", "typescript") if defect.id == defect_id]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:67: ValueError
+__ test_009_names_every_unrecognised_extension_trigger_and_the_safe_pattern ___
+
+    def test_009_names_every_unrecognised_extension_trigger_and_the_safe_pattern() -> None:
+>       defect = _defect("CELLS-TYPESCRIPT-009")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'CELLS-TYPESCRIPT-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+>       (match,) = [defect for defect in load_known_defects("cells", "typescript") if defect.id == defect_id]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:67: ValueError
+_____ test_get_symbol_surfaces_both_new_disclosures_for_the_workbook_type _____
+
+store = <tests.indexing.test_known_defects_data_cells_round2_gaps._InMemoryStore object at 0x000002E42CB37E00>
+
+    def test_get_symbol_surfaces_both_new_disclosures_for_the_workbook_type(store: _InMemoryStore) -> None:
+        result = get_symbol(store, SCOPE, WORKBOOK_FQN)  # type: ignore[arg-type]
+    
+        assert isinstance(result, SymbolSignature)
+        text = _joined(result.known_defects)
+>       assert "tocsv" in text and "first worksheet" in text  # CELLS-TYPESCRIPT-006
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert ('tocsv' in "known defect: workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's ...l/worksheets/sheetn.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)")
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:227: AssertionError
+_ test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures[toCsv] _
+
+store = <tests.indexing.test_known_defects_data_cells_round2_gaps._InMemoryStore object at 0x000002E42CB37E00>
+member = 'toCsv'
+
+    @pytest.mark.parametrize("member", ["toCsv", "toMarkdown", "save"])
+    def test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures(
+        store: _InMemoryStore, member: str
+    ) -> None:
+        result = get_symbol(store, SCOPE, f"{WORKBOOK_FQN}.{member}")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == WORKBOOK_FQN
+        text = _joined(result.known_defects)
+>       assert "first worksheet" in text and "xlsx" in text
+E       assert ('first worksheet' in "known defect: workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's ...l/worksheets/sheetn.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)")
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:241: AssertionError
+_ test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures[toMarkdown] _
+
+store = <tests.indexing.test_known_defects_data_cells_round2_gaps._InMemoryStore object at 0x000002E42CB37E00>
+member = 'toMarkdown'
+
+    @pytest.mark.parametrize("member", ["toCsv", "toMarkdown", "save"])
+    def test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures(
+        store: _InMemoryStore, member: str
+    ) -> None:
+        result = get_symbol(store, SCOPE, f"{WORKBOOK_FQN}.{member}")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == WORKBOOK_FQN
+        text = _joined(result.known_defects)
+>       assert "first worksheet" in text and "xlsx" in text
+E       assert ('first worksheet' in "known defect: workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's ...l/worksheets/sheetn.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)")
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:241: AssertionError
+_ test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures[save] _
+
+store = <tests.indexing.test_known_defects_data_cells_round2_gaps._InMemoryStore object at 0x000002E42CB37E00>
+member = 'save'
+
+    @pytest.mark.parametrize("member", ["toCsv", "toMarkdown", "save"])
+    def test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures(
+        store: _InMemoryStore, member: str
+    ) -> None:
+        result = get_symbol(store, SCOPE, f"{WORKBOOK_FQN}.{member}")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == WORKBOOK_FQN
+        text = _joined(result.known_defects)
+>       assert "first worksheet" in text and "xlsx" in text
+E       assert ('first worksheet' in "known defect: workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's ...l/worksheets/sheetn.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)")
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:241: AssertionError
+___ test_search_symbols_surfaces_the_new_disclosures_on_the_workbook_match ____
+
+store = <tests.indexing.test_known_defects_data_cells_round2_gaps._InMemoryStore object at 0x000002E42CB37E00>
+
+    def test_search_symbols_surfaces_the_new_disclosures_on_the_workbook_match(store: _InMemoryStore) -> None:
+        result = search_symbols(store, SCOPE, WORKBOOK_FQN)  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+        assert len(matches) == 1
+        text = _joined(matches[0].known_defects)
+>       assert "first worksheet" in text and "xlsx" in text
+E       assert ('first worksheet' in "known defect: workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's ...l/worksheets/sheetn.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)")
+
+tests\indexing\test_known_defects_data_cells_round2_gaps.py:251: AssertionError
+___ test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids ___
+
+    def test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids() -> None:
+        expected_ids = _real_upstream_library_bug_ids()
+        written_ids = set(_all_registry_ids())
+    
+        missing_entries = expected_ids - written_ids
+        orphan_entries = written_ids - expected_ids
+    
+>       assert expected_ids == written_ids, (
+            "config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug "
+            f"category. Real round-2 upstream-library-bug issues with NO registry entry: "
+            f"{sorted(missing_entries) or 'none'}. Registry entries with NO matching real round-2 "
+            f"upstream-library-bug issue: {sorted(orphan_entries) or 'none'}."
+        )
+E       AssertionError: config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug category. Real round-2 upstream-library-bug issues with NO registry entry: ['CELLS-TYPESCRIPT-006', 'CELLS-TYPESCRIPT-009']. Registry entries with NO matching real round-2 upstream-library-bug issue: none.
+E       assert {'3D-JAVA-001...AVA-014', ...} == {'3D-JAVA-001...AVA-014', ...}
+E         
+E         Extra items in the left set:
+E         'CELLS-TYPESCRIPT-006'
+E         'CELLS-TYPESCRIPT-009'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:427: AssertionError
+______ test_registry_entry_count_equals_upstream_library_bug_issue_count ______
+
+    def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
+        upstream_issue_ids = _real_upstream_library_bug_ids()
+        registry_ids = _all_registry_ids()
+    
+        # Every registry id is unique (proven by the global no-duplicate test above), so the raw
+        # entry count and the id-set size agree; comparing both derived counts directly here, not the
+        # literal 53, is what makes this assertion non-tautological.
+>       assert len(registry_ids) == len(upstream_issue_ids), (
+            f"registry entry count ({len(registry_ids)}) does not equal the real upstream-library-bug "
+            f"issue count ({len(upstream_issue_ids)})"
+        )
+E       AssertionError: registry entry count (63) does not equal the real upstream-library-bug issue count (65)
+E       assert 63 == 65
+E        +  where 63 = len(['3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-001', '3D-JAVA-014', '3D-JAVA-006', ...])
+E        +  and   65 = len({'3D-JAVA-001', '3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-006', '3D-JAVA-014', ...})
+
+tests\indexing\test_known_defects_completeness.py:485: AssertionError
+_ test_load_known_defects_returns_the_real_written_count_for_this_pilot[typescript] _
+
+platform = 'typescript'
+
+    @pytest.mark.parametrize("platform", _ALL_PLATFORMS)
+    def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platform: str) -> None:
+        defects = load_known_defects("cells", platform)
+>       assert len(defects) == _EXPECTED_COUNTS[platform], (
+            f"cells/{platform}: expected {_EXPECTED_COUNTS[platform]} real written entries, got {len(defects)}"
+        )
+E       AssertionError: cells/typescript: expected 8 real written entries, got 6
+E       assert 6 == 8
+E        +  where 6 = len([KnownDefect(id='CELLS-TYPESCRIPT-003', subject=Subject(kind='method', refs=('aspose_cells.worksheet.Worksheet',)), ap...f repro artifact.", verified_on=VerifiedOn(package='excel-cells', version='1.0.0', date='2026-11-02')), status='open')])
+
+tests\indexing\test_known_defects_data_cells.py:186: AssertionError
+___________ test_sixteen_entries_total_across_all_six_cells_pilots ____________
+
+    def test_sixteen_entries_total_across_all_six_cells_pilots() -> None:
+        """16 real written entries: 14 as of TC-656 attempt 3 (the 12 round-2 findings TC-645 wrote,
+        plus ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - equal to the real "findings needing an
+        entry" union total (also 14, see
+        ``test_every_real_cells_upstream_library_bug_finding_has_a_written_entry`` below) - plus G3/TC-796's
+        two ``_ROUND2_GAP_DISCLOSURE_IDS`` entries."""
+        total = sum(len(load_known_defects("cells", platform)) for platform in _ALL_PLATFORMS)
+>       assert total == 16
+E       assert 14 == 16
+
+tests\indexing\test_known_defects_data_cells.py:198: AssertionError
+___ test_every_real_cells_upstream_library_bug_finding_has_a_written_entry ____
+
+    def test_every_real_cells_upstream_library_bug_finding_has_a_written_entry() -> None:
+        """The real union of round2+round3 cells-family upstream-library-bug ids is 14:
+        ``CELLS-GO-012`` (cells/go, round3-only, ``AddPicture`` silently loses the embedded image on
+        Save+Load) and ``CELLS-TYPESCRIPT-013`` are both now disclosed, closing the gap TC-656 attempt
+        2 found and reported rather than worked around (AGENTS.md worker rule 5) when
+        ``config/known_defects/cells__go.yaml`` was still outside this card's ``write_paths``. The
+        assertion itself was never weakened across either rework attempt - only the registry's own
+        real content changed."""
+        expected_ids = _real_cells_upstream_library_bug_ids()
+        written_ids = {
+            defect.id for platform in _ALL_PLATFORMS for defect in load_known_defects("cells", platform)
+        }
+        assert expected_ids <= written_ids, (
+            f"real cells upstream-library-bug findings (round2 union round3) with no written entry: "
+            f"{expected_ids - written_ids}"
+        )
+        # The written set equals the union (14 members, the real count as of 2026-11-02) PLUS exactly
+        # the two G3/TC-796 round-2-gap disclosure ids - nothing more, nothing less.
+>       assert expected_ids | _ROUND2_GAP_DISCLOSURE_IDS == written_ids
+E       AssertionError: assert {'CELLS-GO-00...-PY-003', ...} == {'CELLS-GO-00...-PY-003', ...}
+E         
+E         Extra items in the left set:
+E         'CELLS-TYPESCRIPT-006'
+E         'CELLS-TYPESCRIPT-009'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_data_cells.py:250: AssertionError
+_________ test_get_symbol_end_to_end_surfaces_the_real_written_defect _________
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000002E42CB370E0>
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``get_symbol(fqn='aspose_cells.workbook.Workbook')`` for the real ``cells/typescript`` scope
+        must carry the real ``CELLS-TYPESCRIPT-013`` disclosure, loaded from the REAL, committed
+        registry file this card wrote - nothing monkeypatched."""
+        result = get_symbol(store, SCOPE, "aspose_cells.workbook.Workbook")  # type: ignore[arg-type]
+    
+        assert isinstance(result, SymbolSignature)
+        assert result.fqn == "aspose_cells.workbook.Workbook"
+        # G3/TC-796: three Workbook-scoped entries now (013, plus 006 and 009); 013 is still there,
+        # exactly once.
+>       assert len(result.known_defects) == 3
+E       assert 1 == 3
+E        +  where 1 = len(("Known defect: Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's...worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",))
+E        +    where ("Known defect: Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's...worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",) = SymbolSignature(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen-t...orksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",)).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:243: AssertionError
+_____ test_get_symbol_resolved_member_save_also_surfaces_the_real_defect ______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000002E42CB370E0>
+
+    def test_get_symbol_resolved_member_save_also_surfaces_the_real_defect(store: _InMemoryStore) -> None:
+        """Resolving the member name ``Workbook.save`` (TC-540's member-resolution path) must carry
+        the same disclosure, since ``known_defect_lines`` matches on the OWNING type's fqn."""
+        result = get_symbol(store, SCOPE, "aspose_cells.workbook.Workbook.save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == "aspose_cells.workbook.Workbook"
+>       assert len(result.known_defects) == 3
+E       assert 1 == 3
+E        +  where 1 = len(("Known defect: Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's...worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",))
+E        +    where ("Known defect: Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's...worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",) = ResolvedSignature(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen...', member_lines=('save(filePath: string, options?: { password?: string; saveFormat?: SaveFormat }) -> Promise<void>',)).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:256: AssertionError
+_______ test_search_symbols_end_to_end_surfaces_the_real_written_defect _______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000002E42CB370E0>
+
+    def test_search_symbols_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``search_symbols('aspose_cells.workbook.Workbook')`` for the real ``cells/typescript`` scope
+        must carry the same real ``CELLS-TYPESCRIPT-013`` disclosure on its
+        ``SymbolMatch.known_defects`` field (KD3), loaded from the REAL, committed registry file -
+        nothing monkeypatched."""
+        result = search_symbols(store, SCOPE, "aspose_cells.workbook.Workbook")  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+        assert len(matches) == 1
+>       assert len(matches[0].known_defects) == 3
+E       assert 1 == 3
+E        +  where 1 = len(("Known defect: Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's...worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",))
+E        +    where ("Known defect: Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from the saved file's...worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",) = SymbolMatch(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen-tc656...t for each one - confirming the asymmetry is the root cause, not a one-off repro artifact.)",), match_kind='exact_fqn').known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:270: AssertionError
+_ test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern _
+
+    def test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern() -> None:
+        """config/products/cells/go.yaml's own entry, read as plainly as an agent would: the real failure
+        mode (unrecoverable, not a catchable panic), the real trigger (two goroutines, one shared
+        Workbook), and the safe pattern (one Workbook per goroutine, or serialize access)."""
+        manifest = _real_manifest("cells", "go")
+        hazards = known_hazards_from_manifest(manifest)
+    
+        # G3/TC-796 added a SECOND entry (CELLS-GO-009's missing-capabilities disclosure) after the
+        # original TC-582 concurrency entry, which stays first and unchanged.
+>       assert len(hazards) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len((KnownHazard(text='Two goroutines that mutate different cells of ONE SHARED Workbook instance crash the process with a...ine or a mutex - never mutate one shared Workbook from more than one goroutine at a time.', verified_at='2026-10-24'),))
+
+tests\mcp\tools\test_product_reference_known_hazards.py:165: AssertionError
+_____ test_total_known_hazards_entries_match_the_eighteen_round2_findings _____
+
+    def test_total_known_hazards_entries_match_the_eighteen_round2_findings() -> None:
+        """Exactly 18 entries across the 13 pilots (G3/TC-796 added 4 more: CELLS-RUST-006,
+        CELLS-CPP-004, CELLS-TYPESCRIPT-001, CELLS-TYPESCRIPT-012; CELLS-GO-009 is on cells/go, whose
+        first hazard has no round-2 issue id, and is counted by its own test below) - one per round-2
+        issue id this card (plus G3/TC-720's
+        PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's
+        SLIDES-CPP-003, G3/TC-724's 3D-TYPESCRIPT-006, G3/TC-725's CELLS-RUST-003, and G3/TC-726's
+        PAGE-PYTHON-005, the latter a second entry on page/python alongside PAGE-PYTHON-003) closes,
+        no more, no fewer."""
+        total = sum(
+            len(known_hazards_from_manifest(_real_manifest(family, platform)))
+            for family, platform, _ in ALL_PILOTS
+        )
+>       assert total == 18
+E       assert 14 == 18
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:356: AssertionError
+_ test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[cells/rust] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3292/test_get_product_reference_lim10')
+family = 'cells', platform = 'rust'
+issue_ids = ('CELLS-RUST-003', 'CELLS-RUST-006')
+
+    @pytest.mark.parametrize("family,platform,issue_ids", ALL_PILOTS, ids=ALL_PILOT_IDS)
+    def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot(
+        tmp_path: Path, family: str, platform: str, issue_ids: tuple[str, ...]
+    ) -> None:
+        """The REAL baked sidecar's "limitations" answer, with this pilot's manifest-sourced
+        known_hazards merged in exactly as the live server does, discloses every one of this pilot's
+        round-2 hazards - distinctly framed, never marked untrusted_upstream_content.
+    
+        Asserts each hazard's OWN verified_at appears in the text (rather than the shared
+        ROUND2_VERIFIED_AT constant) because G3/TC-720's page/python entry (added via ALL_PILOTS)
+        carries its own real, later verification date."""
+        inputs, readme = _load_baked(tmp_path, family, platform)
+        manifest = _real_manifest(family, platform)
+        hazards = known_hazards_from_manifest(manifest)
+        assert hazards, (family, platform)
+        inputs = dataclasses.replace(inputs, known_hazards=hazards)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent)
+        assert result.section == "limitations"
+        assert result.untrusted_upstream_content is False
+        # get_product_reference merges a pilot's library-level (package/commit-kind) known_defects
+        # registry entries into "limitations" through the SAME paragraph mechanism and lead as
+        # known_hazards (G3/TC-641), so the real expected lead count is this pilot's hazards PLUS
+        # those registry entries - computed from the real registry, never hardcoded.
+>       assert result.text.count(KNOWN_HAZARD_LEAD) == len(issue_ids) + _library_level_defect_count(
+            family, platform
+        )
+E       assert 2 == (2 + 1)
+E        +  where 2 = <built-in method count of str object at 0x000002E42BDB8020>('Known hazard (verified by this project)')
+E        +    where <built-in method count of str object at 0x000002E42BDB8020> = "Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to create, read, and write Excel workbooks in the .xlsx...go.toml; cells-net's and cells-python's own formats sections confirm PDF/CSV export already exist on those platforms.)".count
+E        +      where "Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to create, read, and write Excel workbooks in the .xlsx...go.toml; cells-net's and cells-python's own formats sections confirm PDF/CSV export already exist on those platforms.)" = ReferenceContent(section='limitations', text='Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to create,...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").text
+E        +  and   2 = len(('CELLS-RUST-003', 'CELLS-RUST-006'))
+E        +  and   1 = _library_level_defect_count('cells', 'rust')
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:389: AssertionError
+_ test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[cells/cpp] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3292/test_get_product_reference_lim11')
+family = 'cells', platform = 'cpp', issue_ids = ('CELLS-CPP-004',)
+
+    @pytest.mark.parametrize("family,platform,issue_ids", ALL_PILOTS, ids=ALL_PILOT_IDS)
+    def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot(
+        tmp_path: Path, family: str, platform: str, issue_ids: tuple[str, ...]
+    ) -> None:
+        """The REAL baked sidecar's "limitations" answer, with this pilot's manifest-sourced
+        known_hazards merged in exactly as the live server does, discloses every one of this pilot's
+        round-2 hazards - distinctly framed, never marked untrusted_upstream_content.
+    
+        Asserts each hazard's OWN verified_at appears in the text (rather than the shared
+        ROUND2_VERIFIED_AT constant) because G3/TC-720's page/python entry (added via ALL_PILOTS)
+        carries its own real, later verification date."""
+        inputs, readme = _load_baked(tmp_path, family, platform)
+        manifest = _real_manifest(family, platform)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards, (family, platform)
+E       AssertionError: ('cells', 'cpp')
+E       assert ()
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:377: AssertionError
+_ test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[cells/typescript] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3292/test_get_product_reference_lim12')
+family = 'cells', platform = 'typescript'
+issue_ids = ('CELLS-TYPESCRIPT-001', 'CELLS-TYPESCRIPT-012')
+
+    @pytest.mark.parametrize("family,platform,issue_ids", ALL_PILOTS, ids=ALL_PILOT_IDS)
+    def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot(
+        tmp_path: Path, family: str, platform: str, issue_ids: tuple[str, ...]
+    ) -> None:
+        """The REAL baked sidecar's "limitations" answer, with this pilot's manifest-sourced
+        known_hazards merged in exactly as the live server does, discloses every one of this pilot's
+        round-2 hazards - distinctly framed, never marked untrusted_upstream_content.
+    
+        Asserts each hazard's OWN verified_at appears in the text (rather than the shared
+        ROUND2_VERIFIED_AT constant) because G3/TC-720's page/python entry (added via ALL_PILOTS)
+        carries its own real, later verification date."""
+        inputs, readme = _load_baked(tmp_path, family, platform)
+        manifest = _real_manifest(family, platform)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards, (family, platform)
+E       AssertionError: ('cells', 'typescript')
+E       assert ()
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:377: AssertionError
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-RUST-006] _
+
+issue_id = 'CELLS-RUST-006'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('CELLS-RUST-006', 'total_columns', "token missing from the manifest's hazard text")
+E           assert 'total_columns' in "family: cells known_hazards: - text: 'cells/rust advertises formulas and calculation as one of this family''s capabil...tory: aspose-cells-foss/aspose.cells-foss-for-rust schedule: cron: 0 8 * * * timezone: utc storage_topology: embedded "
+E            +  where 'total_columns' = <built-in method lower of str object at 0x000002E42CB065F0>()
+E            +    where <built-in method lower of str object at 0x000002E42CB065F0> = 'total_columns'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:466: AssertionError
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-CPP-004] _
+
+issue_id = 'CELLS-CPP-004'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('CELLS-CPP-004', 'setformula()', "token missing from the manifest's hazard text")
+E           assert 'setformula()' in 'family: cells platform: cpp repository: aspose-cells-foss/aspose.cells-foss-for-cpp schedule: cron: 0 18 * * * timezone: utc storage_topology: embedded '
+E            +  where 'setformula()' = <built-in method lower of str object at 0x000002E42CB05BB0>()
+E            +    where <built-in method lower of str object at 0x000002E42CB05BB0> = 'setformula()'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:466: AssertionError
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-TYPESCRIPT-001] _
+
+issue_id = 'CELLS-TYPESCRIPT-001'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('CELLS-TYPESCRIPT-001', 'loadworksheetdata', "token missing from the manifest's hazard text")
+E           assert 'loadworksheetdata' in 'family: cells platform: typescript repository: aspose-cells-foss/aspose.cells-foss-for-typescript schedule: cron: 0 13 * * * timezone: utc storage_topology: embedded '
+E            +  where 'loadworksheetdata' = <built-in method lower of str object at 0x000002E42CB04DF0>()
+E            +    where <built-in method lower of str object at 0x000002E42CB04DF0> = 'loadworksheetdata'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:466: AssertionError
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-TYPESCRIPT-012] _
+
+issue_id = 'CELLS-TYPESCRIPT-012'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('CELLS-TYPESCRIPT-012', 'generateworkbook', "token missing from the manifest's hazard text")
+E           assert 'generateworkbook' in 'family: cells platform: typescript repository: aspose-cells-foss/aspose.cells-foss-for-typescript schedule: cron: 0 13 * * * timezone: utc storage_topology: embedded '
+E            +  where 'generateworkbook' = <built-in method lower of str object at 0x000002E42CB060F0>()
+E            +    where <built-in method lower of str object at 0x000002E42CB060F0> = 'generateworkbook'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:466: AssertionError
+_ test_cells_go_carries_the_original_hazard_first_and_the_new_cells_go_009_hazard_second _
+
+    def test_cells_go_carries_the_original_hazard_first_and_the_new_cells_go_009_hazard_second() -> None:
+        hazards = known_hazards_from_manifest(_real_manifest("cells", "go"))
+>       assert len(hazards) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len((KnownHazard(text='Two goroutines that mutate different cells of ONE SHARED Workbook instance crash the process with a...ine or a mutex - never mutate one shared Workbook from more than one goroutine at a time.', verified_at='2026-10-24'),))
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:531: AssertionError
+________ test_cells_go_009_text_is_traceable_to_the_real_round2_record ________
+
+    def test_cells_go_009_text_is_traceable_to_the_real_round2_record() -> None:
+        issue = _real_issue("CELLS-GO-009")
+        assert issue["pilot"] == "cells/go"
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest("cells", "go")).lower())
+        for token in GO_009_TRACE_TOKENS:
+            assert token in issue_text, (token, "token not even in the real issue record")
+>           assert token in manifest_text, (token, "token missing from the manifest's hazard text")
+E           AssertionError: ('importfromcsv', "token missing from the manifest's hazard text")
+E           assert 'importfromcsv' in "family: cells known_hazards: - text: 'two goroutines that mutate different cells of one shared workbook instance cras...itory: aspose-cells-foss/aspose.cells-foss-for-go schedule: cron: 0 12 * * * timezone: utc storage_topology: embedded "
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:551: AssertionError
+__ test_get_product_reference_limitations_for_cells_go_surfaces_both_hazards __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3292/test_get_product_reference_lim13')
+
+    def test_get_product_reference_limitations_for_cells_go_surfaces_both_hazards(tmp_path: Path) -> None:
+        inputs, readme = _load_baked(tmp_path, "cells", "go")
+        hazards = known_hazards_from_manifest(_real_manifest("cells", "go"))
+        inputs = dataclasses.replace(inputs, known_hazards=hazards)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent)
+        assert result.untrusted_upstream_content is False
+>       assert result.text.count(KNOWN_HAZARD_LEAD) == 2 + _library_level_defect_count("cells", "go")
+E       assert 1 == (2 + 0)
+E        +  where 1 = <built-in method count of str object at 0x000002E42C09F080>('Known hazard (verified by this project)')
+E        +    where <built-in method count of str object at 0x000002E42C09F080> = '- Cell references are A1-style strings only (`"A1"`, `"B2"`); tuple/array indices (e.g. `[0, 0]`)\n  are not supporte...kbook through a single goroutine or a mutex - never mutate one shared Workbook from more than one goroutine at a time.'.count
+E        +      where '- Cell references are A1-style strings only (`"A1"`, `"B2"`); tuple/array indices (e.g. `[0, 0]`)\n  are not supporte...kbook through a single goroutine or a mutex - never mutate one shared Workbook from more than one goroutine at a time.' = ReferenceContent(section='limitations', text='- Cell references are A1-style strings only (`"A1"`, `"B2"`); tuple/arra...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").text
+E        +  and   0 = _library_level_defect_count('cells', 'go')
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:567: AssertionError
+____ test_every_tc796_hazard_text_appears_only_on_its_own_pilots_manifest _____
+
+    def test_every_tc796_hazard_text_appears_only_on_its_own_pilots_manifest() -> None:
+        """Each TC-796 hazard fragment is present on its own pilot's manifest and on NO other
+        config/products manifest - proving no other pilot's served disclosure changed."""
+        for (family, platform), fragments in TC796_HAZARD_FRAGMENTS.items():
+            own = _manifest_text(family, platform)
+            for fragment in fragments:
+>               assert fragment in own, (family, platform, fragment)
+E               AssertionError: ('cells', 'cpp', 'has no formula-calculation engine')
+E               assert 'has no formula-calculation engine' in '# Product manifest for the Cells family, C++ platform. # # The `repository` value below is pinned VERBATIM to the ver...ry: aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp schedule: cron: "0 18 * * *" timezone: UTC storage_topology: embedded '
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:582: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_each_new_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[CELLS-TYPESCRIPT-006]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_each_new_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[CELLS-TYPESCRIPT-009]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_each_entry_is_open_version_scoped_method_kind_with_a_real_date[CELLS-TYPESCRIPT-006]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_each_entry_is_open_version_scoped_method_kind_with_a_real_date[CELLS-TYPESCRIPT-009]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_006_names_the_first_worksheet_trigger_and_the_toJson_safe_pattern
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_009_names_every_unrecognised_extension_trigger_and_the_safe_pattern
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_get_symbol_surfaces_both_new_disclosures_for_the_workbook_type
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures[toCsv]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures[toMarkdown]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_get_symbol_resolved_member_surfaces_the_workbook_scoped_disclosures[save]
+FAILED tests/indexing/test_known_defects_data_cells_round2_gaps.py::test_search_symbols_surfaces_the_new_disclosures_on_the_workbook_match
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_entry_count_equals_upstream_library_bug_issue_count
+FAILED tests/indexing/test_known_defects_data_cells.py::test_load_known_defects_returns_the_real_written_count_for_this_pilot[typescript]
+FAILED tests/indexing/test_known_defects_data_cells.py::test_sixteen_entries_total_across_all_six_cells_pilots
+FAILED tests/indexing/test_known_defects_data_cells.py::test_every_real_cells_upstream_library_bug_finding_has_a_written_entry
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_get_symbol_end_to_end_surfaces_the_real_written_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_get_symbol_resolved_member_save_also_surfaces_the_real_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_search_symbols_end_to_end_surfaces_the_real_written_defect
+FAILED tests/mcp/tools/test_product_reference_known_hazards.py::test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_total_known_hazards_entries_match_the_eighteen_round2_findings
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[cells/rust]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[cells/cpp]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[cells/typescript]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-RUST-006]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-CPP-004]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-TYPESCRIPT-001]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[CELLS-TYPESCRIPT-012]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_cells_go_carries_the_original_hazard_first_and_the_new_cells_go_009_hazard_second
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_cells_go_009_text_is_traceable_to_the_real_round2_record
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_get_product_reference_limitations_for_cells_go_surfaces_both_hazards
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_every_tc796_hazard_text_appears_only_on_its_own_pilots_manifest
+
+--- stderr ---
+
