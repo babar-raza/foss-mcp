@@ -1,0 +1,114 @@
+id: TC-854
+gate: G3
+lane: verification
+purpose: >-
+  Operator-ceiling decision OQ-029 (recorded by the supervisor as PROVISIONAL_ACCEPT in
+  ops/open_questions.jsonl): the lean baked-tree ceiling is raised from 45 MB to 55 MB so the
+  whole fleet can carry gateway-dimension (4096) example vectors. After regeneration cohort C1
+  (TC-848, 11 of 32 pilots) the committed infra/demo-manifests tree is 44.46 MB; the ~21 pilots
+  still on 64-dim hashing vectors hold ~160 example points at ~33 KB each, so the finished tree is
+  ~49.7 MB. Quantising vectors to fewer decimals (a unit 4096-dim vector has components near
+  0.016, so 5 decimals keep only ~3 significant figures) and changing the on-disk vector encoding
+  were rejected. Change exactly the ceiling and its documentation:
+  tests/deploy/test_compact_demo_manifests.py LEAN_CEILING_BYTES 45_000_000 -> 55_000_000 and
+  every assertion that restates it (test_the_tree_budgets_stay_under_the_agreed_lean_ceiling,
+  test_the_ceiling_helper_rejects_a_budget_above_the_ceiling - keep its relative cases meaningful
+  around the NEW ceiling, test_release_md_names_the_lean_ceiling_and_this_test_file: the text must
+  now say 55 MB), the comment above the constant (state who decided, when and why: OQ-029; the
+  operator can still overrule it), the matching sentence in docs/RELEASE.md (line ~50, 'stays
+  under 45 MB (the lean ceiling)') and a new docs/DECISION_LOG.md section recording the decision,
+  the numbers above and the rejected alternatives. TREE_BYTES_BUDGET values (both files) are NOT
+  changed by this card: they stay the measured pins TC-848 set; later regeneration cohorts re-pin
+  them against the new ceiling. No budget may exceed the new ceiling.
+depends_on:
+  - TC-808
+  - TC-537
+  - TC-575
+  - TC-576
+  - TC-579
+  - TC-597
+  - TC-602
+  - TC-615
+  - TC-678
+  - TC-695
+  - TC-698
+  - TC-699
+  - TC-730
+  - TC-731
+  - TC-774
+  - TC-776
+  - TC-777
+  - TC-778
+  - TC-792
+  - TC-799
+  - TC-809
+  - TC-813
+  - TC-820
+  - TC-829
+  - TC-831
+  - TC-839
+  - TC-841
+  - TC-842
+  - TC-846
+  - TC-848
+  - TC-780
+  - TC-781
+  - TC-782
+write_paths:
+  - tests/deploy/test_compact_demo_manifests.py
+  - tests/deploy/test_demo_manifests_sidecars.py
+  - docs/RELEASE.md
+  - docs/DECISION_LOG.md
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: tests/deploy/test_compact_demo_manifests.py (LEAN_CEILING_BYTES,
+    budget_is_within_the_lean_ceiling and the three tests that name it),
+    tests/deploy/test_demo_manifests_sidecars.py (TREE_BYTES_BUDGET and any ceiling reference),
+    docs/RELEASE.md around the 'lean' section, the OQ-029 entry in ops/open_questions.jsonl (read
+    only), and the last sections of docs/DECISION_LOG.md for the heading/style.
+  - >-
+    Grep the whole repo for other restatements of the ceiling ('45 MB', '45_000_000', '45,000,000')
+    and report any that are outside write_paths instead of editing them. Do not touch
+    TREE_BYTES_BUDGET values, any data under infra/ or the open_questions file (ops/ is
+    supervisor-owned).
+  - >-
+    Run the card's check twice, ruff check / ruff format --check on both test files, and make
+    exactly ONE commit. In a worktree without a venv use
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
+    to your worktree root, src and infra. Report once.
+actions:
+  - >-
+    Raise the lean baked-tree ceiling to 55 MB with its tests, RELEASE.md sentence and a
+    DECISION_LOG entry (OQ-029).
+checks:
+  - command: '{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1200
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 20
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['docs/RELEASE.md']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-854/receipt.json
+closeout:
+  - >-
+    The lean ceiling is 55 MB, decided and recorded as OQ-029, with tests and docs agreeing.
+recovery: Re-run from a clean tree.
