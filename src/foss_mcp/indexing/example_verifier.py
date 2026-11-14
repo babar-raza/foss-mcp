@@ -55,9 +55,14 @@ from foss_mcp.indexing.example_runtime import (
     OUTPUT_OPTIONAL_PLATFORMS,
     build_go_run_binary,
     build_rust_run_binary,
+    build_typescript_run_files,
+    ensure_output_directories,
     go_run_command,
+    node_error_line,
     panic_detail_line,
+    remove_emitted_files,
     rust_run_command,
+    typescript_run_command,
 )
 
 __all__ = [
@@ -3624,8 +3629,8 @@ _RUNTIME_TIMEOUT_SECONDS = 60
 _RUNTIME_ERROR_CHARS = 300
 _RUNTIME_ERROR_MARKERS = ("Exception", "Error", "error", "terminate", "abort", "panicked", "panic:", "fatal")
 # Platforms whose compiled candidate this module knows how to start (java: ``java``; dotnet: ``dotnet run``;
-# go and rust: their built binary, see ``example_runtime``).
-RUNNABLE_PLATFORMS = frozenset({"java", "dotnet", "go", "rust"})
+# go and rust: their built binary; typescript: its emitted JavaScript under ``node``; see ``example_runtime``).
+RUNNABLE_PLATFORMS = frozenset({"java", "dotnet", "go", "rust", "typescript"})
 
 
 @dataclass(frozen=True)
@@ -3783,7 +3788,7 @@ def legacy_verification_level(platform: str, runtime: RuntimeRecord, *, cpp_run:
     if platform == "python":
         return LEVEL_RAN_EXIT0
     if platform == "typescript":
-        return LEVEL_TYPE_CHECKED
+        return resolve_verification_level(LEVEL_TYPE_CHECKED, runtime)
     if platform == "nodejs":
         return LEVEL_SYNTAX_ONLY
     if platform == "cpp":
@@ -3897,6 +3902,7 @@ def execute_in_sandbox(
     try:
         if code:
             provide_fixtures(code, platform, run_dir=sandbox, repo_dir=None)
+            ensure_output_directories(code, platform, sandbox)
         before = set(_files_below(sandbox))
         try:
             outcome = runner(list(argv), sandbox, timeout_seconds)
@@ -3915,7 +3921,9 @@ def execute_in_sandbox(
         if outcome.exit_code == _TIMEOUT_EXIT_CODE:
             error = f"timed out after {timeout_seconds:g} seconds"
         elif outcome.exit_code != 0:
-            error = _runtime_error_text(outcome)
+            # TC-807: node's ``Error: message`` line, not the source line printed above it.
+            node_line = node_error_line(outcome.stderr, outcome.stdout) if platform == "typescript" else ""
+            error = node_line[:_RUNTIME_ERROR_CHARS] or _runtime_error_text(outcome)
         return RuntimeRecord(
             compiled=True,
             ran=True,
@@ -3947,6 +3955,12 @@ def runtime_command(
         return go_run_command(project_dir)
     if platform == "rust":
         return rust_run_command(project_dir)
+    if platform == "typescript":
+        if library is None:
+            return None
+        return typescript_run_command(
+            project_dir, library, relative_imports=_has_relative_module_specifier(candidate.code)
+        )
     return None
 
 
@@ -3958,11 +3972,13 @@ def run_compiled_candidate(
     library: Path | None = None,
     runner: RuntimeRunner | None = None,
     timeout_seconds: float = _RUNTIME_TIMEOUT_SECONDS,
+    package_name: str = "",
 ) -> RuntimeRecord:
     """Run a candidate that just compiled, and return its ``RuntimeRecord``.
 
     A platform with no run step, or ``RUNTIME_RUN_REQUIRED_FOR_VERIFIED`` False, returns a record with
-    ``ran`` unknown: the example is then labelled compiled-only, never ran.
+    ``ran`` unknown: the example is then labelled compiled-only, never ran. ``package_name`` is the library's
+    package name (typescript: the import the emitted candidate resolves).
     """
     argv = runtime_command(platform, candidate, workdir=workdir, library=library)
     if argv is None or not RUNTIME_RUN_REQUIRED_FOR_VERIFIED:
@@ -3982,13 +3998,33 @@ def run_compiled_candidate(
         )
         if not_built:
             return RuntimeRecord(compiled=True, ran=False, error=not_built[:_RUNTIME_ERROR_CHARS])
-    record = execute_in_sandbox(
-        argv,
-        runner=active_runner,
-        code=candidate.code,
-        platform=platform,
-        timeout_seconds=timeout_seconds,
-    )
+    emitted: tuple[Path, ...] = ()
+    if platform == "typescript":
+        # TC-807: the type-check emitted nothing; emit the candidate (``tsc``) so ``node`` can start it.
+        assert library is not None  # ``runtime_command`` returned no argv without it
+        build = build_typescript_run_files(
+            workdir / "candidate_project",
+            library,
+            candidate.code,
+            package_name=package_name,
+            relative_imports=_has_relative_module_specifier(candidate.code),
+            runner=active_runner,
+            timeout_seconds=timeout_seconds,
+            link_package=_link_package_into_project,
+        )
+        if build.error:
+            return RuntimeRecord(compiled=True, ran=False, error=build.error[:_RUNTIME_ERROR_CHARS])
+        emitted = build.emitted
+    try:
+        record = execute_in_sandbox(
+            argv,
+            runner=active_runner,
+            code=candidate.code,
+            platform=platform,
+            timeout_seconds=timeout_seconds,
+        )
+    finally:
+        remove_emitted_files(emitted)
     return replace(record, output_optional=platform in OUTPUT_OPTIONAL_PLATFORMS)
 
 

@@ -705,7 +705,7 @@ def test_the_server_tool_reads_the_runtime_lines_the_entrypoint_writes() -> None
 
 
 def test_the_run_step_cannot_be_reached_from_a_platform_it_does_not_know() -> None:
-    assert ev.RUNNABLE_PLATFORMS == frozenset({"java", "dotnet", "go", "rust"})
+    assert ev.RUNNABLE_PLATFORMS == frozenset({"java", "dotnet", "go", "rust", "typescript"})
     for platform in set(build_chunks._PLATFORM_DISPATCH) - ev.RUNNABLE_PLATFORMS:
         assert ev.runtime_command(platform, candidate(), workdir=Path("w"), library=Path("l")) is None
 
@@ -724,10 +724,11 @@ def test_a_stand_in_verifier_compiled_nothing_so_nothing_is_run(
     assert "Runtime-Status:" not in text, "ran unknown: no runtime line, read as compiled only"
 
 
-def test_the_runnable_verifiers_are_the_real_java_dotnet_go_and_rust_compilers() -> None:
+def test_the_runnable_verifiers_are_the_real_java_dotnet_go_rust_and_typescript_verifiers() -> None:
     assert build_chunks._RUNNABLE_VERIFIERS == {
         "java": ev.verify_java_example,
         "dotnet": ev.verify_dotnet_example,
         "go": ev.verify_go_example,
         "rust": ev.verify_rust_example,
+        "typescript": ev.verify_typescript_example,
     }
