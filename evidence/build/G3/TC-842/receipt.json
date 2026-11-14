@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "card": "TC-842",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T15:32:57Z",
+  "base_rev": "a4be4688b41c39ccf5f005400d410f348dd00298",
+  "head_rev": "2d4d19f1c78c0716edf4a0ed4b3e22ca38c1014b",
+  "card_sha256": "bba6796aa73404e4dc0e55ba4bcca02a07d8e21b6a223d2d692824c119db23e7",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/deploy/test_fleet_consistency.py",
+      "tests/fixtures/3d_java/api_surface.json",
+      "tests/fixtures/cells_java/api_surface.json",
+      "tests/fixtures/pdf_java/api_surface.json",
+      "tests/fixtures/pdf_net/api_surface.json",
+      "tests/fixtures/slides_java/api_surface.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 97.025,
+          "stdout_sha256": "7ad9eae8bc791cd3647d1034e40e5f64e6f87a54623e7d59429d44f3ac12eab8",
+          "tests": 2299,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 73.452,
+          "stdout_sha256": "7ad9eae8bc791cd3647d1034e40e5f64e6f87a54623e7d59429d44f3ac12eab8",
+          "tests": 2299,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['tests/fixtures/3d_java/api_surface.json', 'tests/fixtures/cells_java/api_surface.json', 'tests/fixtures/pdf_java/api_surface.json', 'tests/fixtures/slides_java/api_surface.json', 'tests/fixtures/3d_net/api_surface.json', 'tests/fixtures/cells_net/api_surface.json', 'tests/fixtures/email_net/api_surface.json', 'tests/fixtures/imaging_net/api_surface.json', 'tests/fixtures/pdf_net/api_surface.json', 'tests/fixtures/slides_net/api_surface.json', 'tests/fixtures/words_net/api_surface.json']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "0665115770769819355fded35b1bf16cdc49fc977f682e5927c5f9334701f356",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/3d_java/api_surface.json",
+      "M tests/fixtures/cells_java/api_surface.json",
+      "M tests/fixtures/pdf_java/api_surface.json",
+      "M tests/fixtures/pdf_net/api_surface.json",
+      "M tests/fixtures/slides_java/api_surface.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

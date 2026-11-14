@@ -1,0 +1,351 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xi4y6u2r\.junit-0.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 97%]
+...................................................................      [100%]
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xi4y6u2r\.junit-0.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 97%]
+...................................................................      [100%]
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/3d_java/api_surface.json, M tests/fixtures/cells_java/api_surface.json, M tests/fixtures/pdf_java/api_surface.json, M tests/fixtures/pdf_net/api_surface.json, M tests/fixtures/slides_java/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xi4y6u2r\.junit-0.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 90%]
+...........................................................F........F... [ 93%]
+.............F...F.F........F................F...F...................... [ 97%]
+...........F........F................F...F.........................      [100%]
+================================== FAILURES ===================================
+__________ test_served_type_chunks_equal_the_fixture_types[pdf_net] ___________
+
+key = 'pdf_net'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: pdf_net is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('pdf_net')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+________ test_served_type_chunks_equal_the_fixture_types[slides_java] _________
+
+key = 'slides_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: slides_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('slides_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+_________ test_served_type_chunks_equal_the_fixture_types[cells_java] _________
+
+key = 'cells_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: cells_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('cells_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+__________ test_served_type_chunks_equal_the_fixture_types[3d_java] ___________
+
+key = '3d_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: 3d_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('3d_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+______ test_served_function_chunks_equal_the_fixture_functions[pdf_net] _______
+
+key = 'pdf_net'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: pdf_net is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('pdf_net')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+____ test_served_function_chunks_equal_the_fixture_functions[slides_java] _____
+
+key = 'slides_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: slides_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('slides_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+_____ test_served_function_chunks_equal_the_fixture_functions[cells_java] _____
+
+key = 'cells_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: cells_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('cells_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+______ test_served_function_chunks_equal_the_fixture_functions[3d_java] _______
+
+key = '3d_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: 3d_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('3d_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+__________ test_served_coverage_line_states_the_same_counts[pdf_net] __________
+
+key = 'pdf_net'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: pdf_net is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('pdf_net')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+________ test_served_coverage_line_states_the_same_counts[slides_java] ________
+
+key = 'slides_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: slides_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('slides_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+________ test_served_coverage_line_states_the_same_counts[cells_java] _________
+
+key = 'cells_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: cells_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('cells_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+__________ test_served_coverage_line_states_the_same_counts[3d_java] __________
+
+key = '3d_java'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: 3d_java is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('3d_java')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[pdf_net]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[slides_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[cells_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[3d_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[pdf_net]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[slides_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[cells_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[3d_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[pdf_net]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[slides_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[cells_java]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[3d_java]
+
+--- stderr ---
+
