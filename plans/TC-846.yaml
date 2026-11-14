@@ -1,0 +1,83 @@
+id: TC-846
+gate: G3
+lane: verification
+purpose: >-
+  Three tests are red on main for reasons unrelated to any fixture regeneration (reproduced by the
+  TC-841 worker in a clean worktree, 2026-11-14): (1)
+  tests/deploy/test_demo_compose.py::test_the_runtime_stage_is_unchanged - the Dockerfile.serving
+  runtime stage gained the PYTHONHASHSEED pin in TC-793 and the test still pins the old text; (2)
+  tests/deploy/test_e2e_pins_match_shipped_data.py slides_python REAL_BASE_FRAGMENT /
+  REAL_METHOD_FRAGMENT - the baked chunk the pin selects by 'Shape' is now the TC-818 re-export
+  shell instead of the definition chunk; (3)
+  tests/deploy/test_product_reference_sidecars_are_current.py::test_owner14_accounts_for_the_real_entry_today
+  - OWNER-14 is now OVERRIDDEN, not OPEN (operator decision 2026-11-14). FIRST establish for each
+  whether the failure is a stale pin or a real defect (read the failing assertion, the commit that
+  changed the pinned fact, and for (2) whether the e2e check really requires the definition chunk
+  and what the shell chunk now serves via get_symbol after TC-794 - the e2e pins must keep proving
+  that a real served chunk contains the fragment; re-pin to the definition chunk's real fragment,
+  or to the shell's pointer text only if that is the intended served surface). Re-pin each keeping
+  its intent with a comment naming the cause; no weakening; no skip; if any is a REAL defect, stop
+  and report it instead of re-pinning. Note (3): ops/owner_items.yaml is supervisor-owned; assert
+  the CURRENT status set by reading it (OWNER-14 status in {SATISFIED, OVERRIDDEN,
+  DEFAULT_APPLIED} accounts for the entry) rather than hard-coding OPEN.
+depends_on:
+  - TC-793
+  - TC-818
+  - TC-794
+  - TC-551
+  - TC-553
+  - TC-564
+  - TC-536
+  - TC-575
+write_paths:
+  - tests/deploy/test_demo_compose.py
+  - tests/deploy/test_e2e_pins_match_shipped_data.py
+  - tests/deploy/test_product_reference_sidecars_are_current.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: the three failing tests and their neighbours; `git log -3 -- Dockerfile.serving`
+    (TC-793), the TC-818/TC-794 commits, ops/owner_items.yaml OWNER-14.
+  - >-
+    REPRODUCE FIRST (PowerShell after scripts/toolchain/activate.ps1): run the three tests on main
+    and record exact output.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies the production
+    part). ruff format + ruff check on changed Python files; run the card's check command twice;
+    report real counts from junit. Do NOT use git stash. Never skip a test. Never use PowerShell
+    Set-Content/Out-File to write repo files (BOM/CRLF). If a related test outside write_paths fails
+    because of your change, stop and report exact test ids (the supervisor widens write_paths).
+actions:
+  - >-
+    Re-pin three stale deploy tests to current verified truth.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_product_reference_sidecars_are_current.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 143
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['tests/deploy/test_demo_compose.py', 'tests/deploy/test_e2e_pins_match_shipped_data.py', 'tests/deploy/test_product_reference_sidecars_are_current.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-846/receipt.json
+closeout:
+  - >-
+    The three deploy tests pass against current data with documented causes.
+recovery: Re-run from a clean tree.

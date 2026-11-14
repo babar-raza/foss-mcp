@@ -1,0 +1,117 @@
+id: TC-844
+gate: G3
+lane: extraction
+purpose: >-
+  REGRESSION GUARD found by the TC-841 worker (2026-11-14) BEFORE the Python fixtures were
+  committed: regenerating slides/python's extraction fixture with the current extractor yields
+  3091 `stub: true` members (the committed fixture has 0). chunk_builder renders each as '(not
+  implemented in this build: empty body (...))', so baking it would serve a large FALSE 'not
+  implemented' disclosure on slides/python - the 'no pilot ever gets worse' class of regression.
+  Measured by the worker: 917 are own members of `I*(ABC)` interface classes whose bodies are
+  `...` (an abstract-by-convention contract, not an unimplemented method); 1205 + 966 are
+  `inherited_from` members copied onto concrete classes such as Chart (width, height, name, ...)
+  although upstream implements them in the base GraphicalObject (the stub flag of an interface
+  base is propagated to a subclass that actually gets the implementation through another base);
+  only 3 members are real own stubs (2 `pass`, 1 `raise NotImplementedError`). Smaller stub
+  additions in other regenerated Python pilots: tex 24 (38 flags), 3d/typescript 27, note 15
+  (documented-unsupported DocumentVisitor.Visit* `pass` bodies - these are REAL and must stay),
+  html 5, barcode 3, words 2. FIX in the Python extractor
+  (src/foss_mcp/extraction/tree_sitter_engine/python_surface.py `stub_reason` and the
+  inherited-member flattening in src/foss_mcp/extraction/run_extraction.py or wherever
+  `inherited_from` members are produced - find it): (a) a method whose entire body is `...`
+  (Ellipsis) inside an interface class - a class deriving from
+  `ABC`/`abc.ABC`/`Protocol`/`typing.Protocol` or using `metaclass=ABCMeta` - declares a contract
+  and is NOT a stub (same family as the existing @abstractmethod exclusion, TC-559); a
+  `pass`/`...` body in an ordinary concrete class stays a stub; `raise NotImplementedError` stays
+  a stub everywhere except @abstractmethod; (b) inherited-member flattening must resolve each
+  inherited name along the MRO and carry the stub flag only if the FIRST definition in MRO order
+  is itself a stub - a concrete implementation reached through another base wins and the member is
+  not flagged (and an inherited member whose first MRO definition is a non-stub never copies a
+  stub flag from a later base). Keep the TypeScript/Java/C#/C++ stub paths in api_surface.py
+  untouched except if the 3d/typescript additions turn out to share the cause - report it, do not
+  change them without evidence. EVIDENCE REQUIRED: for every Python pilot (11) run the extractor
+  in-process on the pilot's pinned clone (reuse the TC-841 worker's scratch driver:
+  `C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\tc841_regen.py`
+  and outputs in tc841_out/; clones are re-creatable via gh at the pinned commits) and report
+  stub-flag counts before/after your fix per pilot; the 3 real slides/python own stubs, the
+  note/python DocumentVisitor.Visit* stubs, tex/python and every other genuinely-empty concrete
+  method must STILL be flagged; the false flags must be gone; the committed fixtures' existing
+  stub flags (cells/python, 3d/python, etc., see `git grep -c '"stub": true'
+  tests/fixtures/*/api_surface.json`) must not change except where they are provably the same two
+  false-positive classes. Fixtures are NOT regenerated in this card (TC-841 does that after this
+  lands).
+depends_on:
+  - TC-559
+  - TC-674
+  - TC-700
+  - TC-818
+  - TC-819
+  - TC-620
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+  - src/foss_mcp/extraction/run_extraction.py
+  - tests/extraction/test_python_stub_interface_and_inheritance.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: python_surface.py `stub_reason` (TC-559) and its callers, the inherited-member
+    flattening (grep `inherited_from` in src/foss_mcp/extraction/),
+    tests/extraction/test_round3_stub_detection.py and test_python_fidelity.py, chunk_builder's
+    '(not implemented in this build' rendering (src/foss_mcp/indexing/chunk_builder.py) and the
+    TC-841 worker's findings above.
+  - >-
+    REPRODUCE FIRST: extract slides/python at its pinned commit (infra/helm/foss-mcp/values.yaml
+    `ingestion.pilots[]` slides python commit; or the existing clone under the session scratchpad
+    tc841_out if present) in-process and count stub flags by class kind (I*(ABC) interfaces,
+    concrete, inherited_from); record the numbers. NEW TEST
+    tests/extraction/test_python_stub_interface_and_inheritance.py with hand-authored
+    micro-libraries: ABC interface with `...` methods (not stubs), concrete class with `...`/`pass`
+    (stubs), `raise NotImplementedError` (stub), @abstractmethod unchanged, Protocol class, ABCMeta
+    metaclass; MRO inheritance cases (interface base + concrete base: the concrete implementation
+    wins, no flag; interface base only: the inherited member's own flag follows rule (a)); plus the
+    real slides/python regression count (3091 -> only the real own stubs, assert exact numbers you
+    measured) using a committed-fixture-independent route (the extractor over a trimmed clone is too
+    heavy for a unit test: pin the measured counts in the card report and test the rules with the
+    micro-libraries).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies the production
+    part). ruff format + ruff check on changed Python files; run the card's check command twice;
+    report real counts from junit. Do NOT use git stash. Never skip a test. Never use PowerShell
+    Set-Content/Out-File to write repo files (BOM/CRLF). If a related test outside write_paths fails
+    because of your change, stop and report exact test ids (the supervisor widens write_paths).
+actions:
+  - >-
+    Stop interface-contract `...` methods and MRO-shadowed inherited members from being flagged as
+    'not implemented in this build', keeping every real stub flagged.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_python_stub_interface_and_inheritance.py tests/extraction/test_round3_stub_detection.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 245
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/python_surface.py', 'src/foss_mcp/extraction/run_extraction.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-844/receipt.json
+closeout:
+  - >-
+    Python extraction no longer flags abstract-interface `...` members or MRO-shadowed inherited
+    members as unimplemented; real stubs remain flagged.
+recovery: Re-run from a clean tree.
