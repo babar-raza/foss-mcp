@@ -31,6 +31,13 @@ TC-700: a bare module-top-level assignment to a single plain name, whose value i
 symbol carrying its inferred type (``return_type``) and literal text (``value``); it too keeps only
 its LAST binding when the name is assigned more than once, even across kinds. A call, a name, or
 any other non-literal right-hand side is out of scope and stays unextracted.
+
+TC-818: a package ``__init__`` that declares a literal ``__all__`` still exposes, as a public re-export, an
+in-tree ``from .x import Y`` that ``__all__`` omits when the author marked it a deliberate re-export (a
+``# noqa: F401`` comment on the statement, or the explicit ``import Y as Y`` form) and the module never
+references ``Y`` again: ``from pkg import Y`` works whatever ``__all__`` says (``__all__`` only steers
+``import *``). An unmarked import, a used one, one under ``if TYPE_CHECKING``, one of a name with a leading
+underscore, and one of code outside the scanned tree is internal plumbing and stays unexposed.
 """
 
 from __future__ import annotations
@@ -546,8 +553,85 @@ def _branch_import_nodes(node: ast.Try | ast.If) -> list[ast.ImportFrom]:
     return [statement for branch in branches for statement in branch if isinstance(statement, ast.ImportFrom)]
 
 
+def _is_type_checking_test(test: ast.expr) -> bool:
+    """Whether an ``if`` test is ``TYPE_CHECKING`` or ``<alias>.TYPE_CHECKING``."""
+    return (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+        isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+    )
+
+
+_NOQA_COMMENT = re.compile(
+    r"#\s*noqa\b(?:\s*:\s*(?P<codes>[A-Z]+[0-9]+(?:\s*,\s*[A-Z]+[0-9]+)*))?", re.IGNORECASE
+)
+
+
+def _marked_as_reexport(node: ast.ImportFrom, lines: Sequence[str]) -> bool:
+    """TC-818: whether the author flagged *node* as a deliberate re-export: a ``# noqa`` (blanket, or naming
+    ``F401``, "imported but unused") comment on any line of the statement, or the explicit-re-export form
+    ``from x import Y as Y`` for every name it imports."""
+    if node.names and all(alias.asname == alias.name for alias in node.names):
+        return True
+    end = node.end_lineno or node.lineno
+    for line in lines[node.lineno - 1 : end]:
+        match = _NOQA_COMMENT.search(line)
+        if match is None:
+            continue
+        codes = match.group("codes")
+        if codes is None or "F401" in codes.upper().replace(" ", "").split(","):
+            return True
+    return False
+
+
+def _unused_import_names(
+    tree: ast.Module, module: str, is_package: bool, source_root: Path, lines: Sequence[str]
+) -> frozenset[str]:
+    """TC-818: the names a package ``__init__`` imports from inside the scanned tree, marks as a re-export
+    (``_marked_as_reexport``) and then never refers to.
+
+    Such an import has no purpose but to be imported from the package, so it is a deliberate re-export even
+    when a literal ``__all__`` omits it (``__all__`` only steers ``import *``). An import with no marker is
+    left alone: a package may import a name for use elsewhere and keep it out of ``__all__`` on purpose.
+    Only a top-level ``from ... import`` and one sitting one level inside a top-level ``try``/``if`` (the same
+    reach as ``_branch_import_nodes``) counts; an import under ``if TYPE_CHECKING`` is never a runtime
+    re-export, a star import names nothing, a name with a leading underscore is private, and an origin
+    outside the scanned tree (``__future__``, ``typing``) is not the package's to re-export. A name that
+    appears anywhere else in the module - used, rebound, or defined by a ``class``/``def`` - is not unused.
+    """
+    imports: list[ast.ImportFrom] = []
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            imports.append(node)
+        elif isinstance(node, ast.Try | ast.If) and not (
+            isinstance(node, ast.If) and _is_type_checking_test(node.test)
+        ):
+            imports.extend(_branch_import_nodes(node))
+    candidates: set[str] = set()
+    for node in imports:
+        origin = _resolved_relative(module, is_package, node)
+        if origin is None or _is_foreign_import(origin, source_root) or not _marked_as_reexport(node, lines):
+            continue
+        candidates.update(
+            alias.asname or alias.name
+            for alias in node.names
+            if alias.name != "*" and not (alias.asname or alias.name).startswith("_")
+        )
+    if not candidates:
+        return frozenset()
+    used = {item.id for item in ast.walk(tree) if isinstance(item, ast.Name)} | {
+        item.name
+        for item in ast.walk(tree)
+        if isinstance(item, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    return frozenset(candidates - used)
+
+
 def _reexport_symbols_from_import(
-    node: ast.ImportFrom, module: str, relative: str, is_package: bool, explicit: set[str] | None
+    node: ast.ImportFrom,
+    module: str,
+    relative: str,
+    is_package: bool,
+    explicit: set[str] | None,
+    unused_imports: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, PublicSymbol], list[str]]:
     """TC-674: one ``ast.ImportFrom`` re-export statement resolved into its exposed-name ->
     ``PublicSymbol`` candidates, plus any ``unresolved`` disclosure entries - the exact rules
@@ -561,7 +645,8 @@ def _reexport_symbols_from_import(
         return symbols, unresolved
     for alias in node.names:
         exposed = alias.asname or alias.name
-        if _public_name(exposed, explicit)[0]:
+        # TC-818: ``__all__`` does not hide an import the package never uses (``_unused_import_names``).
+        if _public_name(exposed, explicit)[0] or exposed in unused_imports:
             symbols[exposed] = PublicSymbol(
                 f"{module}.{exposed}",
                 module,
@@ -604,6 +689,18 @@ def _module_symbols(
         _repaired_entry(module, relative, first_line, count) for first_line, count in repairs.values()
     ]
     context = _Context(module, source_root, _module_functions(tree))
+    # TC-818: only a package ``__init__`` with a literal ``__all__`` has imports that ``__all__`` hides.
+    unused_imports = (
+        _unused_import_names(
+            tree,
+            module,
+            is_package,
+            source_root,
+            path.read_text(encoding="utf-8-sig", errors="replace").splitlines(),
+        )
+        if is_package and explicit is not None
+        else frozenset()
+    )
     # TC-532: a name defined twice at the top level is the LAST definition. TC-700: this now also
     # covers a bare module-level constant assignment among its own repeats, and across kinds - a
     # name first bound as a function/class and later reassigned to a literal (or the reverse) keeps
@@ -658,7 +755,9 @@ def _module_symbols(
                 if isinstance(node, ast.ClassDef):
                     symbols.extend(_methods(node, module, relative, public_by, context))
         elif isinstance(node, ast.ImportFrom) and (is_package or explicit is not None):
-            found, failed = _reexport_symbols_from_import(node, module, relative, is_package, explicit)
+            found, failed = _reexport_symbols_from_import(
+                node, module, relative, is_package, explicit, unused_imports
+            )
             symbols.extend(found.values())
             unresolved.extend(failed)
         elif isinstance(node, ast.Try | ast.If) and (is_package or explicit is not None):
@@ -669,7 +768,7 @@ def _module_symbols(
             branch_symbols: dict[str, PublicSymbol] = {}
             for branch_node in _branch_import_nodes(node):
                 found, failed = _reexport_symbols_from_import(
-                    branch_node, module, relative, is_package, explicit
+                    branch_node, module, relative, is_package, explicit, unused_imports
                 )
                 branch_symbols.update(found)
                 unresolved.extend(failed)
