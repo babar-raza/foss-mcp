@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-846",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T13:05:05Z",
+  "base_rev": "98f5c27d18c3c5cbd5662db0969ee4f9a9a98683",
+  "head_rev": "5230f2da14980be14a7806c781de6abd65600c19",
+  "card_sha256": "1bb9cf19a362e808bde94c259d15390c73b57e9fcd04a962ab5c5531cc463c59",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/deploy/test_demo_compose.py",
+      "tests/deploy/test_e2e_pins_match_shipped_data.py",
+      "tests/deploy/test_product_reference_sidecars_are_current.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_product_reference_sidecars_are_current.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.897,
+          "stdout_sha256": "91dcb8076ccd39d3b7c026c953d5a5e2a9df3a2cebbe5c2c4aab69bb5eb45838",
+          "tests": 143,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_product_reference_sidecars_are_current.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.73,
+          "stdout_sha256": "91dcb8076ccd39d3b7c026c953d5a5e2a9df3a2cebbe5c2c4aab69bb5eb45838",
+          "tests": 143,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['tests/deploy/test_demo_compose.py', 'tests/deploy/test_e2e_pins_match_shipped_data.py', 'tests/deploy/test_product_reference_sidecars_are_current.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "16397730410c93e546a3ea1d18b7213b6926a6acbcdc851827d39685e179da71",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/deploy/test_demo_compose.py",
+      "M tests/deploy/test_e2e_pins_match_shipped_data.py",
+      "M tests/deploy/test_product_reference_sidecars_are_current.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

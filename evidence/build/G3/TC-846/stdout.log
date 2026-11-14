@@ -1,0 +1,96 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_product_reference_sidecars_are_current.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-js1jt21t\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 50%]
+.......................................................................  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_product_reference_sidecars_are_current.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-js1jt21t\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 50%]
+.......................................................................  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/deploy/test_demo_compose.py, M tests/deploy/test_e2e_pins_match_shipped_data.py, M tests/deploy/test_product_reference_sidecars_are_current.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_product_reference_sidecars_are_current.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-js1jt21t\.junit-0.xml"
+--- stdout ---
+.........................F......................................F..F.... [ 50%]
+..................................................................s...F  [100%]
+================================== FAILURES ===================================
+_____________________ test_the_runtime_stage_is_unchanged _____________________
+
+    def test_the_runtime_stage_is_unchanged() -> None:
+>       assert dockerfile_stages()[0] == RUNTIME_STAGE
+E       assert ['FROM python...config/', ...] == ['FROM python...config/', ...]
+E         
+E         At index 12 diff: 'ENV PYTHONHASHSEED=0' != 'RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp && mkdir -p /data/manifests && chown -R foss-mcp:foss-mcp /data'
+E         Left contains one more item: 'CMD ["python", "/app/infra/serve_stdio.py"]'
+E         Use -v to get more diff
+
+tests\deploy\test_demo_compose.py:320: AssertionError
+_ test_e2e_constant_still_holds_in_the_shipped_data[test_slides_python_live_content.py-REAL_BASE_FRAGMENT] _
+
+filename = 'test_slides_python_live_content.py', pilot_key = 'slides_python'
+constants = {'REAL_SYMBOL': 'Shape', 'REAL_SOURCE_COMMIT': '4e63447ba79d1c27a5192844847d9f872c5b92ad', 'REAL_SYMBOL_FQN': 'aspose.slides_foss.Shape.Shape', 'REAL_METHOD_FRAGMENT': 'Methods:\n  - __init__()', ...}
+name = 'REAL_BASE_FRAGMENT', value = 'IPresentationComponent'
+
+    @pytest.mark.parametrize("filename,pilot_key,constants,name,value", CASES, ids=CASE_IDS)
+    def test_e2e_constant_still_holds_in_the_shipped_data(
+        filename: str, pilot_key: str, constants: dict[str, str], name: str, value: str
+    ) -> None:
+        problems = problems_for(filename, pilot_key, constants, name)
+>       assert not problems, problems
+E       AssertionError: ["slides_python: REAL_BASE_FRAGMENT 'IPresentationComponent' is not a substring of the symbol chunk selected by 'Shape'"]
+E       assert not ["slides_python: REAL_BASE_FRAGMENT 'IPresentationComponent' is not a substring of the symbol chunk selected by 'Shape'"]
+
+tests\deploy\test_e2e_pins_match_shipped_data.py:299: AssertionError
+_ test_e2e_constant_still_holds_in_the_shipped_data[test_slides_python_live_content.py-REAL_METHOD_FRAGMENT] _
+
+filename = 'test_slides_python_live_content.py', pilot_key = 'slides_python'
+constants = {'REAL_SYMBOL': 'Shape', 'REAL_SOURCE_COMMIT': '4e63447ba79d1c27a5192844847d9f872c5b92ad', 'REAL_SYMBOL_FQN': 'aspose.slides_foss.Shape.Shape', 'REAL_METHOD_FRAGMENT': 'Methods:\n  - __init__()', ...}
+name = 'REAL_METHOD_FRAGMENT', value = 'Methods:\n  - __init__()'
+
+    @pytest.mark.parametrize("filename,pilot_key,constants,name,value", CASES, ids=CASE_IDS)
+    def test_e2e_constant_still_holds_in_the_shipped_data(
+        filename: str, pilot_key: str, constants: dict[str, str], name: str, value: str
+    ) -> None:
+        problems = problems_for(filename, pilot_key, constants, name)
+>       assert not problems, problems
+E       AssertionError: ["slides_python: REAL_METHOD_FRAGMENT 'Methods:\
+E           - __init__()' is not a substring of the symbol chunk selected by 'Shape'"]
+E       assert not ["slides_python: REAL_METHOD_FRAGMENT 'Methods:\\n  - __init__()' is not a substring of the symbol chunk selected by 'Shape'"]
+
+tests\deploy\test_e2e_pins_match_shipped_data.py:299: AssertionError
+_______________ test_owner14_accounts_for_the_real_entry_today ________________
+
+    def test_owner14_accounts_for_the_real_entry_today() -> None:
+        """Confirms the live ops/owner_items.yaml OWNER-14 entry is itself in the accounting state this
+        file's guard depends on today - so a reader does not have to trust the per-pilot test alone."""
+        owner14 = _owner_item("OWNER-14")
+        assert owner14 is not None
+>       assert owner14.get("status") == "OPEN", (
+            "OWNER-14 is no longer OPEN; re-check whether every product_reference sidecar now carries "
+            "manifest_path and readme_document before resolving it further"
+        )
+E       AssertionError: OWNER-14 is no longer OPEN; re-check whether every product_reference sidecar now carries manifest_path and readme_document before resolving it further
+E       assert 'OVERRIDDEN' == 'OPEN'
+E         
+E         - OPEN
+E         + OVERRIDDEN
+
+tests\deploy\test_product_reference_sidecars_are_current.py:185: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_demo_compose.py::test_the_runtime_stage_is_unchanged
+FAILED tests/deploy/test_e2e_pins_match_shipped_data.py::test_e2e_constant_still_holds_in_the_shipped_data[test_slides_python_live_content.py-REAL_BASE_FRAGMENT]
+FAILED tests/deploy/test_e2e_pins_match_shipped_data.py::test_e2e_constant_still_holds_in_the_shipped_data[test_slides_python_live_content.py-REAL_METHOD_FRAGMENT]
+FAILED tests/deploy/test_product_reference_sidecars_are_current.py::test_owner14_accounts_for_the_real_entry_today
+
+--- stderr ---
+
