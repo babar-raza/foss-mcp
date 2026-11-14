@@ -1,0 +1,116 @@
+id: TC-795
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes RD2-136, 159, 165, 282 and RD2-237 and the same gap for 3D-PYTHON-013 and CELLS-PY-005
+  (found by a whole-registry scan in the 2026-11-14 triage): a `config/known_defects` entry is
+  matched only by an EXACT FQN in `subject.refs` (`get_symbol.known_defect_lines`), so a defect
+  that names the real defining class (or only the public re-export alias) does NOT surface when a
+  user reaches the symbol by the OTHER name (email/python `MapiMessage`, note/python
+  `RichText`/`DocumentVisitor`, words/python `Document.get_text`, 3d/python `Node`/`Mesh`,
+  cells/python `Cell`/`Workbook`). Also RD2-237 (slides/java): the 'Clone a Slide' example calls
+  `addClone`, whose declaring type's refs carry the SLIDES-JAVA-010B hazard, but `find_examples`
+  never attaches it because it only compares the example's own symbols, not the members it calls.
+  Fix: make known-defect matching alias-aware (a defect applies when the chunk's FQN OR any
+  `Exported-As:` / `Defined-In:` name on the chunk is in `subject.refs`), in every caller, and
+  bind a called member to its owning type's refs for examples. Success is a conformance test over
+  EVERY registry ref proving each disclosure is reachable through every name a user can use.
+depends_on:
+  - TC-794
+  - TC-793
+  - TC-658
+  - TC-686
+  - TC-688
+  - TC-670
+  - TC-672
+  - TC-703
+write_paths:
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/list_members.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_known_defects_alias_aware.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the rows this card closes was gathered by a read-only 2026-11-14 triage; the
+    per-row record (id, pilot, evidence observed, proposed fix) is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-254). Treat it as a LEAD, not as truth: REPRODUCE every
+    behavior yourself first, in-process, against the real committed corpus (see
+    tests/conformance/corpus.py for how tools are built over infra/demo-manifests). If a row no
+    longer reproduces, say so in your report and do not invent a fix for it.
+  - >-
+    READ FIRST: `known_defect_lines` in src/foss_mcp/mcp/tools/get_symbol.py (the loop `if fqn not
+    in defect.subject.refs: continue`), every caller of it (grep `known_defect_lines` and
+    `_example_known_defects` across src/), tests/mcp/tools/test_known_defects_in_get_symbol.py /
+    _in_find_examples.py / _in_search_symbols.py / _multi_ref.py, and
+    config/known_defects/{email,note,words,3d,cells}__python.yaml.
+  - >-
+    REPRODUCE FIRST: for RD2-136 (email/python MapiMessage), 159 and 165 (note/python), 282
+    (words/python Document.get_text), 3D-PYTHON-013 and CELLS-PY-005 show that
+    get_symbol/list_members/search_symbols on one of the two names returns known_defects=[] while
+    the other name returns the line. Then run an all-registry scan (every entry x every ref x each
+    of: the ref itself, the definition chunk's `Exported-As:` names, the shell chunk's `Defined-In:`
+    name) and list EVERY (entry, name) pair where the disclosure fails to surface - that list is the
+    card's acceptance set.
+  - >-
+    FIX (code, not data): add a helper in get_symbol.py that returns the alias names of a chunk (its
+    `Exported-As:` values and its `Defined-In:` value) and make `known_defect_lines` accept them via
+    a new optional parameter, so a defect applies when the fqn or any alias is in `subject.refs`;
+    thread the aliases through every caller (get_symbol, list_members, find_examples,
+    search_symbols). For examples: when an example's called member (as already parsed for
+    `_example_known_defects`) belongs to a type found in the index via a `Methods:` block, also test
+    that owner type's refs. Keep commit-scoping (`applies_to.indexed_commit`) semantics unchanged.
+  - >-
+    TESTS: tests/mcp/tools/test_known_defects_alias_aware.py - (a) unit tests of the helper and the
+    widened match with synthetic chunks, (b) the RD2-136/159/165/282/237 cases against the real
+    corpora, (c) the all-registry reachability sweep asserting zero unreachable (entry, name) pairs
+    for method/class-kind subjects (package/commit kinds are surfaced through get_product_reference
+    and are out of this sweep). Do not edit any config/known_defects file: if the sweep finds a ref
+    that names a symbol which does not exist in the index, report it instead of 'fixing' data.
+  - >-
+    Also run the existing known-defects tests listed above plus tests/indexing/test_known_defects.py
+    and tests/indexing/test_known_defects_completeness.py - all must stay green.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - in
+    that case update only that assertion and say so explicitly.
+actions:
+  - >-
+    Make known-defect disclosures alias-aware in every symbol-facing tool and bind called members to
+    their owner's refs for examples, proven by a whole-registry reachability sweep.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_alias_aware.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_find_examples.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 133
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/get_symbol.py', 'src/foss_mcp/mcp/tools/list_members.py', 'src/foss_mcp/mcp/tools/find_examples.py', 'src/foss_mcp/mcp/tools/search_symbols.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-795/receipt.json
+closeout:
+  - >-
+    Known-defect disclosures reach a user through every name of a symbol and for examples that call
+    an affected member; RD2-136/159/165/282/237 are fixed and a sweep guards the whole registry.
+recovery: Re-run from a clean tree.

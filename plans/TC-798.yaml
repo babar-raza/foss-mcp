@@ -1,0 +1,113 @@
+id: TC-798
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes the `formats_projection_quality` group - RD2-068, 074, 111, 122, 168, 185, 214, 232, 240,
+  263, 279 (2026-11-14 triage; 11 rows, 22 of 27 keyword-selected pilots affected):
+  `get_product_reference(section='formats')` is built by `_format_statements` in
+  src/foss_mcp/mcp/tools/get_product_reference.py, which tests ONE hard-wrapped physical README
+  line at a time against format keywords and caps it at 300 characters, so the served 'formats'
+  answer is often a mid-sentence fragment (3d/typescript 8 of 8 lines, pdf/python 7 of 8,
+  slides/cpp 6 of 8). A second, separate regression in the same group: the heading regex in
+  src/foss_mcp/mcp/tools/readme_sections.py (~L280) matches 'input ... format' / 'output ...
+  format' in EXAMPLE headings, so words/python `formats` is two code blocks ('Convert Every Input
+  Format to PDF...') and 3d/net `formats` is the 'Handle an Unrecognized 3D File Format' snippet.
+  Fix both: join continuation lines into whole bullets/sentences before the keyword test, cap at a
+  sentence boundary and drop Enterprise-edition tail sentences, fall back to a README format table
+  or enum members when fewer than 3 statements are found, and tighten the heading rule to prefer
+  'Supported formats'-style headings and reject imperative-verb headings and code-only bodies.
+  Keep `reconcile_format_claims` unchanged.
+depends_on:
+  - TC-714
+  - TC-718
+  - TC-719
+  - TC-561
+  - TC-574
+  - TC-659
+  - TC-680
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - src/foss_mcp/mcp/tools/readme_sections.py
+  - tests/mcp/tools/test_get_product_reference_formats_projection.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the rows this card closes was gathered by a read-only 2026-11-14 triage; the
+    per-row record (id, pilot, evidence observed, proposed fix) is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-254). Treat it as a LEAD, not as truth: REPRODUCE every
+    behavior yourself first, in-process, against the real committed corpus (see
+    tests/conformance/corpus.py for how tools are built over infra/demo-manifests). If a row no
+    longer reproduces, say so in your report and do not invent a fix for it.
+  - >-
+    READ FIRST: `_format_statements` (near line 803) and
+    `_formats_from_readme`/`reconcile_format_claims` in get_product_reference.py; the heading
+    classification around line 280 of readme_sections.py;
+    tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py,
+    test_product_reference_readme_content.py (197 tests), test_readme_sections.py (58) and
+    tests/conformance/test_reference_content.py (its strict-false baseline of reference-content
+    failures).
+  - >-
+    REPRODUCE FIRST: sweep `get_product_reference(formats)` over all 32 real pilots (inputs via
+    infra.serve_http as in tests/conformance/test_reference_content.py) and measure: pilots whose
+    answer has an unterminated/mid-sentence line, pilots whose answer is code-only, pilots clean
+    today (cells/net, cells/rust, email/net, pdf/go, pdf/java were clean in the triage - they must
+    not get worse). Save the full before-table (pilot -> lines, unterminated count, code-only flag)
+    in your report.
+  - >-
+    FIX as described in the purpose. The five clean pilots must stay byte-identical or better; no
+    pilot may lose a real format claim that today's answer states (diff every pilot's before/after
+    text and justify each change). Do not touch any other section builder.
+  - >-
+    TESTS: tests/mcp/tools/test_get_product_reference_formats_projection.py - synthetic hard-wrapped
+    bullets/sentences (joined correctly, capped at a sentence boundary, Enterprise tail dropped),
+    the heading regex rejecting 'Convert Every Input Format to PDF' / 'Handle an Unrecognized 3D
+    File Format' while accepting 'Supported formats', and a real-corpus sweep asserting zero
+    unterminated lines and zero code-only answers across the 32 pilots (list any pilot where the
+    README genuinely has no format statement and assert it degrades to the honest fallback instead).
+  - >-
+    The strict-false reference-content baseline
+    (tests/fixtures/conformance/baseline_reference_content.json) may only SHRINK; do not edit it -
+    if entries become stale that is acceptable under strict:false, report the count.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - in
+    that case update only that assertion and say so explicitly.
+actions:
+  - >-
+    Serve whole, well-formed format statements (or an honest fallback) for every pilot and stop
+    example headings being misread as the formats section.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_get_product_reference_formats_projection.py tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 400
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/get_product_reference.py', 'src/foss_mcp/mcp/tools/readme_sections.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-798/receipt.json
+closeout:
+  - >-
+    The formats section is well-formed for every pilot and never an example snippet; the 11 formats
+    rows are fixed with no pilot worse.
+recovery: Re-run from a clean tree.

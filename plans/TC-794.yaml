@@ -1,0 +1,109 @@
+id: TC-794
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes RD2-254 (slides/python P1-class finding, confirmed live on all 11 Python pilots,
+  2026-11-14 triage): `get_symbol(<re-export shell FQN>)` - the public import path agents are
+  taught, e.g. `aspose.slides_foss.Presentation` - returns found=True but with NO methods,
+  properties or bases, because since TC-686 (I4) a re-export shell is a small pointer chunk
+  (`Defined-In:` -> the definition) and TC-688 made `raw_text` opt-in, so the pointer is no longer
+  visible either. The caller sees an empty class. `get_symbol`'s exact-match branch must resolve a
+  shell to its definition and return the DEFINITION's signature (members, properties, bases) with
+  `fqn` still the requested name plus an explicit canonical/defined-in field (the pattern
+  `ResolvedSignature` already uses for member-name resolution), and `list_members` must do the
+  same.
+depends_on:
+  - TC-658
+  - TC-686
+  - TC-688
+  - TC-540
+  - TC-559
+  - TC-639
+write_paths:
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/list_members.py
+  - tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py
+  - tests/mcp/tools/test_get_symbol_shell_resolution.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the rows this card closes was gathered by a read-only 2026-11-14 triage; the
+    per-row record (id, pilot, evidence observed, proposed fix) is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-254). Treat it as a LEAD, not as truth: REPRODUCE every
+    behavior yourself first, in-process, against the real committed corpus (see
+    tests/conformance/corpus.py for how tools are built over infra/demo-manifests). If a row no
+    longer reproduces, say so in your report and do not invent a fix for it.
+  - >-
+    READ FIRST: src/foss_mcp/mcp/tools/get_symbol.py (the exact-match branch of the public function
+    near line 515-530 that returns `_parse_signature` for a chunk whose FQN equals the request;
+    `_SymbolChunk.is_reexport_shell`, `canonical`/`defined_in`, `ResolvedSignature`, `_owners`) and
+    src/foss_mcp/mcp/tools/list_members.py; docs/DECISION_LOG.md entries about TC-686 (I4/I5, shell
+    thinning) to understand why shells are pointers.
+  - >-
+    REPRODUCE FIRST on at least 4 real Python pilots (slides/python, pdf/python, cells/python,
+    note/python): for several shell FQNs (chunks with a `Defined-In:` line) show get_symbol returns
+    empty members/properties/bases while the definition FQN returns them. Also show list_members on
+    the shell FQN. Record the numbers.
+  - >-
+    FIX: when the exact-matched chunk is a re-export shell and its `Defined-In:` definition chunk
+    exists in the same generation, return the definition's parsed signature
+    (members/properties/bases/doc) with `fqn` = the requested shell FQN and a new field carrying the
+    canonical (definition) FQN - follow `ResolvedSignature`'s existing naming/shape rather than
+    inventing a parallel one; keep the exact-match contract (never a fuzzy fallback) and keep a
+    shell with NO resolvable definition behaving exactly as today. Apply the same resolution in
+    list_members. Do not change search_symbols, chunk text or any fixture/generation.
+  - >-
+    The pre-existing tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py (4 tests) pins the
+    I5 identity behavior; update an assertion there only if it pinned the empty-shell behavior as
+    correct, and say so. Add tests/mcp/tools/test_get_symbol_shell_resolution.py with: a synthetic
+    shell+definition pair; the shell with no definition; a sweep over all 11 real Python pilots
+    asserting every real shell FQN now returns non-empty members/properties/bases equal to its
+    definition's; list_members parity.
+  - >-
+    Verify no regression elsewhere: also run tests/mcp/tools/test_get_symbol_raw_text_opt_in.py,
+    test_known_defects_in_get_symbol.py, test_member_lookup.py, test_member_lookup_baked.py,
+    test_symbol_tools.py and tests/conformance/test_symbol_self_retrieval.py (strict baseline - must
+    stay exactly green).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - in
+    that case update only that assertion and say so explicitly.
+actions:
+  - >-
+    Make get_symbol and list_members resolve a Python re-export shell to its definition's real
+    signature, with the canonical FQN reported, and prove it on every real Python pilot.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 133
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/get_symbol.py', 'src/foss_mcp/mcp/tools/list_members.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-794/receipt.json
+closeout:
+  - >-
+    A Python re-export shell FQN now answers with its definition's real members, properties and
+    bases and names its canonical FQN; RD2-254 is fixed on all 11 Python pilots.
+recovery: Re-run from a clean tree.

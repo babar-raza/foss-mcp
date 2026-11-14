@@ -1,0 +1,99 @@
+id: TC-799
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes RD2-023, 067, 090 (get_symbol did-you-mean ranking) and RD2-161 (camel-fragment prefix)
+  (2026-11-14 triage). (1) `suggest_similar_fqns` in src/foss_mcp/mcp/tools/search_symbols.py
+  (shared by search_symbols and get_symbol misses) must rank candidates whose FINAL segment equals
+  the requested final segment (case-sensitive) before substring/word-set tiers, and a bare member
+  name that is a real member of some type must suggest `Owner.member` (RD2-067). (2) The
+  search_symbols prefix tier requires the trailing camel fragment to be >= 3 characters, so
+  `TableCe`, `NoteT`, `PageIn`, `TextFr` miss while `TableCel`/`TextFrag` hit across the fleet:
+  apply the 3-character minimum to the WHOLE query and match a case-insensitive startswith on the
+  type's final-segment name (or a camel-word prefix of its last word).
+depends_on:
+  - TC-793
+  - TC-795
+  - TC-675
+  - TC-686
+  - TC-703
+  - TC-639
+  - TC-644
+  - TC-648
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the rows this card closes was gathered by a read-only 2026-11-14 triage; the
+    per-row record (id, pilot, evidence observed, proposed fix) is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-254). Treat it as a LEAD, not as truth: REPRODUCE every
+    behavior yourself first, in-process, against the real committed corpus (see
+    tests/conformance/corpus.py for how tools are built over infra/demo-manifests). If a row no
+    longer reproduces, say so in your report and do not invent a fix for it.
+  - >-
+    READ FIRST: `suggest_similar_fqns` and the prefix tier in search_symbols.py;
+    tests/mcp/tools/test_search_symbols_word_aware_suggestions.py (11),
+    test_search_symbols_prefix_tier.py (18), test_search_symbols_forgiveness.py (16),
+    test_search_symbols_digit_words.py (30), test_search_symbols_match_kind.py (14),
+    tests/mcp/tools/test_lookup_dotted_enum_member_suggestion.py and the STRICT baseline
+    tests/fixtures/conformance/baseline_symbol_self_retrieval.json
+    (tests/conformance/test_symbol_self_retrieval.py asserts it exactly - it must stay exactly
+    green: no new failure AND no stale entry).
+  - >-
+    REPRODUCE FIRST the exact queries of RD2-023/067/090/161 (see the triage file) on their pilots
+    plus the fleet-wide fragment misses (TableCe, NoteT, PageIn, TextFr).
+  - >-
+    FIX as described, additive only: no existing test expectation may change except one that pinned
+    a worse suggestion order as correct (then change only that assertion and say so). Measure the
+    729-case retrieval corpus (tests/mcp/tools/test_round3_retrieval_corpus.py ratchets)
+    before/after: hit@3 floors >= current, wrong-confident <= current. If a variant regresses a
+    floor, STOP and report numbers.
+  - >-
+    TESTS: tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py - equal-final-segment
+    first; bare member -> Owner.member; the 4 fragment queries now resolve; a fragment shorter than
+    3 characters still misses honestly; determinism (no hash-order dependence).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - in
+    that case update only that assertion and say so explicitly.
+actions:
+  - >-
+    Rank did-you-mean candidates by final-segment equality and owner-resolve bare members; let short
+    camel fragments hit by prefix; no ratchet regresses.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_search_symbols_word_aware_suggestions.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 140
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/search_symbols.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-799/receipt.json
+closeout:
+  - >-
+    Did-you-mean and short-fragment lookups resolve correctly across the fleet; RD2-023/067/090/161
+    are fixed with every ratchet intact.
+recovery: Re-run from a clean tree.

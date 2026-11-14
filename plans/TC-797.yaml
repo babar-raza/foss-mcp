@@ -1,0 +1,100 @@
+id: TC-797
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes RD2-143 (html/python) and RD2-203 (pdf/net) (2026-11-14 triage): examples whose README
+  title is generic - 'Quick Start (2)', 'Additional Examples' - are unreachable by their subject
+  ('css', 'stylesheet', 'computed style' never hit html/python 'Quick Start (2)') because
+  `find_examples` gates on the TITLE (the title-anchor rule that keeps `save`/`open` boilerplate
+  out) and the generic title carries no subject words, while the first sentence of the example
+  (already in the chunk before `Example:`) names the subject. Fix: let `relevance.title_anchored`
+  treat the lead-in sentence of a generic-titled example as its title words, WITHOUT regressing
+  TC-543's invariant or the wrong-confident ceilings
+  (`tests/mcp/tools/test_round3_retrieval_corpus.py` WRONG_MAX_EXAMPLES ~0.059 and per-pilot
+  ceilings).
+depends_on:
+  - TC-626
+  - TC-635
+  - TC-670
+  - TC-672
+  - TC-688
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - tests/mcp/tools/test_find_examples_generic_title_lead_in.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the rows this card closes was gathered by a read-only 2026-11-14 triage; the
+    per-row record (id, pilot, evidence observed, proposed fix) is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-254). Treat it as a LEAD, not as truth: REPRODUCE every
+    behavior yourself first, in-process, against the real committed corpus (see
+    tests/conformance/corpus.py for how tools are built over infra/demo-manifests). If a row no
+    longer reproduces, say so in your report and do not invent a fix for it.
+  - >-
+    READ FIRST: `title_anchored` and its helpers in src/foss_mcp/mcp/tools/relevance.py, the
+    title-anchor admission in find_examples.py (TC-543/TC-586/TC-672 rules),
+    tests/mcp/tools/test_find_examples_title_anchor.py (44 tests, the invariant you must not
+    weaken), test_find_examples_code_anchor.py, test_find_examples_rare_code_word.py and
+    tests/mcp/tools/test_round3_retrieval_corpus.py (READ its ratchet floors - never lower one).
+  - >-
+    REPRODUCE FIRST: list every served example chunk across the 32 pilots whose title is generic (a
+    trailing ' (N)' counter, or titles such as 'Quick Start', 'Additional Examples', 'Example',
+    'Usage'); for html/python show queries 'css', 'stylesheet', 'computed style' find nothing though
+    the example's lead-in sentence names them, and for pdf/net the RD2-203 query. Record the
+    generic-title count per pilot.
+  - >-
+    DESIGN CONSTRAINT: the lead-in sentence may supply title words ONLY for generic-titled examples
+    (define 'generic' by a measured, explicit rule - e.g. title stripped of a counter is in a small
+    closed set or has no content word beyond the family/product name); a specific title keeps
+    today's behavior byte for byte. Measure before/after with the full retrieval corpus: hit@3
+    floors must stay >= current, wrong-confident rates must stay <= current (report the before/after
+    table). If no variant meets both, STOP and report with numbers - never loosen a ratchet.
+  - >-
+    TESTS: tests/mcp/tools/test_find_examples_generic_title_lead_in.py - the RD2-143/203 queries now
+    return the intended example on the real corpora; a specific-titled example is unaffected;
+    'save'/'open' boilerplate queries still do not admit a generic-titled example via an unrelated
+    lead-in; the title-anchor invariant tests remain unchanged and green.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - in
+    that case update only that assertion and say so explicitly.
+actions:
+  - >-
+    Let generic-titled examples be found by the subject their lead-in sentence names, without
+    weakening the title-anchor invariant or any retrieval ratchet.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_generic_title_lead_in.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_rare_code_word.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 140
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/relevance.py', 'src/foss_mcp/mcp/tools/find_examples.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-797/receipt.json
+closeout:
+  - >-
+    Generic-titled examples are reachable by their real subject; RD2-143 and RD2-203 are fixed with
+    the title-anchor invariant and all ratchets intact.
+recovery: Re-run from a clean tree.
