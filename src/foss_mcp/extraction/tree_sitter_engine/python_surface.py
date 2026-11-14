@@ -137,7 +137,25 @@ _ABSTRACT_DECORATORS = frozenset(
     {"abstractmethod", "abc.abstractmethod", "abstractproperty", "abc.abstractproperty"}
 )
 _PROTOCOL_BASES = frozenset({"Protocol", "typing.Protocol", "typing_extensions.Protocol", "t.Protocol"})
+# TC-844: the bases and metaclasses that make a class an abstract-by-convention INTERFACE: its ``...`` methods
+# declare a contract, the same family as an ``@abstractmethod``.
+_ABC_BASES = frozenset({"ABC", "abc.ABC"})
+_ABC_METACLASSES = frozenset({"ABCMeta", "abc.ABCMeta"})
 STUB_RAISES_REASON = "raises NotImplementedError"
+
+
+def _is_interface_class(owner: ast.ClassDef | None) -> bool:
+    """TC-844: whether *owner* is an abstract-by-convention interface: a class that lists ``ABC`` /
+    ``abc.ABC`` (or a ``Protocol``) as a DIRECT base, or is declared with ``metaclass=ABCMeta``. A concrete
+    subclass of such an interface is not one: it only inherits the abstractness it then must override."""
+    if owner is None:
+        return False
+    if any(ast.unparse(base) in _ABC_BASES | _PROTOCOL_BASES for base in owner.bases):
+        return True
+    return any(
+        keyword.arg == "metaclass" and ast.unparse(keyword.value) in _ABC_METACLASSES
+        for keyword in owner.keywords
+    )
 
 
 def stub_reason(item: ast.FunctionDef | ast.AsyncFunctionDef, owner: ast.ClassDef | None = None) -> str:
@@ -148,6 +166,11 @@ def stub_reason(item: ast.FunctionDef | ast.AsyncFunctionDef, owner: ast.ClassDe
     (an abstract method is a contract), an ``@overload`` signature, a member of a ``Protocol`` class, and an
     ``__init__`` whose body is ``pass`` or ``...`` (a constructor with nothing to initialise is a working
     constructor). A body of only a docstring has no statement to judge and is not a stub.
+
+    TC-844: a method whose whole body is ``...`` inside an interface class (a direct ``ABC`` / ``abc.ABC`` /
+    ``Protocol`` base, or ``metaclass=ABCMeta``) declares a contract and is not a stub either; a ``pass``
+    body there, a ``...`` in an ordinary concrete class and ``raise NotImplementedError`` anywhere but under
+    ``@abstractmethod`` stay stubs.
     """
     decorators = {ast.unparse(decorator) for decorator in item.decorator_list}
     if decorators & _ABSTRACT_DECORATORS or decorators & _OVERLOAD_DECORATORS:
@@ -179,7 +202,7 @@ def stub_reason(item: ast.FunctionDef | ast.AsyncFunctionDef, owner: ast.ClassDe
         and isinstance(statement.value, ast.Constant)
         and statement.value.value is Ellipsis
     ):
-        return "empty body (...)"
+        return "" if _is_interface_class(owner) else "empty body (...)"
     return ""
 
 

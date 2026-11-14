@@ -341,6 +341,85 @@ def _python_base_origins(surface: python_surface.PublicSurface) -> dict[str, dic
     }
 
 
+def _c3_linearization(
+    key: str,
+    parents: dict[str, list[str]],
+    cache: dict[str, list[str]],
+    _visiting: frozenset[str] = frozenset(),
+) -> list[str]:
+    """TC-844: the C3 method resolution order of the class *key*, ``[key, ...]``, over *parents* (a class key
+    to its resolvable base keys, in declaration order). A cyclic or inconsistent hierarchy, which Python itself
+    rejects, falls back to a depth-first order with each class listed once, so the walk always terminates."""
+    if key in cache:
+        return cache[key]
+    if key in _visiting:
+        return [key]
+    visiting = _visiting | {key}
+    bases = [base for base in parents.get(key, []) if base != key]
+    sequences = [_c3_linearization(base, parents, cache, visiting) for base in bases] + [bases]
+    order = [key]
+    while True:
+        sequences = [sequence for sequence in sequences if sequence]
+        if not sequences:
+            cache[key] = order
+            return order
+        for sequence in sequences:
+            head = sequence[0]
+            if not any(head in other[1:] for other in sequences):
+                break
+        else:  # no consistent head: Python raises TypeError here, so any stable order will do
+            head = sequences[0][0]
+        order.append(head)
+        sequences = [[name for name in sequence if name != head] for sequence in sequences]
+
+
+def _clear_mro_shadowed_stubs(classes: list[dict[str, Any]]) -> None:
+    """TC-844: an inherited member carries a stub flag only when the FIRST definition of its name along the
+    class's method resolution order is itself a stub.
+
+    ``api_surface._flatten_inheritance`` copies members depth first, base by base: ``Chart(IChart,
+    GraphicalObject)`` receives everything ``IChart`` flattened (its interface bases' members included) before
+    ``GraphicalObject``'s, so a name that the concrete ``GraphicalObject`` (through ``Shape``) really
+    implements was copied from an interface base further up, flag and all, although Python resolves it to the
+    implementation. Here each flagged inherited member is looked up along the C3 order of its class (the bases
+    are already resolved to ``class_import`` keys): the first class that defines the name wins, and a
+    non-stub definition there clears the copy's flag. A flag is never added.
+    """
+    by_import = {entry["class_import"]: entry for entry in classes}
+    parents = {
+        key: [base for base in entry.get("bases") or [] if base in by_import]
+        for key, entry in by_import.items()
+    }
+    cache: dict[str, list[str]] = {}
+    for key, entry in by_import.items():
+        flagged = [
+            member
+            for field_name in ("methods", "properties")
+            for member in entry.get(field_name) or []
+            if member.get("inherited_from") and member.get("stub")
+        ]
+        if not flagged:
+            continue
+        order = _c3_linearization(key, parents, cache)
+        ancestors = set(order)
+        for member in flagged:
+            for ancestor_key in order[1:]:
+                definitions = [
+                    candidate
+                    for field_name in ("methods", "properties")
+                    for candidate in by_import[ancestor_key].get(field_name) or []
+                    if candidate["name"] == member["name"]
+                    # an ancestor's own member, or one it took from a class outside the walk (a private base)
+                    and (not candidate.get("inherited_from") or candidate["inherited_from"] not in ancestors)
+                ]
+                if not definitions:
+                    continue
+                if not any(candidate.get("stub") for candidate in definitions):
+                    member.pop("stub", None)
+                    member.pop("stub_reason", None)
+                break
+
+
 def _flatten_python_inheritance(types: list[dict[str, Any]], origins: dict[str, dict[str, str]]) -> None:
     """TC-532: copy inherited members into the python class entries, each base resolved the way the
     source resolves it, never by its bare name.
@@ -395,6 +474,7 @@ def _flatten_python_inheritance(types: list[dict[str, Any]], origins: dict[str, 
         entry["name"] = entry["class_import"]
     try:
         api_surface._flatten_inheritance(classes)
+        _clear_mro_shadowed_stubs(classes)  # TC-844: bases are still the resolved class keys here
     finally:
         for entry, name, bases in saved:
             entry["name"] = name
