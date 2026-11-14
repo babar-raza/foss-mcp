@@ -1,0 +1,397 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_cmake_floor.py tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_python_extras.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2fyervqu\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.......                                                                  [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_cmake_floor.py tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_python_extras.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2fyervqu\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.......                                                                  [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_cmake_floor.py tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_python_extras.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2fyervqu\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFF.F.............................FFFF.........F............F. [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.......                                                                  [100%]
+================================== FAILURES ===================================
+___ test_the_sidecar_manifest_really_declares_the_pinned_floor[cells-3.16] ____
+
+family = 'cells', floor = '3.16'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_sidecar_manifest_really_declares_the_pinned_floor(family: str, floor: str) -> None:
+        """The literal this file pins agrees with the committed sidecar's own CMakeLists text."""
+        inputs = load_manifest_sidecar(MANIFESTS / sidecar_name(family, "cpp"))
+        assert inputs is not None and inputs.manifest_text is not None
+        declared = re.findall(r"^\s*cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)", inputs.manifest_text, re.M)
+    
+        assert declared[0] == floor, (family, declared)
+>       assert parse_cmake_facts(inputs.manifest_text).minimum_version == floor
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CmakeFacts' object has no attribute 'minimum_version'
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:73: AttributeError
+___ test_the_sidecar_manifest_really_declares_the_pinned_floor[email-3.26] ____
+
+family = 'email', floor = '3.26'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_sidecar_manifest_really_declares_the_pinned_floor(family: str, floor: str) -> None:
+        """The literal this file pins agrees with the committed sidecar's own CMakeLists text."""
+        inputs = load_manifest_sidecar(MANIFESTS / sidecar_name(family, "cpp"))
+        assert inputs is not None and inputs.manifest_text is not None
+        declared = re.findall(r"^\s*cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)", inputs.manifest_text, re.M)
+    
+        assert declared[0] == floor, (family, declared)
+>       assert parse_cmake_facts(inputs.manifest_text).minimum_version == floor
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CmakeFacts' object has no attribute 'minimum_version'
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:73: AttributeError
+____ test_the_sidecar_manifest_really_declares_the_pinned_floor[pdf-3.20] _____
+
+family = 'pdf', floor = '3.20'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_sidecar_manifest_really_declares_the_pinned_floor(family: str, floor: str) -> None:
+        """The literal this file pins agrees with the committed sidecar's own CMakeLists text."""
+        inputs = load_manifest_sidecar(MANIFESTS / sidecar_name(family, "cpp"))
+        assert inputs is not None and inputs.manifest_text is not None
+        declared = re.findall(r"^\s*cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)", inputs.manifest_text, re.M)
+    
+        assert declared[0] == floor, (family, declared)
+>       assert parse_cmake_facts(inputs.manifest_text).minimum_version == floor
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CmakeFacts' object has no attribute 'minimum_version'
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:73: AttributeError
+___ test_the_sidecar_manifest_really_declares_the_pinned_floor[slides-3.20] ___
+
+family = 'slides', floor = '3.20'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_sidecar_manifest_really_declares_the_pinned_floor(family: str, floor: str) -> None:
+        """The literal this file pins agrees with the committed sidecar's own CMakeLists text."""
+        inputs = load_manifest_sidecar(MANIFESTS / sidecar_name(family, "cpp"))
+        assert inputs is not None and inputs.manifest_text is not None
+        declared = re.findall(r"^\s*cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)", inputs.manifest_text, re.M)
+    
+        assert declared[0] == floor, (family, declared)
+>       assert parse_cmake_facts(inputs.manifest_text).minimum_version == floor
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CmakeFacts' object has no attribute 'minimum_version'
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:73: AttributeError
+____ test_each_cpp_install_answer_states_the_real_cmake_floor[cells-3.16] _____
+
+family = 'cells', floor = '3.16'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_each_cpp_install_answer_states_the_real_cmake_floor(family: str, floor: str) -> None:
+        result = _install(family, "cpp")
+    
+>       assert f"Requires CMake {floor} or newer" in result.text, family
+E       AssertionError: cells
+E       assert 'Requires CMake 3.16 or newer' in 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```'
+E        +  where 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```' = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-cells-fo...ose.Cells-FOSS-for-Cpp.git GIT_TAG 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2) then FetchContent_MakeAvailable(<name>).").text
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:80: AssertionError
+____ test_each_cpp_install_answer_states_the_real_cmake_floor[email-3.26] _____
+
+family = 'email', floor = '3.26'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_each_cpp_install_answer_states_the_real_cmake_floor(family: str, floor: str) -> None:
+        result = _install(family, "cpp")
+    
+>       assert f"Requires CMake {floor} or newer" in result.text, family
+E       AssertionError: email
+E       assert 'Requires CMake 3.26 or newer' in 'Build from source with CMake. Repository: https://github.com/aspose-email-foss/Aspose.Email-FOSS-for-Cpp (clone URL h... and\n[`examples/msg_summary.cpp`](examples/msg_summary.cpp) under\n[Additional Examples](#additional-examples) below.'
+E        +  where 'Build from source with CMake. Repository: https://github.com/aspose-email-foss/Aspose.Email-FOSS-for-Cpp (clone URL h... and\n[`examples/msg_summary.cpp`](examples/msg_summary.cpp) under\n[Additional Examples](#additional-examples) below.' = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-email-fo...enerated source-build recipe above plus the README's own documented method(s); none is dropped, merged, or preferred.").text
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:80: AssertionError
+_____ test_each_cpp_install_answer_states_the_real_cmake_floor[pdf-3.20] ______
+
+family = 'pdf', floor = '3.20'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_each_cpp_install_answer_states_the_real_cmake_floor(family: str, floor: str) -> None:
+        result = _install(family, "cpp")
+    
+>       assert f"Requires CMake {floor} or newer" in result.text, family
+E       AssertionError: pdf
+E       assert 'Requires CMake 3.20 or newer' in 'Build from source with CMake. Repository: https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp (clone URL https...F, count its pages, extract text, and render page 1 to PNG at 150 DPI:\n\n[truncated: showing 2780 of 4447 characters]'
+E        +  where 'Build from source with CMake. Repository: https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp (clone URL https...F, count its pages, extract text, and render page 1 to PNG at 150 DPI:\n\n[truncated: showing 2780 of 4447 characters]' = ReferenceContent(section='install', text="Build from source with CMake. Repository: https://github.com/aspose-pdf-foss...https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp and git checkout 4b83c9fec1e37fd205156770161f6843bac00ceb.").text
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:80: AssertionError
+____ test_each_cpp_install_answer_states_the_real_cmake_floor[slides-3.20] ____
+
+family = 'slides', floor = '3.20'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_each_cpp_install_answer_states_the_real_cmake_floor(family: str, floor: str) -> None:
+        result = _install(family, "cpp")
+    
+>       assert f"Requires CMake {floor} or newer" in result.text, family
+E       AssertionError: slides
+E       assert 'Requires CMake 3.20 or newer' in 'Build from source with CMake. Repository: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp (clone URL... `26.10`,\nwhich is the only promise a monthly release train can keep.\n\n[truncated: showing 2307 of 7045 characters]'
+E        +  where 'Build from source with CMake. Repository: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp (clone URL... `26.10`,\nwhich is the only promise a monthly release train can keep.\n\n[truncated: showing 2307 of 7045 characters]' = ReferenceContent(section='install', text="Build from source with CMake. Repository: https://github.com/aspose-slides-f...se.Slides-FOSS-for-Cpp.git GIT_TAG 469ce77a07b988c49deb930632b8276c89ec6b66) then FetchContent_MakeAvailable(<name>).").text
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:80: AssertionError
+_ test_the_floor_sentence_leads_the_answer_before_the_readme_text[cells-3.16] _
+
+family = 'cells', floor = '3.16'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_floor_sentence_leads_the_answer_before_the_readme_text(family: str, floor: str) -> None:
+        """It belongs to the generated recipe, so it precedes the README section the answer appends."""
+        text = _install(family, "cpp").text
+    
+>       assert text.index(f"Requires CMake {floor} or newer") < text.index(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "The repository README's installation section"
+        )
+E       ValueError: substring not found
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:89: ValueError
+_ test_the_floor_sentence_leads_the_answer_before_the_readme_text[email-3.26] _
+
+family = 'email', floor = '3.26'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_floor_sentence_leads_the_answer_before_the_readme_text(family: str, floor: str) -> None:
+        """It belongs to the generated recipe, so it precedes the README section the answer appends."""
+        text = _install(family, "cpp").text
+    
+>       assert text.index(f"Requires CMake {floor} or newer") < text.index(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "The repository README's installation section"
+        )
+E       ValueError: substring not found
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:89: ValueError
+__ test_the_floor_sentence_leads_the_answer_before_the_readme_text[pdf-3.20] __
+
+family = 'pdf', floor = '3.20'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_floor_sentence_leads_the_answer_before_the_readme_text(family: str, floor: str) -> None:
+        """It belongs to the generated recipe, so it precedes the README section the answer appends."""
+        text = _install(family, "cpp").text
+    
+>       assert text.index(f"Requires CMake {floor} or newer") < text.index(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "The repository README's installation section"
+        )
+E       ValueError: substring not found
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:89: ValueError
+_ test_the_floor_sentence_leads_the_answer_before_the_readme_text[slides-3.20] _
+
+family = 'slides', floor = '3.20'
+
+    @pytest.mark.parametrize(("family", "floor"), sorted(REAL_FLOORS.items()))
+    def test_the_floor_sentence_leads_the_answer_before_the_readme_text(family: str, floor: str) -> None:
+        """It belongs to the generated recipe, so it precedes the README section the answer appends."""
+        text = _install(family, "cpp").text
+    
+>       assert text.index(f"Requires CMake {floor} or newer") < text.index(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "The repository README's installation section"
+        )
+E       ValueError: substring not found
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:89: ValueError
+___________ test_no_other_floor_than_the_declared_one_is_generated ____________
+
+    def test_no_other_floor_than_the_declared_one_is_generated() -> None:
+        """The wrong cells/cpp floor stays gone: a 3.15 appears nowhere, the generated sentence names exactly one
+        version, and it is the real one."""
+        text = _install("cells", "cpp").text
+    
+        assert "3.15" not in text
+>       assert re.findall(r"Requires CMake (\d+(?:\.\d+)*) or newer", text) == ["3.16"]
+E       AssertionError: assert [] == ['3.16']
+E         
+E         Right contains one more item: '3.16'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:100: AssertionError
+____________ test_a_commented_out_or_range_floor_is_read_correctly ____________
+
+    def test_a_commented_out_or_range_floor_is_read_correctly() -> None:
+>       assert parse_cmake_facts("# cmake_minimum_required(VERSION 2.8)\nproject(x)\n").minimum_version == ""
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CmakeFacts' object has no attribute 'minimum_version'
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:116: AttributeError
+________________ test_the_floor_is_stated_exactly_once[cells] _________________
+
+family = 'cells'
+
+    @pytest.mark.parametrize("family", sorted(REAL_FLOORS))
+    def test_the_floor_is_stated_exactly_once(family: str) -> None:
+        """Additive: one generated sentence, not repeated by the README merge or the cap."""
+>       assert _install(family, "cpp").text.count(_GENERATED_MARKER) == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000002664DAE9900>('the CMakeLists.txt at the indexed commit declares cmake_minimum_required')
+E        +    where <built-in method count of str object at 0x000002664DAE9900> = 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```'.count
+E        +      where 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```' = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-cells-fo...ose.Cells-FOSS-for-Cpp.git GIT_TAG 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2) then FetchContent_MakeAvailable(<name>).").text
+E        +        where ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-cells-fo...ose.Cells-FOSS-for-Cpp.git GIT_TAG 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2) then FetchContent_MakeAvailable(<name>).") = _install('cells', 'cpp')
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:157: AssertionError
+________________ test_the_floor_is_stated_exactly_once[email] _________________
+
+family = 'email'
+
+    @pytest.mark.parametrize("family", sorted(REAL_FLOORS))
+    def test_the_floor_is_stated_exactly_once(family: str) -> None:
+        """Additive: one generated sentence, not repeated by the README merge or the cap."""
+>       assert _install(family, "cpp").text.count(_GENERATED_MARKER) == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000002664E3F3B70>('the CMakeLists.txt at the indexed commit declares cmake_minimum_required')
+E        +    where <built-in method count of str object at 0x000002664E3F3B70> = 'Build from source with CMake. Repository: https://github.com/aspose-email-foss/Aspose.Email-FOSS-for-Cpp (clone URL h... and\n[`examples/msg_summary.cpp`](examples/msg_summary.cpp) under\n[Additional Examples](#additional-examples) below.'.count
+E        +      where 'Build from source with CMake. Repository: https://github.com/aspose-email-foss/Aspose.Email-FOSS-for-Cpp (clone URL h... and\n[`examples/msg_summary.cpp`](examples/msg_summary.cpp) under\n[Additional Examples](#additional-examples) below.' = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-email-fo...enerated source-build recipe above plus the README's own documented method(s); none is dropped, merged, or preferred.").text
+E        +        where ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-email-fo...enerated source-build recipe above plus the README's own documented method(s); none is dropped, merged, or preferred.") = _install('email', 'cpp')
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:157: AssertionError
+_________________ test_the_floor_is_stated_exactly_once[pdf] __________________
+
+family = 'pdf'
+
+    @pytest.mark.parametrize("family", sorted(REAL_FLOORS))
+    def test_the_floor_is_stated_exactly_once(family: str) -> None:
+        """Additive: one generated sentence, not repeated by the README merge or the cap."""
+>       assert _install(family, "cpp").text.count(_GENERATED_MARKER) == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000002664C31FC10>('the CMakeLists.txt at the indexed commit declares cmake_minimum_required')
+E        +    where <built-in method count of str object at 0x000002664C31FC10> = 'Build from source with CMake. Repository: https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp (clone URL https...F, count its pages, extract text, and render page 1 to PNG at 150 DPI:\n\n[truncated: showing 2780 of 4447 characters]'.count
+E        +      where 'Build from source with CMake. Repository: https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp (clone URL https...F, count its pages, extract text, and render page 1 to PNG at 150 DPI:\n\n[truncated: showing 2780 of 4447 characters]' = ReferenceContent(section='install', text="Build from source with CMake. Repository: https://github.com/aspose-pdf-foss...https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp and git checkout 4b83c9fec1e37fd205156770161f6843bac00ceb.").text
+E        +        where ReferenceContent(section='install', text="Build from source with CMake. Repository: https://github.com/aspose-pdf-foss...https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp and git checkout 4b83c9fec1e37fd205156770161f6843bac00ceb.") = _install('pdf', 'cpp')
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:157: AssertionError
+________________ test_the_floor_is_stated_exactly_once[slides] ________________
+
+family = 'slides'
+
+    @pytest.mark.parametrize("family", sorted(REAL_FLOORS))
+    def test_the_floor_is_stated_exactly_once(family: str) -> None:
+        """Additive: one generated sentence, not repeated by the README merge or the cap."""
+>       assert _install(family, "cpp").text.count(_GENERATED_MARKER) == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000002664DD4AAB0>('the CMakeLists.txt at the indexed commit declares cmake_minimum_required')
+E        +    where <built-in method count of str object at 0x000002664DD4AAB0> = 'Build from source with CMake. Repository: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp (clone URL... `26.10`,\nwhich is the only promise a monthly release train can keep.\n\n[truncated: showing 2307 of 7045 characters]'.count
+E        +      where 'Build from source with CMake. Repository: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp (clone URL... `26.10`,\nwhich is the only promise a monthly release train can keep.\n\n[truncated: showing 2307 of 7045 characters]' = ReferenceContent(section='install', text="Build from source with CMake. Repository: https://github.com/aspose-slides-f...se.Slides-FOSS-for-Cpp.git GIT_TAG 469ce77a07b988c49deb930632b8276c89ec6b66) then FetchContent_MakeAvailable(<name>).").text
+E        +        where ReferenceContent(section='install', text="Build from source with CMake. Repository: https://github.com/aspose-slides-f...se.Slides-FOSS-for-Cpp.git GIT_TAG 469ce77a07b988c49deb930632b8276c89ec6b66) then FetchContent_MakeAvailable(<name>).") = _install('slides', 'cpp')
+
+tests\mcp\tools\test_product_reference_cpp_cmake_floor.py:157: AssertionError
+________ test_the_wrong_cmake_floor_is_gone_and_the_real_one_is_served ________
+
+    def test_the_wrong_cmake_floor_is_gone_and_the_real_one_is_served() -> None:
+        result = _real_cells_cpp_install()
+    
+        # G3/TC-836: "3.16" is the pinned CMakeLists.txt's cmake_minimum_required, stated by the generated
+        # source-build recipe ("Requires CMake 3.16 or newer ..."); it no longer rides in on an FAQ chunk.
+        assert "3.15" not in result.text
+>       assert "3.16" in result.text
+E       assert '3.16' in 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```'
+E        +  where 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```' = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-cells-fo...ose.Cells-FOSS-for-Cpp.git GIT_TAG 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2) then FetchContent_MakeAvailable(<name>).").text
+
+tests\mcp\tools\test_product_reference_cpp_install.py:78: AssertionError
+___________ test_cells_cpp_install_is_the_faq_fallback_specifically ___________
+
+    def test_cells_cpp_install_is_the_faq_fallback_specifically() -> None:
+        """cells/cpp is the pilot RD3-080 names: its only install content is the FAQ answer this card
+        unblocks. Before this fix it answered NotAvailable; now it answers with the real recipe.
+    
+        G3/TC-659: the FAQ answer this assertion pins was itself a confirmed fabrication
+        (CELLS-CPP-010) - "Clone the repository and use CMake add_subdirectory or FetchContent.
+        Requires a C++17 compiler and CMake 3.15+." never appeared in the real README. The mechanism
+        this test proves (an FAQ-titled chunk is real install content, G3/TC-574) is unchanged and
+        still correct; only the expected TEXT is updated here to the real, now-corrected answer -
+        NuGet-first guidance and the real CMake 3.16 floor, the same real served text
+        ``tests/mcp/tools/test_product_reference_cpp_install.py`` already proves against this exact
+        data.
+    
+        G3/TC-836: since G3/TC-786 every sidecar carries ``readme_document``, so today's served cells/cpp
+        answer is the generated source-build recipe plus the README's own Installation section, no longer
+        the FAQ chunk this test was named for. The real floor "CMake 3.16" this assertion pins now comes
+        from the generated recipe (the pinned CMakeLists.txt's ``cmake_minimum_required(VERSION 3.16)``),
+        not from the FAQ text; the assertion itself is unchanged."""
+        result = _real_install_answer("cells_cpp")
+    
+        assert isinstance(result, ReferenceContent), getattr(result, "reason", None)
+        assert "Clone the repository and use CMake add_subdirectory or FetchContent" not in result.text
+        assert "Aspose.Cells.Cpp.FOSS" in result.text
+>       assert "CMake 3.16" in result.text
+E       assert 'CMake 3.16' in 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```'
+E        +  where 'Build from source with CMake. Repository: https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp (clone URL h...\n```cmake\nadd_subdirectory(Aspose.Cells.Foss.Cpp)\ntarget_link_libraries(your_target PRIVATE aspose_cells_foss)\n```' = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-cells-fo...ose.Cells-FOSS-for-Cpp.git GIT_TAG 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2) then FetchContent_MakeAvailable(<name>).").text
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:154: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_sidecar_manifest_really_declares_the_pinned_floor[cells-3.16]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_sidecar_manifest_really_declares_the_pinned_floor[email-3.26]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_sidecar_manifest_really_declares_the_pinned_floor[pdf-3.20]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_sidecar_manifest_really_declares_the_pinned_floor[slides-3.20]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_each_cpp_install_answer_states_the_real_cmake_floor[cells-3.16]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_each_cpp_install_answer_states_the_real_cmake_floor[email-3.26]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_each_cpp_install_answer_states_the_real_cmake_floor[pdf-3.20]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_each_cpp_install_answer_states_the_real_cmake_floor[slides-3.20]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_sentence_leads_the_answer_before_the_readme_text[cells-3.16]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_sentence_leads_the_answer_before_the_readme_text[email-3.26]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_sentence_leads_the_answer_before_the_readme_text[pdf-3.20]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_sentence_leads_the_answer_before_the_readme_text[slides-3.20]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_no_other_floor_than_the_declared_one_is_generated
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_a_commented_out_or_range_floor_is_read_correctly
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_is_stated_exactly_once[cells]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_is_stated_exactly_once[email]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_is_stated_exactly_once[pdf]
+FAILED tests/mcp/tools/test_product_reference_cpp_cmake_floor.py::test_the_floor_is_stated_exactly_once[slides]
+FAILED tests/mcp/tools/test_product_reference_cpp_install.py::test_the_wrong_cmake_floor_is_gone_and_the_real_one_is_served
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_cells_cpp_install_is_the_faq_fallback_specifically
+
+--- stderr ---
+
