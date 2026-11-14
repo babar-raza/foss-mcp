@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "card": "TC-795",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:13:26Z",
+  "base_rev": "f6714a8ef683a692fb6c0440e107d0a2ec5c5500",
+  "head_rev": "b0300683656a37988c2e625fa7cb49ba94b09811",
+  "card_sha256": "287d2a14184d9ce17f579fb229d6b7bd4acb6c78b916882615ea9a647bf4bb40",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/mcp/tools/test_known_defects_alias_aware.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_alias_aware.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_find_examples.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 29.077,
+          "stdout_sha256": "269ad2373619bce234863eff99bcf8f5a08d831d96634d7548b5567fb50dd29a",
+          "tests": 184,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_alias_aware.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_find_examples.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 28.437,
+          "stdout_sha256": "269ad2373619bce234863eff99bcf8f5a08d831d96634d7548b5567fb50dd29a",
+          "tests": 184,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/mcp/tools/get_symbol.py', 'src/foss_mcp/mcp/tools/list_members.py', 'src/foss_mcp/mcp/tools/find_examples.py', 'src/foss_mcp/mcp/tools/search_symbols.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "3ace4154aa9f5996ab4db2375ce9b9d7c0a3952483b226906f0dd7e0e6be344c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/find_examples.py",
+      "M src/foss_mcp/mcp/tools/get_symbol.py",
+      "M src/foss_mcp/mcp/tools/search_symbols.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
