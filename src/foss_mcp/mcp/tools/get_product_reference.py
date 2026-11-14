@@ -1547,6 +1547,10 @@ _CMAKE_COMMENT_RE = re.compile(r"#[^\n]*")
 _CMAKE_ADD_LIBRARY_RE = re.compile(r"\badd_library\s*\(\s*([^\s()]+)([^()]*)\)", re.IGNORECASE)
 _CMAKE_PROJECT_RE = re.compile(r"\bproject\s*\(\s*([^\s()]+)([^()]*)\)", re.IGNORECASE)
 _CMAKE_VERSION_RE = re.compile(r"\bVERSION\s+(\d[\w.]*)")
+# G3/TC-836: ``cmake_minimum_required(VERSION 3.16)`` or the range form ``VERSION 3.16...3.27`` (minimum 3.16).
+_CMAKE_MINIMUM_REQUIRED_RE = re.compile(
+    r"\bcmake_minimum_required\s*\(\s*VERSION\s+(\d+(?:\.\d+)*)", re.IGNORECASE
+)
 _CMAKE_LINK_CALL_RE = re.compile(r"(target_link_libraries\s*\()([^()]*)(\))", re.IGNORECASE)
 _CMAKE_LINK_KEYWORDS = frozenset({"PRIVATE", "PUBLIC", "INTERFACE"})
 _CMAKE_FIND_PACKAGE_RE = re.compile(
@@ -1571,6 +1575,8 @@ class CmakeFacts:
     libraries: tuple[str, ...]
     aliases: tuple[tuple[str, str], ...]
     source_dir_references: bool
+    # G3/TC-836: the CMake version the first ``cmake_minimum_required(VERSION ...)`` states; "" when none does.
+    minimum_version: str = ""
 
     @property
     def known_targets(self) -> frozenset[str]:
@@ -1608,12 +1614,14 @@ def parse_cmake_facts(text: str) -> CmakeFacts:
             libraries.append(name)
     project = _CMAKE_PROJECT_RE.search(body)
     version = _CMAKE_VERSION_RE.search(project.group(2)) if project is not None else None
+    minimum = _CMAKE_MINIMUM_REQUIRED_RE.search(body)
     return CmakeFacts(
         project=project.group(1) if project is not None else "",
         version=version.group(1) if version is not None else "",
         libraries=tuple(libraries),
         aliases=tuple(aliases),
         source_dir_references="${CMAKE_SOURCE_DIR}" in body,
+        minimum_version=minimum.group(1) if minimum is not None else "",
     )
 
 
@@ -1827,6 +1835,14 @@ def _cpp_build_guidance(
         lines.append(
             f"The CMake project is in the subdirectory {subdir} of the repository; there is no "
             "CMakeLists.txt at the repository root."
+        )
+    # G3/TC-836: the real CMake floor the pinned CMakeLists.txt declares. It used to reach the answer only by
+    # accident, inside an index FAQ chunk (cells/cpp "CMake 3.16+"); once the sidecars carried the README
+    # (TC-786) the README's own Installation section took over and the floor was gone for cells, pdf and email.
+    if facts.minimum_version:
+        lines.append(
+            f"Requires CMake {facts.minimum_version} or newer (the CMakeLists.txt at the indexed commit "
+            f"declares cmake_minimum_required(VERSION {facts.minimum_version}))."
         )
     if facts.embedding_broken:
         found = _CMAKE_FIND_PACKAGE_RE.search(install_text)

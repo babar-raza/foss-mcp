@@ -139,13 +139,20 @@ def test_cells_cpp_install_is_the_faq_fallback_specifically() -> None:
     still correct; only the expected TEXT is updated here to the real, now-corrected answer -
     NuGet-first guidance and the real CMake 3.16 floor, the same real served text
     ``tests/mcp/tools/test_product_reference_cpp_install.py`` already proves against this exact
-    data."""
+    data.
+
+    G3/TC-836: since G3/TC-786 every sidecar carries ``readme_document``, so today's served cells/cpp
+    answer is the generated source-build recipe plus the README's own Installation section, no longer
+    the FAQ chunk this test was named for. The real floor "CMake 3.16" this assertion pins now comes
+    from the generated recipe (the pinned CMakeLists.txt's ``cmake_minimum_required(VERSION 3.16)``),
+    not from the FAQ text; the assertion itself is unchanged."""
     result = _real_install_answer("cells_cpp")
 
     assert isinstance(result, ReferenceContent), getattr(result, "reason", None)
     assert "Clone the repository and use CMake add_subdirectory or FetchContent" not in result.text
     assert "Aspose.Cells.Cpp.FOSS" in result.text
     assert "CMake 3.16" in result.text
+    assert "cmake_minimum_required(VERSION 3.16)" in result.text
     assert "3.15" not in result.text
     assert "9f852d0ff1cfdad2d661556d6b87a8eff8c063a2" in result.text
     assert "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp" in result.text

@@ -72,8 +72,11 @@ def test_the_fabricated_sentence_is_gone_from_the_real_served_answer() -> None:
 def test_the_wrong_cmake_floor_is_gone_and_the_real_one_is_served() -> None:
     result = _real_cells_cpp_install()
 
+    # G3/TC-836: "3.16" is the pinned CMakeLists.txt's cmake_minimum_required, stated by the generated
+    # source-build recipe ("Requires CMake 3.16 or newer ..."); it no longer rides in on an FAQ chunk.
     assert "3.15" not in result.text
     assert "3.16" in result.text
+    assert "Requires CMake 3.16 or newer" in result.text
 
 
 def test_the_real_nuget_guidance_is_now_served() -> None:
