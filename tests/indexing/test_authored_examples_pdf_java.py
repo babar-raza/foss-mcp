@@ -251,8 +251,13 @@ def test_exactly_one_example_covers_a_radio_button_group_in_a_form() -> None:
     words = example["title"].lower().split()
     # The title names the subject in specific words (a generic-word title collides with unrelated
     # queries through title_anchored) and stays within the 12-word limit.
-    assert {"radio", "button", "form", "field"} <= set(words)
+    assert {"radio", "acroform", "group"} <= set(words)
     assert len(words) <= 12
+    # TC-839: the bare title word "button" anchors the generic query "add a button to a pdf" (the forgiveness
+    # concise table asks for the Widget Annotation README example there and allows zero wrong answers):
+    # once this sidecar is baked, that query answered with this example (23 hit / 2 miss / 1 WRONG). The
+    # word "radio" alone names the subject, and the query "radio button" still answers through it.
+    assert not {"button", "buttons"} & set(words)
     candidate_titles = {candidate.title for candidate in _candidates()}
     assert example["title"] in candidate_titles
 

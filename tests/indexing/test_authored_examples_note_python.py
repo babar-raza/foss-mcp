@@ -267,3 +267,19 @@ def test_every_example_loads_a_one_test_fixture_that_really_exists_in_the_pinned
         named = set(fixture_re.findall(code))
         assert named, f"example {index} names no .one fixture"
         assert named <= real_testfiles, f"example {index} names an unknown fixture: {named - real_testfiles}"
+
+
+def test_the_two_examples_that_anchored_the_query_read_page_titles_do_not_start_with_the_verb_read() -> None:
+    # TC-839: once this sidecar is baked, the title word "read" anchored the find_examples query "read page
+    # titles" (a request for page titles) on "Read a Document's Revision History" and "Read OneNote Tags on
+    # an Attached File": two answers that are about neither, a new wrong-confident case that used up the whole
+    # 43/729 ceiling of test_round3_retrieval_corpus.py. They are titled by their subject instead.
+    titles = {example["title"] for example in _document()["examples"]}
+    retitled = (
+        "Document Revision History Loaded With LoadHistory",
+        "OneNote Tags on an Attached File and Their Status",
+    )
+    for title in retitled:
+        assert title in titles
+        assert "read" not in re.findall(r"[A-Za-z]+", title.lower()), title
+        assert len(title.split()) <= 12, title

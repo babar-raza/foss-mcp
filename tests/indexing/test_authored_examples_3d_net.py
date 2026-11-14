@@ -222,7 +222,30 @@ def test_no_example_title_uses_the_word_node() -> None:
     ``title_anchored`` (``src/foss_mcp/mcp/tools/relevance.py``); 3d/net's own sibling
     3d/typescript was hit hardest by the word "node" (TC-763). None of this card's new titles use
     that word, deliberately, even though 3d/net's own README-derived candidate "Enumerate a
-    Scene's Node Hierarchy" already does (not this card's to change)."""
+    Scene's Node Hierarchy" already does (not this card's to change).
+
+    TC-839: exactly ONE title is exempt, ``NODE_TITLE_EXEMPTION``. Once this sidecar is baked, "node"
+    is in the code of 5 of the scope's 10 examples, so the round-2 pair 3d/net "node" (frozen as
+    must-hit, answered by the README COLLADA example while "node" was unique in code) is no longer
+    answered by the rare-code-word path (strictly fewer than half) and became an honest miss. 3d/net
+    is not the 3d/typescript collision: its one-word "node" query is exactly what the descendant-
+    counting example is about (20 mentions in its code). Every other title still may not use the word."""
     for number in EXAMPLE_NUMBERS:
-        title_words = re.findall(r"[A-Za-z]+", _example(number)["title"].lower())
-        assert "node" not in title_words, _example(number)["title"]
+        title = _example(number)["title"]
+        if title == NODE_TITLE_EXEMPTION:
+            continue
+        title_words = re.findall(r"[A-Za-z]+", title.lower())
+        assert "node" not in title_words, title
+
+
+NODE_TITLE_EXEMPTION = "Recursively Count Every Descendant Node Across a Multi-Level Child Hierarchy"
+
+
+def test_the_one_title_that_uses_the_word_node_is_the_descendant_counting_example() -> None:
+    with_node = [
+        _example(number)["title"]
+        for number in EXAMPLE_NUMBERS
+        if "node" in re.findall(r"[A-Za-z]+", _example(number)["title"].lower())
+    ]
+    assert with_node == [NODE_TITLE_EXEMPTION]
+    assert len(NODE_TITLE_EXEMPTION.split()) <= 12

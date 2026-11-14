@@ -1070,7 +1070,10 @@ _CHUNK_METADATA_LINE_PREFIXES = (
     "Kind:",
     "Provenance:",
     "Harness:",
+    "Verification-Level:",
+    "Verified-With:",
     "Runtime-Status:",
+    "Runtime-Produced-Bytes:",
     "Runtime-Error:",
     "Source-Commit:",
 )
@@ -1098,8 +1101,8 @@ def example_lead_in(text: str) -> str:
 
     The paragraph is the run of non-blank lines nearest above the LAST line that is exactly ``Example:``
     (the marker ``find_examples._extract_example`` splits at), without the chunk's own ``FQN:`` / ``Kind:``
-    / ``Provenance:`` / ``Harness:`` / ``Runtime-Status:`` / ``Runtime-Error:`` / ``Source-Commit:`` metadata
-    lines. It is cut after its first
+    / ``Provenance:`` / ``Harness:`` / ``Verification-Level:`` / ``Verified-With:`` / ``Runtime-Status:`` /
+    ``Runtime-Produced-Bytes:`` / ``Runtime-Error:`` / ``Source-Commit:`` metadata lines. It is cut after its first
     sentence and a trailing ``:`` is dropped. Only prose BEFORE the marker is read, never the code.
     """
     lines = text.splitlines()
@@ -1123,6 +1126,27 @@ def example_lead_in(text: str) -> str:
     if end is not None:
         sentence = sentence[: end.end()]
     return sentence.rstrip(":").strip()
+
+
+_AUTHORED_HEADER_LINE_PREFIXES = ("Verification:", "Authored example:")
+
+
+def example_prose(text: str) -> str:
+    """TC-839: the description of the example chunk *text*: its lines above the LAST line that is exactly
+    ``Example:`` (the marker ``find_examples._extract_example`` splits at), without the chunk's own header -
+    the ``FQN:`` / ``Kind:`` / ``Provenance:`` / ``Verification-Level:`` ... metadata lines of
+    ``_CHUNK_METADATA_LINE_PREFIXES`` and the ``Verification:`` / ``Authored example:`` lines an authored
+    chunk adds (a ``Harness:`` line lists staged file names, a version line a toolchain: neither says what the
+    example is about). "" when the chunk has no marker. The text AFTER the marker (the code) is never read."""
+    lines = text.splitlines()
+    marker = next(
+        (index for index in range(len(lines) - 1, -1, -1) if lines[index].rstrip() == _EXAMPLE_MARKER_LINE),
+        None,
+    )
+    if marker is None:
+        return ""
+    skipped = _CHUNK_METADATA_LINE_PREFIXES + _AUTHORED_HEADER_LINE_PREFIXES
+    return "\n".join(line for line in lines[:marker] if line.strip() and not line.startswith(skipped))
 
 
 def lead_in_anchored(

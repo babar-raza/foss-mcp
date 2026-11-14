@@ -54,6 +54,7 @@ from foss_mcp.mcp.tools.find_examples import (
     find_examples,
 )
 from foss_mcp.mcp.tools.relevance import (
+    example_prose,
     required_terms,
     title_anchored,
     title_prefix_anchored,
@@ -359,3 +360,89 @@ def test_the_real_cells_java_scope_sits_in_the_widened_band(tmp_path: Path) -> N
     documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
     count = sum(1 for d in documents.values() if (d.get("text") or "").startswith("FQN: Example: "))
     assert 6 < count <= find_examples_module._RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
+
+
+# --- TC-839: above the cap, a rare code word answers when a README example's DESCRIPTION names it too ---------
+
+
+def _described(title: str, description: str, code: str, *, authored: bool = False, header: str = "") -> str:
+    """An example chunk in the real format: optional authored lines, optional extra header lines (a ``Harness:``
+    line), then the description paragraph, then the ``Example:`` marker and the code."""
+    authored_lines = "Provenance: authored\nVerification: passed\nAuthored example: written for foss-mcp.\n"
+    return (
+        f"FQN: Example: {title}\nKind: verified_example\n{authored_lines if authored else ''}{header}"
+        f"\n{description}\n\nExample:\n{code}\nSource-Commit: {COMMIT}"
+    )
+
+
+def _cap_scope(tmp_path: Path, target: str, *, extra: list[str] | None = None) -> GenerationManifestStore:
+    """A scope of 14 examples (two past the cap of 12): *target*, optional *extra* examples, and unrelated padding."""
+    texts = [target, *(extra or [])]
+    padding = _padding_examples(14 - len(texts))
+    return _publish(tmp_path / "scope", [SYMBOL_CHUNK, *texts, *padding])
+
+
+CAP_CODE = "bracket = Bracket()\nbracket.flange()\nbracket.run()"
+CAP_DESCRIPTION = "Mounts a bracket and trims its flange edge."
+
+
+def test_above_the_cap_a_readme_example_whose_description_names_the_word_answers(tmp_path: Path) -> None:
+    store = _cap_scope(tmp_path, _described("Mount a Bracket", CAP_DESCRIPTION, CAP_CODE))
+    result = find_examples(store, SCOPE, "flange")
+    assert _titles(result) == ["Mount a Bracket"]
+    assert _bases(result) == {MATCH_BASIS_RARE_CODE_WORD}
+
+
+def test_above_the_cap_the_description_mention_replaces_the_recurs_twice_bar(tmp_path: Path) -> None:
+    # "flange" is in the code of TWO examples, once each: below the cap that is a miss (see
+    # ``test_a_term_in_two_examples_must_still_recur_twice_in_the_one_that_answers``). Above it, the example
+    # whose description names the word answers; the one that only mentions it in code does not.
+    described = _described("Mount a Bracket", CAP_DESCRIPTION, CAP_CODE)
+    code_only = _example("Mount a Rail", "rail = Rail()\nrail.flange()\nrail.run()")
+    store = _cap_scope(tmp_path, described, extra=[code_only])
+    assert _titles(find_examples(store, SCOPE, "flange")) == ["Mount a Bracket"]
+
+
+def test_above_the_cap_a_word_only_in_the_code_is_still_an_honest_miss(tmp_path: Path) -> None:
+    store = _cap_scope(tmp_path / "c", _example("Mount a Bracket", CAP_CODE))
+    assert isinstance(find_examples(store, SCOPE, "flange"), NoExampleFound)
+    # ...and so is a word only in the description: the code must hold it too.
+    prose_only = _described("Mount a Bracket", CAP_DESCRIPTION, "bracket.run()")
+    assert isinstance(find_examples(_cap_scope(tmp_path / "p", prose_only), SCOPE, "flange"), NoExampleFound)
+
+
+def test_above_the_cap_an_authored_example_description_is_not_evidence(tmp_path: Path) -> None:
+    # An authored description is a workflow summary written for this index ("Removes the default slide, adds
+    # three slides, removes the middle one ..."); it names half the API and measured as +1 wrong-confident
+    # answer on slides/java ("remove a slide"). Only a README example's description counts.
+    authored = _described("Mount a Bracket", CAP_DESCRIPTION, CAP_CODE, authored=True)
+    assert isinstance(find_examples(_cap_scope(tmp_path, authored), SCOPE, "flange"), NoExampleFound)
+
+
+def test_above_the_cap_a_header_line_is_not_a_description(tmp_path: Path) -> None:
+    # The ``Harness:`` line lists the files the verifier staged by name (``image_in_footer.docx``); a name in
+    # it is not the example's own description of what it does.
+    header = "Harness: input files named in the code are placed in the working directory: flange.docx\n"
+    harness_only = _described("Mount a Bracket", "Mounts a bracket.", CAP_CODE, header=header)
+    assert isinstance(find_examples(_cap_scope(tmp_path, harness_only), SCOPE, "flange"), NoExampleFound)
+
+
+def test_at_or_below_the_cap_the_description_is_not_consulted(tmp_path: Path) -> None:
+    # Unchanged band: 12 examples, one mention of a unique term, no description - answers as before.
+    unique_once = _example("Mount a Bracket", CAP_CODE)
+    store = _publish(tmp_path / "inside", [SYMBOL_CHUNK, unique_once, *_padding_examples(11)])
+    assert _titles(find_examples(store, SCOPE, "flange")) == ["Mount a Bracket"]
+
+
+def test_example_prose_is_the_description_without_the_chunk_header_or_the_code() -> None:
+    text = _described(
+        "Mount a Bracket",
+        "Mounts a bracket.\nTrims its flange edge.",
+        "bracket.flange()",
+        authored=True,
+        header="Verification-Level: ran-exit0\nVerified-With: Python 3.13\nRuntime-Status: ran\n"
+        "Runtime-Produced-Bytes: 22\nHarness: staged flange.docx\n",
+    )
+    assert example_prose(text) == "Mounts a bracket.\nTrims its flange edge."
+    assert example_prose("FQN: Example: X\nKind: verified_example\nNo marker here.") == ""
+    assert example_prose(_described("Mount", "", "x = 1")) == ""

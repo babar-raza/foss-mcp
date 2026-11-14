@@ -236,3 +236,21 @@ def test_no_example_touches_rasterization(index: int) -> None:
     code = _example(index)["code"]
     assert "to_image" not in code
     assert "skia" not in code.lower()
+
+
+def test_postscript_is_not_a_title_word_of_the_xmp_example_and_document_anchors_the_page_example() -> None:
+    # TC-839: once this sidecar is baked, the title word "postscript" anchored the find_examples query "get the
+    # title out of a postscript file" on the XMP round-trip and the page insert/remove examples: two answers
+    # that hold no DscMetadata.title, a new wrong-confident case that used up the whole 43/729 ceiling of
+    # test_round3_retrieval_corpus.py. Neither title now uses the word; the page example keeps the word
+    # "document" so that "add a page to a postscript document" (PsDocument.add_page) still answers through it.
+    titles = [example["title"] for example in _document()["examples"]]
+    by_subject = {
+        "xmp": [title for title in titles if "XMP" in title],
+        "pages": [title for title in titles if "Tracking Page Size" in title],
+    }
+    assert [len(found) for found in by_subject.values()] == [1, 1], by_subject
+    for found in by_subject.values():
+        assert "postscript" not in re.findall(r"[A-Za-z]+", found[0].lower()), found
+        assert len(found[0].split()) <= 12, found
+    assert "document" in re.findall(r"[A-Za-z]+", by_subject["pages"][0].lower())

@@ -163,6 +163,7 @@ from foss_mcp.mcp.tools.relevance import (
     TITLE_ANCHOR_MAX_TERMS,
     code_anchored,
     distinctive_terms,
+    example_prose,
     family_generic_stems,
     fold_query,
     fqn_last_segment,
@@ -171,6 +172,7 @@ from foss_mcp.mcp.tools.relevance import (
     known_symbol_names,
     lead_in_anchored,
     normalize_query,
+    present_terms,
     query_terms,
     required_terms,
     stem_token,
@@ -425,6 +427,28 @@ _RARE_CODE_WORD_EXCLUDED_TERMS = frozenset(
 # slides/net (13 examples) and slides/java (16) stay excluded only because the cap sits just below
 # them, so raising it past 12 must be re-measured against ``WRONG_MAX_EXAMPLES`` before it is trusted.
 _RARE_CODE_WORD_MAX_SCOPE_EXAMPLES = 12
+
+# TC-839: the cap above is a cliff for the BODY-WORD evidence alone, not for a word an example says it is about.
+# A scope above the cap (pdf/python 19, slides/java 16, words/python 16 once its authored examples are baked,
+# slides/net 13) still answers a rare code word when a README-derived example's OWN DESCRIPTION
+# (``relevance.example_prose``: the prose above the ``Example:`` marker, without the chunk's metadata header)
+# names it too - the words/python README says "images in headers/footers all convert", and its code names
+# ``image_in_header.docx`` once. That description mention replaces the "recurs twice" bar of the cap's own band
+# (one mention in the code is then enough), because the upstream author, not a coincidence of a large corpus,
+# tied the example to the word. An AUTHORED example's description is not evidence: it is a workflow summary
+# written for this index that names half the API it calls ("Removes the default slide, adds three slides,
+# removes the middle one with removeAt ...").
+#
+# Measured on the simulated post-regeneration state (tests/mcp/tools/post_regen_simulation.py), 729 round-3
+# find_examples cases (wrong-confident ceiling 43) and 316 round-2 pairs (must-hit 132):
+#   cap kept (no change)                         wrong-confident 43, words/python "header" and "footer" LOST
+#   cap lifted for a term in 1 example           wrong-confident 45 (slides/java "remove a slide", slides/net
+#                                                "use a slide layout": the word sits once in the code of an
+#                                                unrelated example)
+#   cap lifted for a term in 1-2 examples        wrong-confident 46
+#   description of ANY example must name it      wrong-confident 44 (slides/java "remove a slide" again, answered
+#                                                by an authored example)
+#   description of a README example must name it wrong-confident 43, "header" and "footer" answer (this rule)
 
 
 def is_verified_example_text(text: str) -> bool:
@@ -979,9 +1003,11 @@ def find_examples(
             and code_example_frequency.get(t, 0) * 2 < len(example_doc_ids)
         )
         if len(distinctive_terms(query, scope.family, platform=scope.platform)) <= 1
-        and len(example_doc_ids) <= _RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
         else frozenset()
     )
+    # TC-839: above the cap the rare code word is judged per document (it must also be in the example's own
+    # description, see the TC-839 note under ``_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES``); at or below it, as TC-672/TC-810 always did.
+    scope_above_rare_cap = len(example_doc_ids) > _RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
     code_anchor_required = required | symbol_required | rare_code_required
     # TC-797: a query word this scope's own examples all use (cells' "workbook") names the product, not a
     # subject, so a lead-in sentence that merely repeats it (relevance.lead_in_anchored) must not anchor.
@@ -1033,6 +1059,16 @@ def find_examples(
                 # is a real, measured additional bar this card's own worker report states in full,
                 # with the real wrong_conf numbers before and after.
                 rare_hits = rare_code_required & code_tokens
+                if scope_above_rare_cap:
+                    # TC-839: a scope past the cap admits the word only for an example whose description names it
+                    # too; that mention stands in for the recurrence / uniqueness bar below.
+                    if _provenance(text) == "readme" and present_terms(
+                        rare_hits, tokenize(example_prose(text))
+                    ):
+                        code_basis = "rare"
+                    rare_hits = (
+                        frozenset()
+                    )  # judged above: the bar below is the at-or-under-the-cap band's own
                 # TC-810: "recurs twice" is waived for a term UNIQUE in the scope (present in the code of
                 # exactly one example): nothing else in this scope's examples could be the answer to a
                 # query for it, so one mention is enough (measured: 124 -> 132 hits, wrong-confident
