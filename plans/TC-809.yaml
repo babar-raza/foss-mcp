@@ -1,0 +1,98 @@
+id: TC-809
+gate: G3
+lane: verification
+purpose: >-
+  Fixes three live failures of tests/conformance/test_reference_content.py on main (found by the
+  2026-11-14 content-backlog investigation; DECISION_LOG had recorded it as '14/14'): (1) a test
+  asserting every committed product-reference sidecar LACKS `readme_document` is stale -
+  TC-786/787/788 regenerated all 32 sidecars and every one now carries it; (2) the strict baseline
+  tests/fixtures/conformance/baseline_reference_content.json holds 9 entries that no longer fail
+  (cells/cpp formats and limitations, imaging/net formats and limitations, pdf/go agent_guidance,
+  pdf/typescript formats and limitations, slides/net limitations, words/net limitations) - prune
+  only entries stale under BOTH default and exhaustive measurement; (3) cells/cpp install now has
+  3 recipe blocks WITH the TC-698 disclosure present, so a test asserting 'exactly 1 recipe block'
+  is stale - it must assert the disclosure is present whenever the count exceeds 1. Plus the
+  dormant-crash-masking conversion the same investigation confirmed: the bare `assert
+  sidecar_path.is_file()` / `assert inputs is not None` inside `_collect_answers` (near lines
+  207/209) run inside the module-scoped `measured` fixture ahead of `assert_no_new_failures`, so
+  one missing sidecar would ERROR every dependent test instead of being measured (the exact shape
+  TC-773/774/775 fixed in sibling conformance files). Convert both to soft records appended to a
+  `setup_failures` list (entries `sidecar-missing:<pilot>` / `sidecar-unloadable:<pilot>`),
+  `continue`, and merge that list into `failures` in `_measure`. No weakening: every check stays,
+  the failures just reach the baseline comparison.
+depends_on:
+  - TC-695
+  - TC-698
+  - TC-775
+  - TC-776
+  - TC-786
+  - TC-787
+  - TC-788
+write_paths:
+  - tests/conformance/test_reference_content.py
+  - tests/fixtures/conformance/baseline_reference_content.json
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: tests/conformance/test_reference_content.py in full, tests/conformance/baseline.py
+    (`Baseline`, `assert_no_new_failures`, strict semantics),
+    tests/fixtures/conformance/baseline_reference_content.json, and the way TC-775 converted
+    tests/conformance/test_index_honesty.py (docs/DECISION_LOG.md entry 'a third live CI break found
+    the same day (TC-775)').
+  - >-
+    REPRODUCE FIRST: run `{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p
+    no:cacheprovider` on main and record the 3 failures. Then re-measure the strict baseline's stale
+    entries under BOTH default and exhaustive modes (FOSS_MCP_CONFORMANCE_EXHAUSTIVE per the module)
+    and prune ONLY entries stale under both - every pruned entry must be individually live-verified
+    (call get_product_reference for that pilot/section on the real sidecars and show the failure no
+    longer occurs). Any entry you cannot verify stays.
+  - >-
+    Reproduce the crash-masking shape (make the sidecar load return None for one pilot via
+    monkeypatch in a scratch run) before converting it, as TC-775's worker did.
+  - >-
+    Do NOT touch any production code, any sidecar, or any other test file. Do NOT flip strict flags.
+    The cells/cpp install-recipe test must still fail if the disclosure notice is missing while the
+    count exceeds 1.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    change). Before committing run `ruff format` and `ruff check` on changed Python files, then run
+    the card's check command twice and report the real results. Keep every pre-existing test
+    unchanged unless a test pinned the now-corrected behavior as 'correct' - then change only that
+    assertion and say so.
+actions:
+  - >-
+    Bring the reference-content conformance test back to green against today's real data (stale pins
+    and stale baseline entries) and convert its dormant setup asserts to soft baseline-tracked
+    records.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1200
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 14
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['tests/conformance/test_reference_content.py', 'tests/fixtures/conformance/baseline_reference_content.json']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-809/receipt.json
+closeout:
+  - >-
+    tests/conformance/test_reference_content.py passes against the real committed data with a
+    baseline that matches reality, and a missing sidecar can no longer crash-mask the measurement.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,149 @@
+id: TC-813
+gate: G3
+lane: verification
+purpose: >-
+  Over-long authored-example titles (the ~141 'latent titles' flagged by TC-773, re-measured
+  2026-11-14): the tightest conversational frame of
+  tests/conformance/test_sentence_wrapped_retrieval.py (`was_wondering`) allows a title of at most
+  12 words; every frame then stays within its 12-35 word bound. An exhaustive run over 417 baked
+  titled chunks found 37 breaching titles, all authored examples; across the 146 fixture titles 40
+  breach (37 baked + 3 in not-yet-baked pilots 3d_net, page_python, words_python) in 17 pilots
+  (pdf_typescript and slides_java 5 each); no doc heading breaches (max 11 words). (The '~141' in
+  DECISION_LOG was 97 baseline failures + 44 titles and does not reproduce.) Add the structural
+  guard `_MAX_TITLE_WORDS = 12` (counted as `len(title.split())`) to
+  src/foss_mcp/indexing/authored_examples.py's validator and retitle exactly those 40 titles with
+  the investigation's replacements
+  (C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\backlog_content\retitles.json:
+  all <= 12 words, max rendered sentence 35 words, no duplicates, max Jaccard to any other title
+  of the pilot 0.42, identifiers kept). Convert the in-loop word-count assert of
+  test_sentence_wrapped_retrieval.py to a soft recorded failure as TC-775 did. The served chunks
+  change only at the later coordinated regeneration, so do NOT touch
+  baseline_sentence_wrapped_retrieval.json here.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-766
+  - TC-773
+  - TC-774
+  - TC-775
+  - TC-764
+  - TC-765
+  - TC-768
+  - TC-769
+  - TC-770
+  - TC-742
+  - TC-733
+  - TC-735
+write_paths:
+  - src/foss_mcp/indexing/authored_examples.py
+  - tests/indexing/test_authored_examples.py
+  - tests/conformance/test_sentence_wrapped_retrieval.py
+  - tests/fixtures/furnished/3d_net/authored_examples.yaml
+  - tests/fixtures/furnished/3d_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/barcode_python/authored_examples.yaml
+  - tests/fixtures/furnished/cells_cpp/authored_examples.yaml
+  - tests/fixtures/furnished/cells_java/authored_examples.yaml
+  - tests/fixtures/furnished/cells_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/email_python/authored_examples.yaml
+  - tests/fixtures/furnished/page_python/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_cpp/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_net/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_python/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/slides_java/authored_examples.yaml
+  - tests/fixtures/furnished/slides_net/authored_examples.yaml
+  - tests/fixtures/furnished/words_net/authored_examples.yaml
+  - tests/fixtures/furnished/words_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_3d_net.py
+  - tests/indexing/test_authored_examples_3d_typescript.py
+  - tests/indexing/test_authored_examples_barcode_python.py
+  - tests/indexing/test_authored_examples_cells_cpp.py
+  - tests/indexing/test_authored_examples_cells_java.py
+  - tests/indexing/test_authored_examples_cells_typescript.py
+  - tests/indexing/test_authored_examples_email_python.py
+  - tests/indexing/test_authored_examples_page_python.py
+  - tests/indexing/test_authored_examples_pdf_cpp.py
+  - tests/indexing/test_authored_examples_pdf_java.py
+  - tests/indexing/test_authored_examples_pdf_net.py
+  - tests/indexing/test_authored_examples_pdf_python.py
+  - tests/indexing/test_authored_examples_pdf_typescript.py
+  - tests/indexing/test_authored_examples_slides_java.py
+  - tests/indexing/test_authored_examples_slides_net.py
+  - tests/indexing/test_authored_examples_words_net.py
+  - tests/indexing/test_authored_examples_words_python.py
+  - tests/indexing/test_authored_examples_title_word_limit.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST:
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\backlog_content\retitles.json
+    (40 {pilot, old, new, old_words, new_words, max_sentence_words, nearest_other,
+    jaccard_to_nearest, ok}); src/foss_mcp/indexing/authored_examples.py (`_MAX_TITLE_CHARS = 120`,
+    `_MAX_EXAMPLES`, the validator), tests/conformance/test_sentence_wrapped_retrieval.py (the
+    frames and its in-loop word-count assert) and DECISION_LOG entries on TC-773/774/775/764-772
+    (why titles must stay DISTINCTIVE: title collisions with other examples/docs were a real
+    hazard).
+  - >-
+    REPRODUCE FIRST: compute, from the committed sidecars, every title with more than 12 words
+    (expect exactly the 40 in retitles.json); run the sentence-wrapped test's frame logic over them
+    to show the 12-word rule is the right bound (a 12-word title passes all frames, a 13-word one
+    fails the tightest).
+  - >-
+    APPLY: replace exactly those 40 titles in the 17 sidecars with the proposed `new` titles (verify
+    each pilot's `old` string matches the file before replacing; if a title in a sidecar differs
+    from `old`, report it instead of guessing). Do NOT change any example's code, description or
+    other fields. Add the validator rule rejecting a title over 12 words with a clear error. Update
+    per-pilot tests (tests/indexing/test_authored_examples_<pilot>.py) ONLY where an assertion pins
+    an old title string.
+  - >-
+    TESTS: new tests/indexing/test_authored_examples_title_word_limit.py - 13-word title rejected,
+    12-word accepted, every committed sidecar title <= 12 words (all 31 sidecars), no duplicate
+    titles within a pilot, and the max rendered frame length <= 35 words for every title. Convert
+    the in-loop assert in tests/conformance/test_sentence_wrapped_retrieval.py to a soft recorded
+    failure (TC-775 pattern) without changing the baseline file.
+  - >-
+    Also run tests/infra/test_authored_examples_fixtures.py and
+    tests/indexing/test_authored_examples.py - green.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    change). Before committing run `ruff format` and `ruff check` on changed Python files, then run
+    the card's check command twice and report the real results. Keep every pre-existing test
+    unchanged unless a test pinned the now-corrected behavior as 'correct' - then change only that
+    assertion and say so.
+actions:
+  - >-
+    Enforce a 12-word limit on authored-example titles and retitle the 40 offending titles
+    distinctively, so no sentence-frame can exceed its bound.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples_title_word_limit.py tests/indexing/test_authored_examples.py tests/infra/test_authored_examples_fixtures.py tests/conformance/test_sentence_wrapped_retrieval.py tests/indexing/test_authored_examples_3d_net.py tests/indexing/test_authored_examples_3d_typescript.py tests/indexing/test_authored_examples_barcode_python.py tests/indexing/test_authored_examples_cells_cpp.py tests/indexing/test_authored_examples_cells_java.py tests/indexing/test_authored_examples_cells_typescript.py tests/indexing/test_authored_examples_email_python.py tests/indexing/test_authored_examples_page_python.py tests/indexing/test_authored_examples_pdf_cpp.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_pdf_net.py tests/indexing/test_authored_examples_pdf_python.py tests/indexing/test_authored_examples_pdf_typescript.py tests/indexing/test_authored_examples_slides_java.py tests/indexing/test_authored_examples_slides_net.py tests/indexing/test_authored_examples_words_net.py tests/indexing/test_authored_examples_words_python.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 2400
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 940
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/authored_examples.py', 'tests/fixtures/furnished/3d_net/authored_examples.yaml', 'tests/fixtures/furnished/3d_typescript/authored_examples.yaml', 'tests/fixtures/furnished/barcode_python/authored_examples.yaml', 'tests/fixtures/furnished/cells_cpp/authored_examples.yaml', 'tests/fixtures/furnished/cells_java/authored_examples.yaml', 'tests/fixtures/furnished/cells_typescript/authored_examples.yaml', 'tests/fixtures/furnished/email_python/authored_examples.yaml', 'tests/fixtures/furnished/page_python/authored_examples.yaml', 'tests/fixtures/furnished/pdf_cpp/authored_examples.yaml', 'tests/fixtures/furnished/pdf_java/authored_examples.yaml', 'tests/fixtures/furnished/pdf_net/authored_examples.yaml', 'tests/fixtures/furnished/pdf_python/authored_examples.yaml', 'tests/fixtures/furnished/pdf_typescript/authored_examples.yaml', 'tests/fixtures/furnished/slides_java/authored_examples.yaml', 'tests/fixtures/furnished/slides_net/authored_examples.yaml', 'tests/fixtures/furnished/words_net/authored_examples.yaml', 'tests/fixtures/furnished/words_python/authored_examples.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-813/receipt.json
+closeout:
+  - >-
+    Authored-example titles are bounded at 12 words by validator and test; the 40 offending titles
+    are retitled; the served chunks pick this up at the coordinated regeneration.
+recovery: Re-run from a clean tree.

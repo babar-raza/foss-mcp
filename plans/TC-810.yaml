@@ -1,0 +1,126 @@
+id: TC-810
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  find_examples matcher: recover recall lost to P4 corpus growth AND fix a live wrong-confident
+  regression (2026-11-14 content-backlog investigation, measured). (A) RECALL: TC-672's
+  rare-code-word path is disabled for any scope with more than `_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
+  = 6` examples; the authored-example campaign pushed 22 of 32 pilots above 6 (pdf/python 19,
+  slides/java 16, cells/java 8), so rare terms stopped matching (cells/java `formula` is a red
+  test today; pdf/net `save/create/hello world`, email/net 10 of 14 body queries still miss -
+  PDF-NET-002/EML-NET-002). A second limiter is the 'recurs twice in the same example' guard.
+  Measured over 316 (pilot, query) pairs parsed from the round-2 issues that mention find_examples
+  (108 hit / 140 honest miss / 68 miss although an example contains the terms): baseline 41
+  wrong-confident of 729 (floor tolerates 43), 108 hits; cap 12 -> 41 wrong, 124 hits; cap 12 +
+  'once is enough for a term UNIQUE in the scope' -> 41 wrong, 132 hits; cap 20 -> 44 wrong,
+  BREAKS the floor (slides/java, slides/net). Recommendation: cap 12 +
+  once-is-enough-for-unique-terms; note 12 is a cliff (slides/net has 13 examples, slides/java 16,
+  and stay excluded only because the cap is below them) - say so in a code comment. (B)
+  REGRESSION:
+  tests/mcp/tools/test_find_examples_title_anchor.py::test_the_slides_cpp_export_format_reproduction_is_fixed
+  FAILS: slides/cpp grew from 2 to 7 examples and `"export the deck to pptx"` now returns 2 loose
+  matches at coverage 0.67 - a real wrong-confident result (the deck query matches generic words
+  in unrelated examples), not only a stale pin. Fix the matcher so that query is again an honest
+  miss or a labelled partial, WITHOUT weakening TC-543's invariant (single-word queries of the
+  eight generic words admit only on a title anchor). (C) Add a FROZEN round-2 recall ratchet so
+  recall can only go up.
+depends_on:
+  - TC-626
+  - TC-635
+  - TC-670
+  - TC-672
+  - TC-688
+  - TC-543
+  - TC-586
+  - TC-675
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - tests/mcp/tools/test_find_examples_rare_code_word.py
+  - tests/mcp/tools/test_find_examples_title_anchor.py
+  - tests/mcp/tools/test_find_examples_round2_recall_ratchet.py
+  - tests/fixtures/conformance/round2_find_examples_recall.json
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    LEADS (read-only measurement artifacts from the investigation; scripts and raw results, reuse
+    them):
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\backlog_content
+    (m*.py, r2_results*.json, m2.json). They show the in-process method: build the real tools over
+    the committed corpora, run each (pilot, query), classify with a lexical oracle.
+  - >-
+    READ FIRST: `_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES`, the rare-code-word path (TC-672) and the
+    'recurs twice' guard in relevance.py/find_examples.py;
+    tests/mcp/tools/test_find_examples_rare_code_word.py (7), test_find_examples_title_anchor.py
+    (44; the TC-543 invariant tests must stay), test_find_examples_code_anchor.py (15),
+    tests/mcp/tools/test_round3_retrieval_corpus.py (READ its ratchet floors: lookup hit@3 >= 0.85,
+    wrong-confident floors incl. find_examples <= 43/729 - NEVER lower one),
+    test_forgiveness_acceptance.py (MIN_CONCISE_HITS).
+  - >-
+    REPRODUCE FIRST: run the two red tests on main and the cells/java `formula` and slides/cpp
+    `export the deck to pptx` queries in-process; re-run the investigation's baseline numbers (41
+    wrong / 108 hits of 316) with its scripts to confirm the harness works in your worktree.
+  - >-
+    IMPLEMENT (A) and (B) as measured variants - report before/after tables for: find_examples
+    wrong-confident (must stay <= 43 and ideally <= 41), lookup hit@3 / wrong_conf, the 316-pair
+    recall count, and every per-pilot ceiling in the round3 retrieval corpus test. If no variant
+    satisfies the floors, STOP and report numbers. For (B) first find WHY the 2 loose matches are
+    admitted (which words, which tier) and fix that cause rather than special-casing slides/cpp.
+  - >-
+    RE-PIN tests/mcp/tools/test_find_examples_rare_code_word.py only as needed: the investigation
+    says the cells/java `formula` pin must be re-pinned to the two titles that now legitimately hit;
+    verify that is right before changing it.
+  - >-
+    FROZEN RATCHET: commit tests/fixtures/conformance/round2_find_examples_recall.json (the 316
+    (pilot, query) pairs with the pairs that must hit today, produced by YOUR measurement) and
+    tests/mcp/tools/test_find_examples_round2_recall_ratchet.py asserting every pair listed as
+    must-hit still hits (the set may only grow, same discipline as the other ratchets) plus the
+    wrong-confident count not rising.
+  - >-
+    Optional S addition: a short 'use lookup' hint in the NoExampleFound reason for single
+    generic-verb queries (save/create/load) - only if it does not disturb existing reason-text
+    tests.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    change). Before committing run `ruff format` and `ruff check` on changed Python files, then run
+    the card's check command twice and report the real results. Keep every pre-existing test
+    unchanged unless a test pinned the now-corrected behavior as 'correct' - then change only that
+    assertion and say so.
+actions:
+  - >-
+    Restore find_examples recall for rare terms in larger scopes, fix the slides/cpp wrong-confident
+    regression at its cause, and freeze the recall gain in a ratchet - with every existing floor
+    intact.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_round2_recall_ratchet.py tests/mcp/tools/test_find_examples_rare_code_word.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_example_search_mode.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 2400
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 332
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/relevance.py', 'src/foss_mcp/mcp/tools/find_examples.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-810/receipt.json
+closeout:
+  - >-
+    find_examples finds rare terms in the larger P4 scopes again, the slides/cpp deck-export query
+    is no longer wrongly confident, and the gain is frozen in a recall ratchet;
+    PDF-NET-002/EML-NET-002 improve measurably.
+recovery: Re-run from a clean tree.

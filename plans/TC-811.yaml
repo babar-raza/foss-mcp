@@ -1,0 +1,115 @@
+id: TC-811
+gate: G3
+lane: verification
+purpose: >-
+  Populate the sibling symbols that round 3's own #1 finding says known-defect entries should
+  cover (docs/round3/HANDOFF3.md): TC-658 built `subject.refs` (a list) but each entry still names
+  only the one symbol its original finding happened to cite. A 2026-11-14 investigation produced a
+  machine-readable proposal - 32 entries, 71 refs across 17 registry files
+  (C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\backlog_content\sibling_refs.json),
+  each proposed FQN verified to exist in the real indexed FQN set in the registry's own spelling,
+  including alias forms (e.g. `aspose.cells_foss.Workbook` for CELLS-PY-005) and siblings the
+  audit prose names (e.g. `Scene`/`FileFormat` for 3d/java and 3d/net, the note/python table types
+  for NOTE-PY-002). It deliberately omits workaround symbols and `Stamp` for pdf/java (unclear:
+  only `TextStamp` was verified defective). `Aspose.Pdf.OcspSettings` is indexed but has NO
+  registry entry at all - that needs a new entry, not a ref.
+depends_on:
+  - TC-796
+  - TC-656
+  - TC-658
+  - TC-660
+  - TC-702
+  - TC-767
+  - TC-771
+  - TC-772
+write_paths:
+  - config/known_defects/3d__java.yaml
+  - config/known_defects/3d__net.yaml
+  - config/known_defects/3d__python.yaml
+  - config/known_defects/barcode__python.yaml
+  - config/known_defects/cells__go.yaml
+  - config/known_defects/cells__net.yaml
+  - config/known_defects/cells__python.yaml
+  - config/known_defects/cells__typescript.yaml
+  - config/known_defects/email__python.yaml
+  - config/known_defects/imaging__net.yaml
+  - config/known_defects/note__python.yaml
+  - config/known_defects/page__python.yaml
+  - config/known_defects/pdf__java.yaml
+  - config/known_defects/pdf__net.yaml
+  - config/known_defects/slides__net.yaml
+  - config/known_defects/tex__python.yaml
+  - config/known_defects/words__python.yaml
+  - tests/mcp/tools/test_known_defects_multi_ref.py
+  - tests/mcp/tools/test_known_defects_round3_siblings.py
+  - tests/indexing/test_known_defects_sibling_refs_round3.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: the proposal file
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\backlog_content\sibling_refs.json
+    (list of {file, entry_id, current_refs, add_refs, evidence});
+    tests/indexing/test_known_defects_completeness.py (validates every method/class ref against the
+    real corpus - TC-702's lesson); tests/mcp/tools/test_known_defects_multi_ref.py (line ~200 pins
+    PDF-JAVA-001's refs by equality) and test_known_defects_round3_siblings.py (line ~124 pins
+    PDF-NET-003's refs by equality) - these two pins must be updated to the new ref sets.
+  - >-
+    VERIFY, do not just apply: for EVERY (entry, added ref) re-check that the ref resolves to a real
+    indexed chunk (get_symbol on the real corpus) AND that the entry's described defect really
+    applies to that sibling (read the entry summary and the audit evidence in the proposal; for any
+    pair where applicability is doubtful, leave it out and say so). TC-795 is making matching
+    alias-aware, so do not add pure-alias refs whose only purpose is the exact-match gap UNLESS the
+    proposal marks them as the symbol users actually reach.
+  - >-
+    APPLY the verified refs to the registry files (data only, schema unchanged). Add the
+    `Aspose.Pdf.OcspSettings` entry only if you can verify the defect at the pinned commit from real
+    code (if not, report it).
+  - >-
+    TESTS: new tests/indexing/test_known_defects_sibling_refs_round3.py asserting, per added ref,
+    that get_symbol/list_members on that FQN now carries the entry's disclosure line (real corpus),
+    and that no other symbol's disclosures changed. Update only the two equality pins named above.
+  - >-
+    Run all tests/indexing/test_known_defects*.py and tests/mcp/tools/test_known_defects_*.py - all
+    green.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    change). Before committing run `ruff format` and `ruff check` on changed Python files, then run
+    the card's check command twice and report the real results. Keep every pre-existing test
+    unchanged unless a test pinned the now-corrected behavior as 'correct' - then change only that
+    assertion and say so.
+actions:
+  - >-
+    Extend known-defect refs to the verified sibling symbols the round-3 audit names so each
+    disclosure reaches every affected symbol, with tests proving reachability.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_sibling_refs_round3.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_find_examples.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 253
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['config/known_defects/3d__java.yaml', 'config/known_defects/3d__net.yaml', 'config/known_defects/3d__python.yaml', 'config/known_defects/barcode__python.yaml', 'config/known_defects/cells__go.yaml', 'config/known_defects/cells__net.yaml', 'config/known_defects/cells__python.yaml', 'config/known_defects/cells__typescript.yaml', 'config/known_defects/email__python.yaml', 'config/known_defects/imaging__net.yaml', 'config/known_defects/note__python.yaml', 'config/known_defects/page__python.yaml', 'config/known_defects/pdf__java.yaml', 'config/known_defects/pdf__net.yaml', 'config/known_defects/slides__net.yaml', 'config/known_defects/tex__python.yaml', 'config/known_defects/words__python.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-811/receipt.json
+closeout:
+  - >-
+    Known-defect disclosures now cover the verified sibling symbols of each defect; reachability is
+    tested per added ref.
+recovery: Re-run from a clean tree.

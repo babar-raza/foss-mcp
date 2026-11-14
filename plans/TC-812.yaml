@@ -1,0 +1,98 @@
+id: TC-812
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes RD2-? 3D-JAVA-005 (stale upstream session-log text served in `agent_guidance`; TC-683
+  deferred it because it needs access to the live symbol index, not a text transform; reproduced
+  2026-11-14): the served 3d/java `agent_guidance` (14,101 chars) says `License`, `Metered` and
+  `LicenseManager` 'must NOT exist' although the index contains `com.aspose.threed.License` and
+  `Metered` (not `LicenseManager`), and its 'Pending Implementation' / 'Current Session' blocks
+  are stale (Camera, Light, Animation, Deformer, Material are all indexed). Design (from the
+  investigation): treat a paragraph or list that starts at a 'must not exist / do not implement /
+  excluded / intentionally omitted' line as a NEGATIVE block; match its backticked identifiers to
+  indexed short names through the existing `relevance.known_symbol_names`; pass the result into
+  `get_product_reference` as an optional `known_symbols` argument from
+  `server._live_get_product_reference` (server.py ~line 310); append a correction note naming the
+  real FQNs - DISCLOSE, do not strip. Over all 32 pilots a strict block-scoped rule flags only
+  3d/java (a loose rule gave 5 false-positive pilots) - the real-data test must assert exactly
+  that.
+depends_on:
+  - TC-798
+  - TC-683
+  - TC-714
+  - TC-718
+  - TC-719
+  - TC-641
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - src/foss_mcp/mcp/server.py
+  - tests/mcp/tools/test_agent_guidance_stale_negative_claims.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`). It is a LEAD, not truth: REPRODUCE everything yourself first; if
+    something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: the agent_guidance path in get_product_reference.py (TC-683 neutralisation of
+    imperative text, TC-714 contributor labelling), `server._live_get_product_reference` in
+    src/foss_mcp/mcp/server.py, `relevance.known_symbol_names`, the finding 3D-JAVA-005 in
+    docs/round2/issues.json, and the real served 3d/java agent_guidance.
+  - >-
+    REPRODUCE FIRST on the real corpus: the claims above (License/Metered indexed, LicenseManager
+    not; Camera/Light/... indexed). Then implement the block-scoped rule and run it over all 32
+    pilots' agent_guidance: ONLY 3d/java may flag (exactly License and Metered). If any other pilot
+    flags, report it and tighten the rule - never loosen the test.
+  - >-
+    WIRING (AGENTS.md 'Integration and liveness'): add an assertion that server.py actually passes
+    `known_symbols` to the product-reference call (source grep), and a real-server-path test, not
+    only a unit test of the helper. The correction note must name real FQNs and must not remove any
+    original text.
+  - >-
+    Do not change any other section. Keep
+    tests/mcp/tools/test_get_product_reference_agent_imperative_neutralization.py and
+    tests/mcp/test_server_wiring.py green.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    change). Before committing run `ruff format` and `ruff check` on changed Python files, then run
+    the card's check command twice and report the real results. Keep every pre-existing test
+    unchanged unless a test pinned the now-corrected behavior as 'correct' - then change only that
+    assertion and say so.
+actions:
+  - >-
+    Cross-check negative 'must not exist' claims in served agent_guidance against the live symbol
+    index and disclose the contradiction with real FQNs, wired through the real server path.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_agent_guidance_stale_negative_claims.py tests/mcp/tools/test_get_product_reference_agent_imperative_neutralization.py tests/mcp/test_server_wiring.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 250
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/get_product_reference.py', 'src/foss_mcp/mcp/server.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-812/receipt.json
+closeout:
+  - >-
+    Stale 'must not exist' claims in served agent guidance are contradicted by the live index with
+    real FQNs (only 3d/java today); 3D-JAVA-005 is fixed.
+recovery: Re-run from a clean tree.
