@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "card": "TC-815",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T08:57:09Z",
+  "base_rev": "e1e0efb7d10ec392a97f50d35b97fce1174be4e6",
+  "head_rev": "c2e3fb08f75a72a50757d57157f2021e9a0165f9",
+  "card_sha256": "db7c1466666a03e3f03cbe0897b7206db56065c8c11c842a53a3c7a766344323",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/3d__python.yaml",
+      "config/known_defects/words__net.yaml",
+      "config/products/3d/python.yaml",
+      "config/products/words/python.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/indexing/test_known_defects_data_3d.py",
+      "tests/indexing/test_known_defects_data_wave_b.py",
+      "tests/mcp/tools/test_product_reference_known_hazards.py",
+      "tests/schemas/test_product_manifest_schema.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_data_wave_b.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.234,
+          "stdout_sha256": "f424985d6233d07fb5378c6e77b533a4c2409b59ee3c96e906ebfbb010a2b2d7",
+          "tests": 157,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_data_wave_b.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.438,
+          "stdout_sha256": "f424985d6233d07fb5378c6e77b533a4c2409b59ee3c96e906ebfbb010a2b2d7",
+          "tests": 157,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['config/known_defects/3d__python.yaml', 'config/known_defects/words__net.yaml', 'config/products/words/python.yaml', 'config/products/3d/python.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "bb23546da8be2d1fc9d1d9c966e1eb21108aa03eac24de81f34b3cc3e38b577a",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/known_defects/3d__python.yaml",
+      "M config/known_defects/words__net.yaml",
+      "M config/products/3d/python.yaml",
+      "M config/products/words/python.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,586 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_wave_b.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qrull59g\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_wave_b.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qrull59g\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/3d__python.yaml, M config/known_defects/words__net.yaml, M config/products/3d/python.yaml, M config/products/words/python.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_wave_b.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qrull59g\.junit-0.xml"
+--- stdout ---
+FFFF.FFFFF..FFFFFFFF..FFFFFFF........................................... [ 45%]
+.................FF..F.................................................. [ 91%]
+.............                                                            [100%]
+================================== FAILURES ===================================
+_ test_real_registry_file_validates_against_the_real_schema[3D-PYTHON-009-3d-python] _
+
+defect_id = '3D-PYTHON-009', family = '3d', platform = 'python'
+
+    @pytest.mark.parametrize(("defect_id", "family", "platform"), [row[:3] for row in DEFECTS])
+    def test_real_registry_file_validates_against_the_real_schema(
+        defect_id: str, family: str, platform: str
+    ) -> None:
+        document = _registry_document(family, platform)
+        schema = json.loads(DEFECT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(document))
+        assert errors == [], f"{family}/{platform} registry failed schema validation: {errors}"
+        assert document["pilot"] == f"{family}_{platform}"
+>       assert defect_id in [d["id"] for d in document["defects"]]
+E       AssertionError: assert '3D-PYTHON-009' in ['3D-PYTHON-001', '3D-PYTHON-002', '3D-PYTHON-006', '3D-PYTHON-008', '3D-PYTHON-010', '3D-PYTHON-013']
+
+tests\indexing\test_known_defects_data_wave_b.py:132: AssertionError
+_ test_real_registry_file_validates_against_the_real_schema[WORDS-NET-005-words-net] _
+
+defect_id = 'WORDS-NET-005', family = 'words', platform = 'net'
+
+    @pytest.mark.parametrize(("defect_id", "family", "platform"), [row[:3] for row in DEFECTS])
+    def test_real_registry_file_validates_against_the_real_schema(
+        defect_id: str, family: str, platform: str
+    ) -> None:
+        document = _registry_document(family, platform)
+        schema = json.loads(DEFECT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(document))
+        assert errors == [], f"{family}/{platform} registry failed schema validation: {errors}"
+        assert document["pilot"] == f"{family}_{platform}"
+>       assert defect_id in [d["id"] for d in document["defects"]]
+E       AssertionError: assert 'WORDS-NET-005' in ['WORDS-NET-001']
+
+tests\indexing\test_known_defects_data_wave_b.py:132: AssertionError
+_ test_each_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[3D-PYTHON-009-3d-python-RD2-034-3d/python] _
+
+defect_id = '3D-PYTHON-009', family = '3d', platform = 'python', row = 'RD2-034'
+ledger_pilot = '3d/python'
+
+    @pytest.mark.parametrize(("defect_id", "family", "platform", "row", "ledger_pilot"), [r[:5] for r in DEFECTS])
+    def test_each_id_equals_a_real_ledger_issue_id_and_appears_exactly_once(
+        defect_id: str, family: str, platform: str, row: str, ledger_pilot: str
+    ) -> None:
+        issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
+        ledger = [issue for issue in issues if issue["id"] == defect_id]
+        assert len(ledger) == 1, f"{defect_id} is not a real docs/round2/issues.json id"
+        assert ledger[0]["pilot"] == ledger_pilot
+        # The ledger row this card closes is a real, still-open row of the committed register.
+        row_lines = [
+            line for line in ROUND2_REVIEW_PATH.read_text(encoding="utf-8").splitlines() if f"| {row} |" in line
+        ]
+        assert len(row_lines) == 1
+        assert f"| {ledger_pilot} |" in row_lines[0]
+    
+        ids = [defect["id"] for defect in _registry_document(family, platform)["defects"]]
+>       assert ids.count(defect_id) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000001B8FF7CCB40>('3D-PYTHON-009')
+E        +    where <built-in method count of list object at 0x000001B8FF7CCB40> = ['3D-PYTHON-001', '3D-PYTHON-002', '3D-PYTHON-006', '3D-PYTHON-008', '3D-PYTHON-010', '3D-PYTHON-013'].count
+
+tests\indexing\test_known_defects_data_wave_b.py:151: AssertionError
+_ test_each_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[WORDS-NET-005-words-net-RD2-269-words/net] _
+
+defect_id = 'WORDS-NET-005', family = 'words', platform = 'net', row = 'RD2-269'
+ledger_pilot = 'words/net'
+
+    @pytest.mark.parametrize(("defect_id", "family", "platform", "row", "ledger_pilot"), [r[:5] for r in DEFECTS])
+    def test_each_id_equals_a_real_ledger_issue_id_and_appears_exactly_once(
+        defect_id: str, family: str, platform: str, row: str, ledger_pilot: str
+    ) -> None:
+        issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
+        ledger = [issue for issue in issues if issue["id"] == defect_id]
+        assert len(ledger) == 1, f"{defect_id} is not a real docs/round2/issues.json id"
+        assert ledger[0]["pilot"] == ledger_pilot
+        # The ledger row this card closes is a real, still-open row of the committed register.
+        row_lines = [
+            line for line in ROUND2_REVIEW_PATH.read_text(encoding="utf-8").splitlines() if f"| {row} |" in line
+        ]
+        assert len(row_lines) == 1
+        assert f"| {ledger_pilot} |" in row_lines[0]
+    
+        ids = [defect["id"] for defect in _registry_document(family, platform)["defects"]]
+>       assert ids.count(defect_id) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000001B8FF8A6680>('WORDS-NET-005')
+E        +    where <built-in method count of list object at 0x000001B8FF8A6680> = ['WORDS-NET-001'].count
+
+tests\indexing\test_known_defects_data_wave_b.py:151: AssertionError
+_ test_each_entry_is_open_version_scoped_with_a_real_date_and_a_user_action[3D-PYTHON-009-3d-python-RD2-034-3d/python-aspose-3d-foss-26.1.0] _
+
+defect_id = '3D-PYTHON-009', family = '3d', platform = 'python', row = 'RD2-034'
+ledger_pilot = '3d/python', package = 'aspose-3d-foss', version = '26.1.0'
+
+    @pytest.mark.parametrize(
+        ("defect_id", "family", "platform", "row", "ledger_pilot", "package", "version"), DEFECTS
+    )
+    def test_each_entry_is_open_version_scoped_with_a_real_date_and_a_user_action(
+        defect_id: str, family: str, platform: str, row: str, ledger_pilot: str, package: str, version: str
+    ) -> None:
+>       defect = _defect(defect_id)
+                 ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:169: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = '3D-PYTHON-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_ test_each_entry_is_open_version_scoped_with_a_real_date_and_a_user_action[WORDS-NET-005-words-net-RD2-269-words/net-Aspose.Words.FOSS-26.3.0] _
+
+defect_id = 'WORDS-NET-005', family = 'words', platform = 'net', row = 'RD2-269'
+ledger_pilot = 'words/net', package = 'Aspose.Words.FOSS', version = '26.3.0'
+
+    @pytest.mark.parametrize(
+        ("defect_id", "family", "platform", "row", "ledger_pilot", "package", "version"), DEFECTS
+    )
+    def test_each_entry_is_open_version_scoped_with_a_real_date_and_a_user_action(
+        defect_id: str, family: str, platform: str, row: str, ledger_pilot: str, package: str, version: str
+    ) -> None:
+>       defect = _defect(defect_id)
+                 ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:169: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'WORDS-NET-005'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_____________________________ test_subject_kinds ______________________________
+
+    def test_subject_kinds() -> None:
+>       assert _defect("3D-PYTHON-009").subject.kind == "class"
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = '3D-PYTHON-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_ test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus[3D-PYTHON-009-3d-python] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B8FF813E00>
+defect_id = '3D-PYTHON-009', family = '3d', platform = 'python'
+
+    @pytest.mark.parametrize(("defect_id", "family", "platform"), [row[:3] for row in DEFECTS])
+    def test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus(
+        corpus: ConformanceCorpus, defect_id: str, family: str, platform: str
+    ) -> None:
+        real_fqns = set(_symbol_chunks(corpus, f"{family}__{platform}"))
+>       refs = _defect(defect_id).subject.refs
+               ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:211: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = '3D-PYTHON-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_ test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus[WORDS-NET-005-words-net] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B8FF813E00>
+defect_id = 'WORDS-NET-005', family = 'words', platform = 'net'
+
+    @pytest.mark.parametrize(("defect_id", "family", "platform"), [row[:3] for row in DEFECTS])
+    def test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus(
+        corpus: ConformanceCorpus, defect_id: str, family: str, platform: str
+    ) -> None:
+        real_fqns = set(_symbol_chunks(corpus, f"{family}__{platform}"))
+>       refs = _defect(defect_id).subject.refs
+               ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:211: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'WORDS-NET-005'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_ test_3d_python_009_names_the_trigger_the_failure_modes_and_the_safe_pattern _
+
+    def test_3d_python_009_names_the_trigger_the_failure_modes_and_the_safe_pattern() -> None:
+>       defect = _defect("3D-PYTHON-009")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:253: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = '3D-PYTHON-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_ test_3d_python_009_does_not_claim_the_audits_unreproduced_all_four_factories_work _
+
+    def test_3d_python_009_does_not_claim_the_audits_unreproduced_all_four_factories_work() -> None:
+        """The ledger said all 4 factories are working singletons; WAVEFRONT_OBJ() does not reproduce
+        (ModuleNotFoundError), so the entry must not repeat the unreproduced claim."""
+>       defect = _defect("3D-PYTHON-009")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:275: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = '3D-PYTHON-009'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_ test_words_net_005_names_the_net462_only_overload_and_the_modern_dotnet_alternative _
+
+    def test_words_net_005_names_the_net462_only_overload_and_the_modern_dotnet_alternative() -> None:
+>       defect = _defect("WORDS-NET-005")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:282: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'WORDS-NET-005'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+____ test_words_net_005_does_not_claim_the_overload_is_missing_everywhere _____
+
+    def test_words_net_005_does_not_claim_the_overload_is_missing_everywhere() -> None:
+>       defect = _defect("WORDS-NET-005")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_wave_b.py:298: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+defect_id = 'WORDS-NET-005'
+
+    def _defect(defect_id: str) -> KnownDefect:
+        for _id, family, platform, *_rest in DEFECTS:
+            if _id == defect_id:
+>               (match,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+                ^^^^^^^^
+E               ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_wave_b.py:97: ValueError
+_____________ test_get_symbol_surfaces_the_file_format_disclosure _____________
+
+file_format_store = <tests.indexing.test_known_defects_data_wave_b._InMemoryStore object at 0x000001B8B6C14AD0>
+
+    def test_get_symbol_surfaces_the_file_format_disclosure(file_format_store: _InMemoryStore) -> None:
+        result = get_symbol(file_format_store, Scope(family="3d", platform="python"), FILE_FORMAT_FQN)  # type: ignore[arg-type]
+    
+        assert isinstance(result, SymbolSignature)
+        text = _joined(result.known_defects)
+>       assert "48 format constants" in text and "none" in text
+E       AssertionError: assert ('48 format constants' in '')
+
+tests\indexing\test_known_defects_data_wave_b.py:387: AssertionError
+____ test_get_symbol_resolved_member_surfaces_the_class_scoped_disclosure _____
+
+file_format_store = <tests.indexing.test_known_defects_data_wave_b._InMemoryStore object at 0x000001B8B6C14AD0>
+
+    def test_get_symbol_resolved_member_surfaces_the_class_scoped_disclosure(
+        file_format_store: _InMemoryStore,
+    ) -> None:
+        result = get_symbol(
+            file_format_store,
+            Scope(family="3d", platform="python"),
+            f"{FILE_FORMAT_FQN}.GLTF",  # type: ignore[arg-type]
+        )
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == FILE_FORMAT_FQN
+>       assert "48 format constants" in _joined(result.known_defects)
+E       AssertionError: assert '48 format constants' in ''
+E        +  where '' = _joined(())
+E        +    where () = ResolvedSignature(scope=Scope(family='3d', platform='python', source_kind='self_extracted'), generation_id='gen-tc815'...ne, resolved_from='aspose.threed.FileFormat.FileFormat.GLTF', member='GLTF', member_lines=('GLTF = None (read-only)',)).known_defects
+
+tests\indexing\test_known_defects_data_wave_b.py:402: AssertionError
+___________ test_search_symbols_surfaces_the_file_format_disclosure ___________
+
+file_format_store = <tests.indexing.test_known_defects_data_wave_b._InMemoryStore object at 0x000001B8B6C14AD0>
+
+    def test_search_symbols_surfaces_the_file_format_disclosure(file_format_store: _InMemoryStore) -> None:
+        result = search_symbols(file_format_store, Scope(family="3d", platform="python"), FILE_FORMAT_FQN)  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+        assert len(matches) == 1
+>       assert "48 format constants" in _joined(matches[0].known_defects)
+E       AssertionError: assert '48 format constants' in ''
+E        +  where '' = _joined(())
+E        +    where () = SymbolMatch(scope=Scope(family='3d', platform='python', source_kind='self_extracted'), generation_id='gen-tc815', doc_...tched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=(), match_kind='exact_fqn').known_defects
+
+tests\indexing\test_known_defects_data_wave_b.py:411: AssertionError
+________ test_get_symbol_surfaces_the_httpresponse_overload_disclosure ________
+
+document_store = <tests.indexing.test_known_defects_data_wave_b._InMemoryStore object at 0x000001B8B1E2E210>
+
+    def test_get_symbol_surfaces_the_httpresponse_overload_disclosure(document_store: _InMemoryStore) -> None:
+        result = get_symbol(document_store, Scope(family="words", platform="net"), DOCUMENT_FQN)  # type: ignore[arg-type]
+    
+        assert isinstance(result, SymbolSignature)
+        text = _joined(result.known_defects)
+>       assert "httpresponse" in text and "net462" in text
+E       AssertionError: assert ('httpresponse' in 'known defect: node.getancestorof<t>() is disclosed as inherited by 42 real aspose.words.net types in the indexed sour...nd all 42 are present as real indexed fqns in the committed infra/demo-manifests/words__net__self_extracted manifest.)')
+
+tests\indexing\test_known_defects_data_wave_b.py:419: AssertionError
+_ test_manifest_validates_against_the_real_schema_with_exactly_one_hazard[words-python] _
+
+family = 'words', platform = 'python'
+
+    @pytest.mark.parametrize(("family", "platform"), HAZARD_PILOTS)
+    def test_manifest_validates_against_the_real_schema_with_exactly_one_hazard(
+        family: str, platform: str
+    ) -> None:
+        manifest = _real_manifest(family, platform)
+        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
+        jsonschema.Draft202012Validator(schema).validate(manifest)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert len(hazards) == 1, hazards
+E       AssertionError: ()
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\indexing\test_known_defects_data_wave_b.py:463: AssertionError
+_ test_manifest_validates_against_the_real_schema_with_exactly_one_hazard[3d-python] _
+
+family = '3d', platform = 'python'
+
+    @pytest.mark.parametrize(("family", "platform"), HAZARD_PILOTS)
+    def test_manifest_validates_against_the_real_schema_with_exactly_one_hazard(
+        family: str, platform: str
+    ) -> None:
+        manifest = _real_manifest(family, platform)
+        schema = json.loads(MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
+        jsonschema.Draft202012Validator(schema).validate(manifest)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert len(hazards) == 1, hazards
+E       AssertionError: ()
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\indexing\test_known_defects_data_wave_b.py:463: AssertionError
+_ test_the_real_limitations_answer_carries_the_hazard_distinctly_framed[words-python] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3460/test_the_real_limitations_answ0')
+family = 'words', platform = 'python'
+
+    @pytest.mark.parametrize(("family", "platform"), HAZARD_PILOTS)
+    def test_the_real_limitations_answer_carries_the_hazard_distinctly_framed(
+        tmp_path: Path, family: str, platform: str
+    ) -> None:
+        inputs = _load_inputs(tmp_path, family, platform)
+        hazards = known_hazards_from_manifest(_real_manifest(family, platform))
+>       assert hazards
+E       assert ()
+
+tests\indexing\test_known_defects_data_wave_b.py:475: AssertionError
+_ test_the_real_limitations_answer_carries_the_hazard_distinctly_framed[3d-python] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3460/test_the_real_limitations_answ1')
+family = '3d', platform = 'python'
+
+    @pytest.mark.parametrize(("family", "platform"), HAZARD_PILOTS)
+    def test_the_real_limitations_answer_carries_the_hazard_distinctly_framed(
+        tmp_path: Path, family: str, platform: str
+    ) -> None:
+        inputs = _load_inputs(tmp_path, family, platform)
+        hazards = known_hazards_from_manifest(_real_manifest(family, platform))
+>       assert hazards
+E       assert ()
+
+tests\indexing\test_known_defects_data_wave_b.py:475: AssertionError
+_ test_words_python_limitations_states_children_is_a_private_unsupported_idiom _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3460/test_words_python_limitations_0')
+
+    def test_words_python_limitations_states_children_is_a_private_unsupported_idiom(tmp_path: Path) -> None:
+        inputs = _load_inputs(tmp_path, "words", "python")
+        hazards = known_hazards_from_manifest(_real_manifest("words", "python"))
+        result = get_product_reference(
+            dataclasses.replace(inputs, known_hazards=hazards), "limitations", readme=None
+        )
+    
+        assert isinstance(result, ReferenceContent)
+        text = result.text.lower()
+>       assert "paragraph(children=[run(" in text
+E       AssertionError: assert 'paragraph(children=[run(' in '- `saveformat.doc` is defined as a save-format constant for api compatibility with the commercial\n  product, but `do...pose.com/words/python-net/),\nwhich adds the full commercial feature set on top of the same compatible document model.'
+
+tests\indexing\test_known_defects_data_wave_b.py:502: AssertionError
+_ test_3d_python_limitations_states_the_none_constants_the_failure_modes_and_the_safe_pattern _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3460/test_3d_python_limitations_sta0')
+
+    def test_3d_python_limitations_states_the_none_constants_the_failure_modes_and_the_safe_pattern(
+        tmp_path: Path,
+    ) -> None:
+        inputs = _load_inputs(tmp_path, "3d", "python")
+        hazards = known_hazards_from_manifest(_real_manifest("3d", "python"))
+        result = get_product_reference(
+            dataclasses.replace(inputs, known_hazards=hazards), "limitations", readme=None
+        )
+    
+        assert isinstance(result, ReferenceContent)
+        text = result.text
+>       assert "48 of the FileFormat class attributes" in text
+E       AssertionError: assert '48 of the FileFormat class attributes' in '- No file format registers an importer or exporter for PDF, PLY, RVM, U3D, JT, AMF, HTML5,\n  A3DW, USD, or Draco in ...ore ObjExporter in its internal _exporters list, versus TypeError when saving the same ObjSaveOptions to a file path.)'
+
+tests\indexing\test_known_defects_data_wave_b.py:524: AssertionError
+__________ test_each_hazard_text_states_a_trigger_and_a_safe_pattern __________
+
+    def test_each_hazard_text_states_a_trigger_and_a_safe_pattern() -> None:
+>       words_py = known_hazards_from_manifest(_real_manifest("words", "python"))[0].text.lower()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests\indexing\test_known_defects_data_wave_b.py:536: IndexError
+__ test_the_registry_ids_for_the_two_pilots_keep_their_pre_existing_entries ___
+
+    def test_the_registry_ids_for_the_two_pilots_keep_their_pre_existing_entries() -> None:
+        three_d = [d["id"] for d in _registry_document("3d", "python")["defects"]]
+>       assert three_d == [
+            "3D-PYTHON-001",
+            "3D-PYTHON-002",
+            "3D-PYTHON-006",
+            "3D-PYTHON-008",
+            "3D-PYTHON-010",
+            "3D-PYTHON-013",
+            "3D-PYTHON-009",
+        ]
+E       AssertionError: assert ['3D-PYTHON-0...D-PYTHON-013'] == ['3D-PYTHON-0...HON-013', ...]
+E         
+E         Right contains one more item: '3D-PYTHON-009'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_data_wave_b.py:577: AssertionError
+___ test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids ___
+
+    def test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids() -> None:
+        expected_ids = _real_upstream_library_bug_ids()
+        written_ids = set(_all_registry_ids())
+    
+        missing_entries = expected_ids - written_ids
+        orphan_entries = written_ids - expected_ids
+    
+>       assert expected_ids == written_ids, (
+            "config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug "
+            f"category. Real round-2 upstream-library-bug issues with NO registry entry: "
+            f"{sorted(missing_entries) or 'none'}. Registry entries with NO matching real round-2 "
+            f"upstream-library-bug issue: {sorted(orphan_entries) or 'none'}."
+        )
+E       AssertionError: config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug category. Real round-2 upstream-library-bug issues with NO registry entry: ['3D-PYTHON-009', 'WORDS-NET-005']. Registry entries with NO matching real round-2 upstream-library-bug issue: none.
+E       assert {'3D-JAVA-001...AVA-014', ...} == {'3D-JAVA-001...AVA-014', ...}
+E         
+E         Extra items in the left set:
+E         'WORDS-NET-005'
+E         '3D-PYTHON-009'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:440: AssertionError
+______ test_registry_entry_count_equals_upstream_library_bug_issue_count ______
+
+    def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
+        upstream_issue_ids = _real_upstream_library_bug_ids()
+        registry_ids = _all_registry_ids()
+    
+        # Every registry id is unique (proven by the global no-duplicate test above), so the raw
+        # entry count and the id-set size agree; comparing both derived counts directly here, not the
+        # literal 53, is what makes this assertion non-tautological.
+>       assert len(registry_ids) == len(upstream_issue_ids), (
+            f"registry entry count ({len(registry_ids)}) does not equal the real upstream-library-bug "
+            f"issue count ({len(upstream_issue_ids)})"
+        )
+E       AssertionError: registry entry count (65) does not equal the real upstream-library-bug issue count (67)
+E       assert 65 == 67
+E        +  where 65 = len(['3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-001', '3D-JAVA-014', '3D-JAVA-006', ...])
+E        +  and   67 = len({'3D-JAVA-001', '3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-006', '3D-JAVA-014', ...})
+
+tests\indexing\test_known_defects_completeness.py:498: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_real_registry_file_validates_against_the_real_schema[3D-PYTHON-009-3d-python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_real_registry_file_validates_against_the_real_schema[WORDS-NET-005-words-net]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_each_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[3D-PYTHON-009-3d-python-RD2-034-3d/python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_each_id_equals_a_real_ledger_issue_id_and_appears_exactly_once[WORDS-NET-005-words-net-RD2-269-words/net]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_each_entry_is_open_version_scoped_with_a_real_date_and_a_user_action[3D-PYTHON-009-3d-python-RD2-034-3d/python-aspose-3d-foss-26.1.0]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_each_entry_is_open_version_scoped_with_a_real_date_and_a_user_action[WORDS-NET-005-words-net-RD2-269-words/net-Aspose.Words.FOSS-26.3.0]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_subject_kinds
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus[3D-PYTHON-009-3d-python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_every_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus[WORDS-NET-005-words-net]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_3d_python_009_names_the_trigger_the_failure_modes_and_the_safe_pattern
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_3d_python_009_does_not_claim_the_audits_unreproduced_all_four_factories_work
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_words_net_005_names_the_net462_only_overload_and_the_modern_dotnet_alternative
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_words_net_005_does_not_claim_the_overload_is_missing_everywhere
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_get_symbol_surfaces_the_file_format_disclosure
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_get_symbol_resolved_member_surfaces_the_class_scoped_disclosure
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_search_symbols_surfaces_the_file_format_disclosure
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_get_symbol_surfaces_the_httpresponse_overload_disclosure
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_manifest_validates_against_the_real_schema_with_exactly_one_hazard[words-python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_manifest_validates_against_the_real_schema_with_exactly_one_hazard[3d-python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_the_real_limitations_answer_carries_the_hazard_distinctly_framed[words-python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_the_real_limitations_answer_carries_the_hazard_distinctly_framed[3d-python]
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_words_python_limitations_states_children_is_a_private_unsupported_idiom
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_3d_python_limitations_states_the_none_constants_the_failure_modes_and_the_safe_pattern
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_each_hazard_text_states_a_trigger_and_a_safe_pattern
+FAILED tests/indexing/test_known_defects_data_wave_b.py::test_the_registry_ids_for_the_two_pilots_keep_their_pre_existing_entries
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_entry_count_equals_upstream_library_bug_issue_count
+
+--- stderr ---
+
