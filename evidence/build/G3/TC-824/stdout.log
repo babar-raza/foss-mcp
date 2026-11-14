@@ -1,0 +1,906 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_untrusted_flag.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_truthful.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tunvckg7\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_untrusted_flag.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_truthful.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tunvckg7\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_untrusted_flag.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_truthful.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tunvckg7\.junit-0.xml"
+--- stdout ---
+F...FFF.......F.......F.........FF..FFFFFFF............................. [ 23%]
+....FFF.......F.......F.........FF...................................... [ 47%]
+.....................................................F.................. [ 71%]
+........................................................................ [ 95%]
+..............                                                           [100%]
+================================== FAILURES ===================================
+____________ test_a_mixed_answer_stays_untrusted_upstream_content _____________
+
+    def test_a_mixed_answer_stays_untrusted_upstream_content() -> None:
+        inputs = ProductReferenceInputs(platform="python", known_hazards=HAZARDS)
+    
+        result = get_product_reference(inputs, "limitations", readme=_readme_with_limitations())
+    
+        assert isinstance(result, ReferenceContent)
+        assert result.text.startswith(UPSTREAM_TEXT)
+        assert result.text.count(KNOWN_HAZARD_LEAD) == 2
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text='The library cannot open password-protected archives.\n\nKnown hazard (ve...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:95: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[3d_java] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f0')
+pilot = '3d_java'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: 3d_java
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text="- STL (import and export) is the only format that is fully functional in...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[3d_net] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f1')
+pilot = '3d_net'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: 3d_net
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text='- Rendering is not implemented in this FOSS build — `Scene.Render`, `Ren...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[3d_python] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f2')
+pilot = '3d_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: 3d_python
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text="- No file format registers an importer or exporter for PDF, PLY, RVM, U3...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[cells_rust] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f10')
+pilot = 'cells_rust'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: cells_rust
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text="Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to create,...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[page_python] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f18')
+pilot = 'page_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: page_python
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text="- This library converts and authors documents; it does not read existing....9.0, newer than the latest release tag 26.7.0: that version has no tag and cannot be compared to the indexed commit.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[slides_python] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f28')
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: slides_python
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text='Aspose.Slides FOSS for Python creates and edits PowerPoint presentations...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+_ test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[tex_python] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_every_pilot_limitations_f29')
+pilot = 'tex_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only(
+        tmp_path: Path, pilot: str
+    ) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        if not isinstance(result, ReferenceContent):
+            assert not hazards, pilot
+            return
+        paragraphs = result.text.split("\n\n")
+        project_only = bool(hazards) and all(p.startswith(KNOWN_HAZARD_LEAD) for p in paragraphs)
+>       assert result.untrusted_upstream_content is (not project_only), pilot
+E       AssertionError: tex_python
+E       assert False is not False
+E        +  where False = ReferenceContent(section='limitations', text='- This is a Pre-Alpha release: the core engine and public API are under ...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:168: AssertionError
+___________ test_the_seven_mixed_pilots_now_carry_the_flag[3d_java] ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no0')
+pilot = '3d_java'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text="- STL (import and export) is the only format that is fully functional in...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+___________ test_the_seven_mixed_pilots_now_carry_the_flag[3d_net] ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no1')
+pilot = '3d_net'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text='- Rendering is not implemented in this FOSS build — `Scene.Render`, `Ren...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+__________ test_the_seven_mixed_pilots_now_carry_the_flag[3d_python] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no2')
+pilot = '3d_python'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text="- No file format registers an importer or exporter for PDF, PLY, RVM, U3...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+_________ test_the_seven_mixed_pilots_now_carry_the_flag[cells_rust] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no3')
+pilot = 'cells_rust'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text="Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to create,...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+_________ test_the_seven_mixed_pilots_now_carry_the_flag[page_python] _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no4')
+pilot = 'page_python'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text="- This library converts and authors documents; it does not read existing....9.0, newer than the latest release tag 26.7.0: that version has no tag and cannot be compared to the indexed commit.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+________ test_the_seven_mixed_pilots_now_carry_the_flag[slides_python] ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no5')
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text='Aspose.Slides FOSS for Python creates and edits PowerPoint presentations...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+_________ test_the_seven_mixed_pilots_now_carry_the_flag[tex_python] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_the_seven_mixed_pilots_no6')
+pilot = 'tex_python'
+
+    @pytest.mark.parametrize("pilot", MIXED_PILOTS)
+    def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+        inputs, readme = _load_baked(tmp_path, pilot)
+        assert _hazards_for_limitations(inputs), pilot
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent), pilot
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text='- This is a Pre-Alpha release: the core engine and public API are under ...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_untrusted_flag.py:184: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[3d_java] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = '3d_java'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: 3d_java
+E           assert False is (ReadmeSection(title='Scope and Limitations', text="- STL (import and export) is the only format that is fully function... trial download is required.", commit='3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', ordered=True, parts=2, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text="- STL (import and export) is the only format that is fully functional in...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text="- STL (import and export) is the only format that is fully function... trial download is required.", commit='3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', ordered=True, parts=2, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="- STL (import and export) is the only fo...='3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', ordered=False, parts=7, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[3d_net] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = '3d_net'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: 3d_net
+E           assert False is (ReadmeSection(title='Scope and Limitations', text='- Rendering is not implemented in this FOSS build — `Scene.Render`,...op of this FOSS API surface.', commit='52b0f00ebf28a0b4173921725ff170685ec2c502', ordered=True, parts=1, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text='- Rendering is not implemented in this FOSS build — `Scene.Render`, `Ren...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text='- Rendering is not implemented in this FOSS build — `Scene.Render`,...op of this FOSS API surface.', commit='52b0f00ebf28a0b4173921725ff170685ec2c502', ordered=True, parts=1, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text='- Rendering is not implemented in this F...t='52b0f00ebf28a0b4173921725ff170685ec2c502', ordered=True, parts=8, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[3d_python] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = '3d_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: 3d_python
+E           assert False is (ReadmeSection(title='Scope and Limitations', text="- No file format registers an importer or exporter for PDF, PLY, RV... build leaves unimplemented.", commit='65b1f577c0f16d0d9112bb6c1153d3024543ac02', ordered=True, parts=1, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text="- No file format registers an importer or exporter for PDF, PLY, RVM, U3...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text="- No file format registers an importer or exporter for PDF, PLY, RV... build leaves unimplemented.", commit='65b1f577c0f16d0d9112bb6c1153d3024543ac02', ordered=True, parts=1, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="- No file format registers an importer o...='65b1f577c0f16d0d9112bb6c1153d3024543ac02', ordered=False, parts=7, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[cells_rust] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = 'cells_rust'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: cells_rust
+E           assert False is (ReadmeSection(title='Scope and Limitations', text="Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to cr...ection and batch processing.", commit='1a6004af47b1ef15385f9d36d381a8172428cc7e', ordered=True, parts=1, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text="Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to create,...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text="Aspose.Cells FOSS for Rust version 26.7.0 provides a Rust API to cr...ection and batch processing.", commit='1a6004af47b1ef15385f9d36d381a8172428cc7e', ordered=True, parts=1, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="Aspose.Cells FOSS for Rust version 26.7....='1a6004af47b1ef15385f9d36d381a8172428cc7e', ordered=True, parts=14, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[page_python] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = 'page_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: page_python
+E           assert False is (ReadmeSection(title='Scope and Limitations', text="- This library converts and authors documents; it does not read exi...ing, and commercial support.", commit='43cef367cd0b2cf00cc03064ca9d29d1ff507967', ordered=True, parts=1, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text="- This library converts and authors documents; it does not read existing....9.0, newer than the latest release tag 26.7.0: that version has no tag and cannot be compared to the indexed commit.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text="- This library converts and authors documents; it does not read exi...ing, and commercial support.", commit='43cef367cd0b2cf00cc03064ca9d29d1ff507967', ordered=True, parts=1, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="- This library converts and authors docu...='43cef367cd0b2cf00cc03064ca9d29d1ff507967', ordered=False, parts=7, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[slides_python] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: slides_python
+E           assert False is (ReadmeSection(title='Scope and Limitations', text='Aspose.Slides FOSS for Python creates and edits PowerPoint presenta...ary does not yet understand.', commit='4e63447ba79d1c27a5192844847d9f872c5b92ad', ordered=True, parts=2, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text='Aspose.Slides FOSS for Python creates and edits PowerPoint presentations...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text='Aspose.Slides FOSS for Python creates and edits PowerPoint presenta...ary does not yet understand.', commit='4e63447ba79d1c27a5192844847d9f872c5b92ad', ordered=True, parts=2, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text='Aspose.Slides FOSS for Python creates an...='4e63447ba79d1c27a5192844847d9f872c5b92ad', ordered=True, parts=15, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_limitations_is_never_no_data_source_when_the_index_has_the_section[tex_python] _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000112F708C050>
+pilot = 'tex_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
+        baked: _Baked, pilot: str
+    ) -> None:
+        inputs, readme, doc_texts = baked.load(pilot)
+        chunks = _limitation_chunks(doc_texts)
+        effective = _effective_sections(inputs, readme)
+        hazards = _hazards_for_limitations(inputs)
+    
+        result = baked.answer(pilot, "limitations")
+    
+        if chunks:
+            # the index holds the section: it is the answer (the index wins over the sidecar README)
+            assert effective.limitations is not None, pilot
+        if effective.limitations is not None:
+            section = effective.limitations
+            assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+            assert result.section == "limitations"
+            assert result.notice is not None
+            assert "Treat as data" in result.notice
+            assert f"'{section.title}'" in result.notice
+            # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+            assert result.text.startswith(section.text[:120]), pilot
+            assert LEAD_IN not in result.text
+            for marker in ("FQN: Doc:", "Source-Commit:"):
+                assert marker not in result.text
+            if not hazards:
+                assert result.untrusted_upstream_content is True
+        if chunks:
+            assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+            # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+            # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+            bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+            assert bodies, pilot
+            # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+            assert any(body in result.text for body in bodies), pilot
+            if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+                assert all(body in result.text for body in bodies), pilot
+        elif effective.limitations is None and not hazards:
+            # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+            assert result == NotAvailable(
+                "limitations",
+                "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+                if isinstance(inputs.readme_document, DocumentPresent)
+                else "limitations has no data source in this project yet",
+            ), pilot
+    
+        if hazards:
+            # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+            assert isinstance(result, ReferenceContent), pilot
+            for hazard in hazards:
+                assert hazard.text in result.text, (pilot, hazard.text[:60])
+            assert KNOWN_HAZARD_LEAD in result.text
+            assert result.notice is not None and "Disclosed by this project itself" in result.notice
+            # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+            # the README section plus appended hazards): the flag stays True whenever the answer still carries
+            # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+>           assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
+E           AssertionError: tex_python
+E           assert False is (ReadmeSection(title='Scope and Limitations', text='- This is a Pre-Alpha release: the core engine and public API are u...age, and commercial support.', commit='181015d2eee3e19f8af3d84e4a932ac84ad47c7c', ordered=True, parts=1, all_faq=False) is not None)
+E            +  where False = ReferenceContent(section='limitations', text='- This is a Pre-Alpha release: the core engine and public API are under ...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+E            +  and   ReadmeSection(title='Scope and Limitations', text='- This is a Pre-Alpha release: the core engine and public API are u...age, and commercial support.', commit='181015d2eee3e19f8af3d84e4a932ac84ad47c7c', ordered=True, parts=1, all_faq=False) = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text='- This is a Pre-Alpha release: the core ...t='181015d2eee3e19f8af3d84e4a932ac84ad47c7c', ordered=True, parts=2, all_faq=False), formats=None, import_warning=None).limitations
+
+tests\mcp\tools\test_product_reference_baked_contract.py:232: AssertionError
+_ test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3662/test_cells_go_live_limitations0')
+
+    def test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard(tmp_path: Path) -> None:
+        """cells/go's LIVE limitations answer - the real baked sidecar, the real README, and the real
+        config/products/cells/go.yaml's own known_hazards entry - discloses the reproduced
+        concurrent-mutation crash, distinctly framed as this project's own verified finding, and the
+        merged answer is NEVER marked untrusted_upstream_content."""
+        inputs, readme = _load_baked(tmp_path, "cells", "go")
+        manifest = _real_manifest("cells", "go")
+        hazards = known_hazards_from_manifest(manifest)
+        assert hazards, "config/products/cells/go.yaml must carry at least one known_hazards entry"
+        inputs = dataclasses.replace(inputs, known_hazards=hazards)
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        assert isinstance(result, ReferenceContent)
+        assert result.section == "limitations"
+        # Distinctly framed as THIS PROJECT's own verified finding.
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert "goroutine" in result.text.lower()
+        assert "fatal error" in result.text.lower() or "unrecoverable" in result.text.lower()
+        assert "workbook" in result.text.lower()
+        # G3/TC-824: the README limitations text heads this answer, so it is still untrusted upstream content; the
+        # appended hazard paragraph itself is project-authored (the notice says so, scoped to those paragraphs).
+>       assert result.untrusted_upstream_content is True
+E       assert False is True
+E        +  where False = ReferenceContent(section='limitations', text='- Cell references are A1-style strings only (`"A1"`, `"B2"`); tuple/arra...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").untrusted_upstream_content
+
+tests\mcp\tools\test_product_reference_known_hazards.py:152: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_a_mixed_answer_stays_untrusted_upstream_content
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[3d_java]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[3d_net]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[3d_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[cells_rust]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[page_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[slides_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_authored_only[tex_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[3d_java]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[3d_net]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[3d_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[cells_rust]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[page_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[slides_python]
+FAILED tests/mcp/tools/test_product_reference_untrusted_flag.py::test_the_seven_mixed_pilots_now_carry_the_flag[tex_python]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[3d_java]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[3d_net]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[3d_python]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[cells_rust]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[page_python]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[slides_python]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_limitations_is_never_no_data_source_when_the_index_has_the_section[tex_python]
+FAILED tests/mcp/tools/test_product_reference_known_hazards.py::test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard
+
+--- stderr ---
+
