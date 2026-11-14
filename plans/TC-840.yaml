@@ -1,0 +1,90 @@
+id: TC-840
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REGRESSION introduced by TC-822 (net member tag note), reproduced by the supervisor 2026-11-14
+  at HEAD:
+  tests/mcp/tools/test_round3_unsupported_markers.py::test_real_data_a_type_the_scope_page_names_is_flagged_for_every_tool
+  fails on the real 3d/net corpus because `list_members` now returns the new line 'Note: [static,
+  readonly] = static readonly field; they are listed with the properties.' as its FIRST element,
+  ahead of the 'Limitation: not implemented in this build: ...' line the test (and the product
+  contract, TC-559/TC-639 prepend precedent) requires to lead every answer for an unsupported
+  type. Safety-relevant ordering: a 'not implemented in this build' limitation must be the first
+  thing a reader of get_symbol/list_members sees; an explanatory convention note must come AFTER
+  every Limitation/disclosure line. Fix in src/foss_mcp/mcp/tools/list_members.py (and
+  get_symbol.py if its notes/limitations ordering has the same property) so the net-member-tag
+  note is appended after all limitation and known-defect lines (and before or after the member
+  lines exactly as TC-822 intended - keep TC-822's own tests green:
+  tests/mcp/tools/test_net_member_tag_convention.py may need its position assertion updated ONLY
+  if it pinned 'note first'; say so). Then run the full related family
+  (tests/mcp/tools/test_round3_unsupported_markers.py, test_net_member_tag_convention.py,
+  test_member_lookup.py, test_member_lookup_baked.py, test_symbol_tools.py,
+  test_known_defects_in_symbol_tools.py, test_get_symbol_*.py, tests/conformance) and report any
+  other failure that bisects to TC-822 (commit ff5045e7/00534f3c, evidence 4db1b046).
+depends_on:
+  - TC-822
+  - TC-795
+  - TC-794
+  - TC-799
+  - TC-838
+write_paths:
+  - src/foss_mcp/mcp/tools/list_members.py
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - tests/mcp/tools/test_net_member_tag_convention.py
+  - tests/mcp/tools/test_member_note_ordering.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: git show 00534f3c (or the TC-822 integrated commit: git log --oneline --grep
+    TC-822), list_members.py and get_symbol.py `_with_member_tag_note` / `net_member_tag_note` / the
+    Noted* classes, tests/mcp/tools/test_round3_unsupported_markers.py,
+    test_net_member_tag_convention.py.
+  - >-
+    REPRODUCE FIRST (PowerShell after scripts/toolchain/activate.ps1): the failing test on main;
+    print the first three elements of list_members for the failing 3d/net type.
+  - >-
+    NEW TEST tests/mcp/tools/test_member_note_ordering.py: synthetic .NET type with BOTH a
+    not-implemented limitation (and a known-defect line) AND a tagged [event]/[static, readonly]
+    member: list_members and get_symbol(.limitations / .notes) put every Limitation/known-defect
+    line before the tag note; real 3d/net failing type; a type with only the note keeps it first
+    among member lines as TC-822 specified.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies the src change).
+    ruff format + ruff check; run the card's check command twice; report real counts. Do NOT use git
+    stash. Never weaken/skip/edit an existing test except the single position assertion noted above.
+actions:
+  - >-
+    Keep Limitation and known-defect lines ahead of the .NET member-tag note in
+    list_members/get_symbol answers.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_member_note_ordering.py tests/mcp/tools/test_round3_unsupported_markers.py tests/mcp/tools/test_net_member_tag_convention.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_known_defects_in_symbol_tools.py tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_known_defects_alias_aware.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 173
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/list_members.py', 'src/foss_mcp/mcp/tools/get_symbol.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-840/receipt.json
+closeout:
+  - >-
+    Unsupported-type limitations lead every get_symbol/list_members answer; the .NET tag note
+    follows them.
+recovery: Re-run from a clean tree.
