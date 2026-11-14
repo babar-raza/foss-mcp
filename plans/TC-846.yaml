@@ -66,7 +66,7 @@ checks:
 min_tests: 143
 requires:
   - python
-network: false
+network: true
 negative_control:
   mutate: |
     python -X utf8 -c "import subprocess; paths = ['tests/deploy/test_demo_compose.py', 'tests/deploy/test_e2e_pins_match_shipped_data.py', 'tests/deploy/test_product_reference_sidecars_are_current.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
