@@ -1,0 +1,98 @@
+id: TC-838
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REGRESSION introduced by TC-799 (commit 4b318f17, bisected by the supervisor 2026-11-14 over the
+  search_symbols.py history: the test passes at cc611448 and earlier, fails at 4b318f17):
+  tests/mcp/tools/test_lookup_forgiveness.py::test_a_plural_type_name_still_names_the_type now
+  fails - `lookup(cells_net_store, CELLS_NET, 'workbooks')` returns ['WorkbookSettings',
+  'WorkbookSaveException'] and no longer has `Workbook` in its top 3. TC-799's own check list did
+  not include test_lookup_forgiveness.py, so its review never ran it (the nested ratchet bundle in
+  tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py did, which is how TC-835's review
+  caught it). Root cause is almost certainly in TC-799's `_match_tier` change in
+  src/foss_mcp/mcp/tools/search_symbols.py (the 3-character floor now applied to the whole
+  single-token query, 'a final-segment startswith also counts as a hit', 'undotted fragment must
+  lie wholly inside the final segment') and/or the new equal-final-segment-first ordering in
+  `suggest_similar_fqns`/ranking: a plural query 'workbooks' now hits
+  `WorkbookSettings`/`WorkbookSaveException` through the new final-segment-prefix route at a tier
+  that outranks the plural-stem match of `Workbook`. Fix at the cause so that (a) a plural/stemmed
+  exact type name still outranks prefix-only matches of longer names (exact-after-stemming beats
+  prefix), (b) every TC-799 improvement is preserved: the 10 pruned symbol-self-retrieval baseline
+  entries (IRenderQueue, IWarningCallback, IEffectFormat, IBasePortionFormat, IGradientFormat,
+  INotesSlideManager, PageFormatA3/A4, encodeG4, WordML2003SaveOptions) and
+  tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py (43 tests) must still pass
+  unchanged, (c) the 729-case corpus numbers do not get worse than after TC-799 (hit@3 0.8697 /
+  wrong-confident 0.0247 / per-family floors). Run the FULL symbol/lookup test family, not just
+  the card's list: grep tests/ for `search_symbols|lookup(` users
+  (tests/mcp/tools/test_search_symbols_*.py, test_lookup_*.py, test_symbol_tools.py,
+  test_member_lookup*.py, test_round3_retrieval_corpus.py, test_forgiveness_acceptance.py,
+  tests/conformance/test_symbol_self_retrieval.py,
+  tests/conformance/test_sentence_wrapped_retrieval.py) and report any other failure that bisects
+  to 4b318f17. Do not edit any test to make it pass: the existing tests are the contract.
+depends_on:
+  - TC-799
+  - TC-795
+  - TC-793
+  - TC-708
+  - TC-703
+  - TC-686
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: git show 4b318f17 (the whole TC-799 commit), search_symbols.py `_match_tier`,
+    `suggest_similar_fqns`, tier ordering and plural/stem handling,
+    tests/mcp/tools/test_lookup_forgiveness.py (test_a_plural_type_name_still_names_the_type and its
+    neighbours), tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py.
+  - >-
+    REPRODUCE FIRST (PowerShell after scripts/toolchain/activate.ps1): the failing test on main;
+    then print the ranked tiers/match kinds for the query 'workbooks' on cells/net before (checkout
+    of cc611448 in a temp git worktree OUTSIDE the repo) and after TC-799.
+  - >-
+    NEW TEST tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py: synthetic scope
+    with `Workbook`, `WorkbookSettings`, `WorkbookSaveException`: 'workbooks' and 'Workbooks' rank
+    `Workbook` first; 'workbook' exact; 'Workbo' (prefix) still hits all three prefix matches; plus
+    the real cells/net repro through search_symbols and lookup; plus a few other plural cases on
+    real pilots (e.g. 'worksheets' on cells/net, 'presentations' on slides/net - derive from the
+    real corpus, assert the type itself is in the top 3).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies the src change).
+    ruff format + ruff check; run the card's check command twice; report real counts. Do NOT use git
+    stash. Remove any temp git worktrees you create. Never weaken, skip or edit an existing test.
+actions:
+  - >-
+    Restore plural-exact precedence over prefix-only matches in search_symbols without losing
+    TC-799's fragment and did-you-mean improvements.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_plural_and_prefix_precedence.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 185
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/search_symbols.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-838/receipt.json
+closeout:
+  - >-
+    'workbooks' names Workbook again and every TC-799 improvement is retained.
+recovery: Re-run from a clean tree.
