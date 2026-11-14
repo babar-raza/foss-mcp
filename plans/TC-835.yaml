@@ -1,0 +1,122 @@
+id: TC-835
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REAL REGRESSION of the originally reported long-sentence bug (LONGQ-001), found and bisected
+  2026-11-14 by the TC-834 investigation (first-bad commit c290392a 'chore(release): re-ingest
+  pdf/net for TC-747 authored examples'; reproduced at HEAD): on the committed pdf/net data
+  `lookup()` of the literal LONGQ-001 sentence now returns a TaskAnswer of three 'partial' 'Key
+  Capabilities and API Reference, Part N of 23' chunks with no Installation/Quick Start chunk,
+  instead of the honest Miss it returned before (and before the earlier fix, the wrong-chunk flip
+  that the comment on `PARTIAL_COVERAGE_THRESHOLD` (search_docs.py ~l.400-411, set above
+  0.403166800478466) exists to prevent). Two tests are red because of it:
+  tests/mcp/tools/test_search_docs_partial_tier.py::test_longq_001_literal_query_still_a_miss_from_search_docs_alone
+  and
+  tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py::test_longq_001_real_weighted_coverage_through_the_real_wired_search_docs
+  (0.2913575860194603 vs pinned 0.29841659976076695). ROOT CAUSE (measured):
+  `relevance.doc_scope_term_weights` computes N and df over DOCUMENTATION **and EXAMPLE** chunks
+  (relevance.py ~l.1154-1179), so adding 5 authored `verified_example` chunks (943 -> 948) raised
+  the weights of `file` (0.9057 -> 0.9746) and `reference` (0.7963 -> 0.8899); the generic 'Key
+  Capabilities' chunks match `convert/file/reference` via title-folding and their best-passage
+  coverage rose from 0.403167 to 0.417285, crossing the 0.41 threshold, while the install chunk
+  (which lacks `file` and `reference`) fell from 0.298417 to 0.291358. Example chunks are a
+  SEPARATE retrieval path (find_examples), they must not move doc-scope IDF for search_docs - and
+  every future authored example (P4 corpus growth, TC-825/826/827 and the regeneration) would
+  shift the numbers again, so a threshold bump is NOT acceptable (fragile). FIX
+  (measurement-gated, root cause): make the doc-scope weights used by search_docs/lookup count
+  DOCUMENTATION chunks only (add an explicit scope selector to `doc_scope_term_weights`, e.g. a
+  `kinds` argument defaulting to the new documentation-only behaviour for the search_docs call,
+  keeping the old DOCUMENTATION+EXAMPLE behaviour reachable only where a caller still needs it -
+  grep every caller first, find_examples must be byte-identical in behaviour). Then run the full
+  retrieval ratchet set and report before/after for: the LONGQ-001 literal (must be an honest Miss
+  from search_docs alone and from lookup, as before c290392a, or, if the new weights make a better
+  honest answer, labelled partial with the install/quick-start chunk and every required term -
+  never a wrong generic chunk), the round-3 corpus (hit@3 >= 0.85, wrong-confident floors),
+  forgiveness, nonsense-miss, sentence-wrapped conformance baselines, search_docs partial-tier
+  tests. No ratchet floor may be lowered. The pinned coverage number in
+  test_longq_001_real_weighted_coverage_through_the_real_wired_search_docs may be re-pinned ONLY
+  to the value you derive from the new documentation-only scope and only with a comment explaining
+  the mechanism change (the contract tests - the Miss test and the 'must not flip onto the wrong
+  chunk' tests - stay unchanged and must pass).
+depends_on:
+  - TC-627
+  - TC-630
+  - TC-626
+  - TC-671
+  - TC-625
+  - TC-670
+  - TC-797
+  - TC-810
+  - TC-640
+  - TC-677
+  - TC-633
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
+  - tests/mcp/tools/test_search_docs_partial_tier.py
+  - tests/mcp/tools/test_longq_doc_scope_excludes_examples.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: relevance.py `doc_scope_term_weights` and every caller (grep), search_docs.py
+    (partial tier, PARTIAL_COVERAGE_THRESHOLD comment, `_partial_coverage`, `_doc_vector_fallback`),
+    tests/mcp/tools/test_search_docs_partial_tier.py, test_relevance_doc_scope_weights.py and
+    _enabled.py, tests/conformance/test_sentence_wrapped_retrieval.py (LONGQ literal),
+    docs/DECISION_LOG.md LONGQ entries (grep LONGQ),
+    tests/mcp/tools/test_round3_retrieval_corpus.py.
+  - >-
+    REPRODUCE FIRST on main: the two red tests (record exact output) and `lookup()` of the LONGQ-001
+    literal on the committed pdf/net manifests (PowerShell after scripts/toolchain/activate.ps1; the
+    TC-834 worker's scripts measure.py and lk.py are in the session scratchpad
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad
+    - reuse them). Confirm the root cause by computing the weights with examples excluded.
+  - >-
+    NEW TEST tests/mcp/tools/test_longq_doc_scope_excludes_examples.py: (a) synthetic lexical
+    payload: adding N example chunks does not change doc-scope weights for search_docs; (b) the real
+    pdf/net LONGQ-001 literal stays a Miss from search_docs alone regardless of how many synthetic
+    example chunks are added to a copy of the payload (a drift guard: add 5, 50 example chunks); (c)
+    find_examples's own weighting is unchanged (byte-identical weights for a fixed payload).
+  - >-
+    Never loosen PARTIAL_COVERAGE_THRESHOLD or any floor. Commit EXACTLY ONE commit (the
+    supervisor's negative control reverse-applies the src part). ruff format + ruff check on changed
+    files, run the card's check command twice, report real counts. Do NOT use git stash. If
+    measurement shows documentation-only scope does NOT restore the contract, stop with NO commit
+    and report the measurements.
+actions:
+  - >-
+    Compute doc-scope IDF over documentation chunks only so authored example growth can no longer
+    flip LONGQ-001 onto a wrong chunk, with a drift-guard test.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_longq_doc_scope_excludes_examples.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 2400
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 150
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/relevance.py', 'src/foss_mcp/mcp/tools/search_docs.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-835/receipt.json
+closeout:
+  - >-
+    The LONGQ-001 literal is again an honest Miss (or a correct labelled partial) from search_docs
+    and lookup on pdf/net, and authored-example growth can no longer move doc-scope weights.
+recovery: Re-run from a clean tree.
