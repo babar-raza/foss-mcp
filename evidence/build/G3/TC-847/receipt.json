@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-847",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T14:17:21Z",
+  "base_rev": "4a7f98e4956b5ee59ca728edabe433bff405ab7a",
+  "head_rev": "25ca227f6fb3af065af1d76305959812942347c8",
+  "card_sha256": "9f8689e7cf3e18fbfe2985653580a25e32f0624edc132ba8fe3df6828630a01d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "tests/extraction/test_python_repaired_stub_false_positive.py",
+      "tests/fixtures/tex_python/api_surface.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 90.289,
+          "stdout_sha256": "7ad9eae8bc791cd3647d1034e40e5f64e6f87a54623e7d59429d44f3ac12eab8",
+          "tests": 2299,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 68.362,
+          "stdout_sha256": "7ad9eae8bc791cd3647d1034e40e5f64e6f87a54623e7d59429d44f3ac12eab8",
+          "tests": 2299,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/python_surface.py', 'src/foss_mcp/extraction/run_extraction.py', 'tests/fixtures/tex_python/api_surface.json']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "66b8ee3288318792c754c6b29302251a490e82d1d722355ba7b07a9dcd9323ee",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "M tests/fixtures/tex_python/api_surface.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
