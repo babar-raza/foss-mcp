@@ -55,3 +55,21 @@ known_hazards:
       library; if you need one of them, use another tool for that step rather than expecting the
       call to exist or to be a silent no-op.
     verified_at: "2026-11-14"
+  - text: >-
+      CalculateFormula (cells/go, pinned commit fa4e890e) takes the formula text WITHOUT a leading
+      "=", and the README's CalculateFormula limitation never says so. The function treats everything
+      before the first "(" as the function name and does not strip an "=" or leading whitespace, so
+      CalculateFormula("=SUM(A1:A2)", ws), "=AVERAGE(A1:A2)", "=MAX(A1:A2)" and "=MIN(A1:A2)" all return
+      the error `formula: unsupported function "=SUM"` (respectively "=AVERAGE", "=MAX", "=MIN") even though
+      SUM, AVERAGE, MAX and MIN are supported - the message reads as if the function were missing, and
+      the same happens for " =SUM(A1:A2)" and "= SUM(A1:A2)". The working spelling has no "=":
+      with A1 = 3 and A2 = 4, CalculateFormula("SUM(A1:A2)", ws) returns 7, "AVERAGE(A1:A2)" returns
+      3.5, "MAX(A1:A2)" returns 4 and "MIN(A1:A2)" returns 3. Cell.SetFormula stores its text verbatim
+      and GetFormula returns it unchanged, so a formula stored as SetFormula("=SUM(A1:A2)") fails the
+      same way when its GetFormula() text is passed to CalculateFormula; store and evaluate formulas
+      without the leading "=". A second misleading error: an unsupported function is not reported as
+      "unsupported function" when its arguments are not plain cell references, because arguments are
+      resolved as cell references before the function name is checked - CalculateFormula("IF(A1>0,1,2)",
+      ws) (with or without the "=") returns `formula: cells: cell "A1>0" not found`. Reproduced twice
+      with a small Go program against the repository checked out at fa4e890e (2026-11-14).
+    verified_at: "2026-11-14"

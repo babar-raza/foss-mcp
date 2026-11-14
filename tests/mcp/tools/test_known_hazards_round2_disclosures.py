@@ -530,7 +530,8 @@ def _manifest_text(family: str, platform: str) -> str:
 
 def test_cells_go_carries_the_original_hazard_first_and_the_new_cells_go_009_hazard_second() -> None:
     hazards = known_hazards_from_manifest(_real_manifest("cells", "go"))
-    assert len(hazards) == 2
+    # G3/TC-832 appended a THIRD entry (the CalculateFormula leading-"=" behaviour) after these two.
+    assert len(hazards) == 3
     assert hazards[0].verified_at == GO_TC582_VERIFIED_AT
     assert "goroutine" in hazards[0].text.lower()
     assert hazards[1].verified_at == TC796_VERIFIED_AT
@@ -568,7 +569,7 @@ def test_get_product_reference_limitations_for_cells_go_surfaces_both_hazards(tm
     # G3/TC-824: the flag stays True while upstream README text heads the answer; it is False only for a
     # hazard-only answer (one that starts with the project's own hazard paragraph).
     assert result.untrusted_upstream_content is (not result.text.startswith(KNOWN_HAZARD_LEAD))
-    assert result.text.count(KNOWN_HAZARD_LEAD) == 2 + _library_level_defect_count("cells", "go")
+    assert result.text.count(KNOWN_HAZARD_LEAD) == 3 + _library_level_defect_count("cells", "go")
     assert "ImportFromCSV" in result.text
     assert "numFmtId 0" in result.text
     for hazard in hazards:

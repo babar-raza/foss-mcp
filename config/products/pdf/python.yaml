@@ -20,3 +20,30 @@ schedule:
   cron: "0 5 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-832 (round-2 audit PDF-PYTHON-001 / RD2-210): a project-authored, project-verified drift
+# disclosure. The index describes the pinned commit c391ee72 (2026-10-08); the only published
+# package, aspose-pdf-foss-for-python 0.1.0 on PyPI, is built from upstream commit 71670a2a
+# (2026-10-28) - every one of its 230 modules is byte-identical to that commit - and the version
+# string is "0.1.0" at both. Re-verified 2026-11-14 by cloning the upstream repository, installing the
+# wheel in a throwaway venv and importing aspose_pdf.Permissions from each. Keep this the LAST
+# top-level key.
+known_hazards:
+  - text: >-
+      The pdf/python index describes Aspose-PDF-FOSS-for-Python at commit c391ee72 (2026-10-08), but
+      `pip install aspose-pdf-foss-for-python` installs the published 0.1.0 wheel, which was built from a
+      LATER commit: every one of its 230 Python modules is byte-identical to upstream commit 71670a2a
+      (2026-10-28), 78 commits after the indexed one, and the version string is "0.1.0" in both, so the
+      version cannot tell them apart. Compared with the indexed commit, the installed wheel has 65
+      additional modules (13 top-level and 52 under aspose_pdf/engine) and 26 modified ones, and none of
+      the 65 is in this index. The clearest case is Permissions (aspose_pdf.permissions.Permissions, an
+      int subclass with named flags and Permissions.all(), Permissions.denying(...) and can_print-style
+      predicates, added to upstream one day after the indexed commit): get_symbol and search_symbols
+      return nothing for it, and at the indexed commit `from aspose_pdf import Permissions` raises
+      ImportError (there is no aspose_pdf.permissions module; permissions are a raw integer /P word such
+      as -4), yet it imports and works from the installed 0.1.0 package. So for this pilot "not found in
+      the index" does not mean "absent from the package you installed" - before concluding that a symbol
+      does not exist, check the installed package (for example `python -c "from aspose_pdf import X"` or
+      help(X)), and treat the signatures and defaults this index shows as describing the 2026-10-08
+      source, not the wheel.
+    verified_at: "2026-11-14"

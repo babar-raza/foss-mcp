@@ -27,7 +27,10 @@ storage_topology: embedded
 # "X = None (read-only)" beside 4 static factory methods; the constants really are None on the
 # installed aspose-3d-foss 26.1.0 package (and in the indexed source). Re-verified 2026-11-14 by
 # direct reproduction in a throwaway venv. The symbol-scoped disclosure is
-# config/known_defects/3d__python.yaml (3D-PYTHON-009). Keep this the LAST top-level key.
+# config/known_defects/3d__python.yaml (3D-PYTHON-009). G3/TC-832 appended the FBX7400ASCII() save
+# failure and the silent skipping of un-converted primitives (3MF 0-byte file) to the same paragraph,
+# each re-verified on 2026-11-14 on aspose-3d-foss 26.1.0 and against the source at the indexed
+# commit 65b1f577. Keep this the LAST top-level key.
 known_hazards:
   - text: >-
       In aspose-3d-foss 26.1.0, 48 of the FileFormat class attributes that get_symbol and list_members
@@ -43,4 +46,17 @@ known_hazards:
       file extension instead. The safe pattern: pass a real format object such as FileFormat.GLTF2()
       or a format-specific SaveOptions instance, or pass a path with a recognised extension and no
       format argument, and check the written file rather than assuming the named format was used.
+      Two more silent traps on the save path, both reproduced on the same package (G3/TC-832).
+      First, a real format object is not enough to save with: Scene.save(path, FileFormat.FBX7400ASCII())
+      and Scene.save(stream, FileFormat.FBX7400ASCII()) raise NotImplementedError ("supports_format is not
+      implemented"), exactly as Scene.save("x.fbx") and Scene.save("x.dae") do, so of the four static
+      factories only GLTF2() and MICROSOFT_3MF_FORMAT() can be used to save (FBX7400ASCII() merely
+      returns an FbxFormat object, and WAVEFRONT_OBJ() raises ModuleNotFoundError). Second, a node whose
+      entity is a parametrised primitive such as Box(), Sphere() or Cylinder() rather than the Mesh
+      returned by its to_mesh() is silently skipped by the STL, glTF and 3MF exporters: Scene.save("x.stl")
+      writes a header-only file with no facets ("solid x" then "endsolid x"), Scene.save("x.gltf") writes
+      a glTF whose "meshes" array is empty, and Scene.save("x.3mf") writes a 0-byte file with no error
+      (the 3MF exporter returns without writing anything when the scene holds no Mesh, so an empty scene
+      also gives 0 bytes). Attach Box().to_mesh() (a real Mesh) instead, and check the file size or
+      content after every save.
     verified_at: "2026-11-14"

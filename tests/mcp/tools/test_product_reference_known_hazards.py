@@ -60,8 +60,9 @@ KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
 # 1 more (words/net); G3/TC-784 confirms 6 more already carried by later, already-accepted
 # disclosure work (3d/typescript, cells/python, cells/rust, email/cpp, page/python, slides/cpp);
 # G3/TC-796 adds 2 more (cells/cpp, cells/typescript); G3/TC-815 adds 2 more (words/python,
-# 3d/python) - this is the full set of every pilot manifest that does, today, and
-# OTHER_PILOT_MANIFEST_PATHS below excludes all 18 of them, not only cells/go.
+# 3d/python); G3/TC-820 added pdf/cpp; G3/TC-832 adds pdf/python - this is the full set of every
+# pilot manifest that does, today, and OTHER_PILOT_MANIFEST_PATHS below excludes all 19 of them, not
+# only cells/go.
 PILOTS_WITH_KNOWN_HAZARDS = frozenset(
     {
         ("cells", "go"),
@@ -82,6 +83,7 @@ PILOTS_WITH_KNOWN_HAZARDS = frozenset(
         ("words", "python"),
         ("3d", "python"),
         ("pdf", "cpp"),
+        ("pdf", "python"),
     }
 )
 
@@ -91,15 +93,15 @@ OTHER_PILOT_MANIFEST_PATHS = [
     for path in ALL_PRODUCT_MANIFEST_PATHS
     if (path.parent.name, path.stem) not in PILOTS_WITH_KNOWN_HAZARDS
 ]
-# 32 is every real pilot manifest under config/products/; 14 is that count minus the 18 pilots that
+# 32 is every real pilot manifest under config/products/; 13 is that count minus the 19 pilots that
 # carry a real known_hazards entry today (cells/go, the 5 G3/TC-650 added: 3d/net, html/python,
 # pdf/java, slides/java, slides/python; the 1 G3/TC-653 added: words/net; the 6 G3/TC-784
 # confirmed: 3d/typescript, cells/python, cells/rust, email/cpp, page/python, slides/cpp; and the 2
-# G3/TC-796 added: cells/cpp, cells/typescript; and the 2 G3/TC-815 added: words/python, 3d/python; and the 1 G3/TC-820 added: pdf/cpp).
+# G3/TC-796 added: cells/cpp, cells/typescript; and the 2 G3/TC-815 added: words/python, 3d/python; and the 1 G3/TC-820 added: pdf/cpp; and the 1 G3/TC-832 added: pdf/python).
 # If a pilot is ever added or removed, or another known_hazards entry is added, re-pin both counts
 # here to match the new total.
 assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS
-assert len(OTHER_PILOT_MANIFEST_PATHS) == 14, OTHER_PILOT_MANIFEST_PATHS
+assert len(OTHER_PILOT_MANIFEST_PATHS) == 13, OTHER_PILOT_MANIFEST_PATHS
 
 
 def _real_manifest(family: str, platform: str) -> dict[str, Any]:
@@ -167,8 +169,9 @@ def test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pat
     hazards = known_hazards_from_manifest(manifest)
 
     # G3/TC-796 added a SECOND entry (CELLS-GO-009's missing-capabilities disclosure) after the
-    # original TC-582 concurrency entry, which stays first and unchanged.
-    assert len(hazards) == 2
+    # original TC-582 concurrency entry, which stays first and unchanged; G3/TC-832 added a THIRD
+    # (the CalculateFormula leading-"=" behaviour).
+    assert len(hazards) == 3
     hazard = hazards[0]
     text = hazard.text.lower()
     assert "not a catchable panic" in text or "unrecoverable" in text
