@@ -1,0 +1,136 @@
+id: TC-839
+gate: G3
+lane: verification
+purpose: >-
+  PRE-REGENERATION RETRIEVAL GATE. The retrieval ratchets
+  (tests/mcp/tools/test_round3_retrieval_corpus.py, test_forgiveness_acceptance.py,
+  test_find_examples_title_anchor.py, test_find_examples_round2_recall_ratchet.py,
+  tests/conformance/*) read the COMMITTED `infra/demo-manifests`, in which many authored-sidecar
+  examples are not baked yet (the sidecars grew by ~30 pilots since the last re-ingest). The
+  TC-837 worker simulated the post-regeneration state for two pilots and found two latent failures
+  that the regeneration will activate: (1) pdf/java: the radio-button example authored by TC-827
+  ('Create a radio button form field and verify its selection after reload') makes
+  `find_examples('add a button to a pdf')` answer wrongly (forgiveness concise table 23 hit / 2
+  miss / 1 WRONG vs the required 0 wrong; fails test_concise_example_queries_still_hit_23_of_26
+  and test_the_tc516_example_tables_are_unchanged) - the title word `button` anchors a generic
+  query; (2) words/python: 11 README + 5 authored (+ restored) = 16 examples, above the
+  `_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES` = 12 cliff (TC-810), which drops round-2 recall pairs
+  'header' and 'footer' and fails test_every_must_hit_pair_still_answers. Neither is visible
+  today, both would appear the moment the data is regenerated. This card builds the simulation
+  permanently and drives it to green BEFORE the regeneration: (A) add a reusable, offline test
+  helper (tests/mcp/tools/post_regen_simulation.py, a plain module + a pytest plugin or fixture)
+  that builds, for EVERY pilot, a copy of the committed generation in a temp dir whose authored
+  `verified_example` chunks are replaced by the pilot's CURRENT authored_examples.yaml entries
+  rendered in the real build_chunks chunk format (reuse infra/build_chunks.py's authored-chunk
+  construction and TC-800's `_single_example_chunk`; mark them `Provenance: authored`; keep
+  README-derived example chunks as committed; recompute the lexical index/doc_freq the way infra
+  builds it so find_examples sees them) and repoints the corpus loaders (DEMO_MANIFESTS /
+  tests/conformance/corpus.py `manifests_root`) at it; (B) new test
+  tests/mcp/tools/test_post_regen_retrieval_ratchets.py that runs the SAME ratchet functions the
+  committed-manifest tests run (import and call, do not copy numbers: the 729-case corpus
+  wrong-confident <= the committed ceiling and per-family/per-pilot ceilings, forgiveness
+  concise/verbose tables, round-2 recall must-hit pairs, title-anchor invariants) against the
+  simulated tree, failing with the exact case ids; (C) make it GREEN by the narrowest
+  evidence-based fixes, in order of preference: retitle an offending authored example (specific
+  multi-word title, <= 12 words, grep the pilot's task queries for each word; sidecar title
+  changes require updating that pilot's tests/indexing/test_authored_examples_<pilot>.py pins and
+  keeping code_sha256 unchanged), then, only if a pilot's scope is legitimately above the
+  12-example cliff, a measured per-scope policy in find_examples.py/relevance.py for the
+  rare-code-word path (for example allow it for a term that is unique in the scope even above the
+  cap, as TC-810 already does for the recurs-twice guard) - every such change must keep
+  wrong-confident <= 43/729 and every round-2 must-hit pair, with before/after tables; never lower
+  a floor, never weaken a ratchet, never edit an existing ratchet test's thresholds. Report every
+  case that differs between committed and simulated trees, and the final pilot-by-pilot example
+  counts. Do NOT touch infra/demo-manifests or tests/fixtures/verified_examples.
+depends_on:
+  - TC-837
+  - TC-825
+  - TC-826
+  - TC-827
+  - TC-813
+  - TC-810
+  - TC-797
+  - TC-799
+  - TC-800
+  - TC-770
+  - TC-762
+  - TC-763
+  - TC-760
+  - TC-750
+  - TC-802
+  - TC-835
+  - TC-838
+write_paths:
+  - tests/mcp/tools/post_regen_simulation.py
+  - tests/mcp/tools/test_post_regen_retrieval_ratchets.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - src/foss_mcp/mcp/tools/relevance.py
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/fixtures/furnished/words_python/authored_examples.yaml
+  - tests/fixtures/furnished/slides_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_pdf_java.py
+  - tests/indexing/test_authored_examples_words_python.py
+  - tests/indexing/test_authored_examples_slides_python.py
+  - tests/mcp/tools/test_find_examples_rare_code_word.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: infra/build_chunks.py (`_build_verified_example_chunks`, `_single_example_chunk`,
+    `_load_authored_candidates`, the chunk text format), src/foss_mcp/indexing (how the lexical
+    index/doc_freq are produced from chunks - find the function ingest uses),
+    tests/conformance/corpus.py (`manifests_root`, `copy_demo_manifests_to`, loaders),
+    tests/mcp/tools/test_round3_retrieval_corpus.py, test_forgiveness_acceptance.py,
+    test_find_examples_round2_recall_ratchet.py (TC-810) and the TC-827/TC-837 workers' simulation
+    scripts in the session scratchpad
+    (C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\tc827_probe
+    and r837) which already do this for one pilot.
+  - >-
+    If any other pilot's sidecar (30 exist) fails the simulated ratchets, you may retitle ITS
+    example too: add that pilot's sidecar and per-pilot test file to your list in the report and ask
+    the supervisor to widen write_paths (do not edit outside the declared paths). Commit EXACTLY ONE
+    commit (the supervisor's negative control reverse-applies the src/sidecar part; your new test
+    must fail without it - i.e. with the offending retitle/policy reverted the simulated ratchet
+    test fails). ruff format + ruff check; run the card's checks twice; report real counts. Do NOT
+    use git stash. Never skip a test. Never use PowerShell Set-Content to write repo files.
+actions:
+  - >-
+    Add a permanent post-regeneration retrieval simulation over all pilots and fix the pdf/java
+    radio-example and words/python scope-size failures it exposes.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_post_regen_retrieval_ratchets.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_slides_python.py tests/mcp/tools/test_find_examples_rare_code_word.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 2400
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_relevance_idf_synonyms.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 2400
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 60
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/find_examples.py', 'src/foss_mcp/mcp/tools/relevance.py', 'tests/fixtures/furnished/pdf_java/authored_examples.yaml', 'tests/fixtures/furnished/words_python/authored_examples.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-839/receipt.json
+closeout:
+  - >-
+    The retrieval ratchets pass on the post-regeneration (all authored examples baked) state of
+    every pilot, and a permanent simulation guards it.
+recovery: Re-run from a clean tree.
