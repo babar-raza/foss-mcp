@@ -1,0 +1,295 @@
+id: TC-842
+gate: G3
+lane: extraction
+purpose: >-
+  REGEN-A (java + dotnet): regenerate the committed extraction fixtures
+  `tests/fixtures/<pilot>/api_surface.json` for the 11 pilots of this cohort with the CURRENT
+  extractor, at each pilot's pinned commit. Several extractor fixes were merged deliberately
+  WITHOUT regenerating fixtures (their cards said 'fixtures are regenerated once per cohort'):
+  Java enum constant arguments (TC-689), TypeScript constructor parameter properties (TC-690,
+  class JSDoc paragraph TC-821), Python module-level constants (TC-700), try/except and if/else
+  imports (TC-674), package-root re-export shells (TC-818), private dataclass init fields
+  (TC-819), plus anything else under src/foss_mcp/extraction since the last fixture regeneration
+  (`git log --oneline -- src/foss_mcp/extraction tests/fixtures/<pilot>/api_surface.json`). This
+  is DATA regeneration only: no code change. Recipe (design record
+  C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\regen1_design.md
+  section 2 Stage A; plans/TC-559.yaml l.107): for each pilot, with the repo venv python, `python
+  -X utf8 -m foss_mcp.extraction.run_extraction config/products/<family>/<platform>.yaml
+  tests/fixtures/<pilot>/api_surface.json --commit <pin> --keep-names-from
+  tests/fixtures/furnished/<pilot>/pages/_index.md --max-types <maxTypes>`; the pin and maxTypes
+  come from infra/helm/foss-mcp/values.yaml (`ingestion.pilots[].library.commit` and the pilot's
+  max types) and must equal the fixture's current `source_commit` (assert it; the design record
+  says all 32 match today). Clone upstream repos shallowly into a temp dir OUTSIDE the repo
+  (gh/git; GITHUB_TOKEN is available as an env var - never print it), delete after. Normalise CRLF
+  to LF. For each pilot report `git diff --stat` and a per-pilot before/after of: symbol count,
+  type count, and a classification of what changed (new symbols, removed symbols - removed symbols
+  must be explained or the pilot is a 'worse' blocker -, signature/doc changes) using `python
+  scripts/release/generation_diff.py`-style comparison or your own script; NO pilot may lose
+  public symbols without a documented cause (private-field removal TC-819, etc.). Then update
+  every pinned test that counted the old fixture (tests/extraction/*,
+  tests/deploy/test_served_coverage_matches_fixtures.py): re-pin to the new real values keeping
+  each assertion's intent, with a comment naming this card; never delete/skip/weaken. If a test
+  OUTSIDE write_paths fails because of the new fixtures, stop and report exact test ids and the
+  diff cause so the supervisor can widen write_paths.
+depends_on:
+  - TC-010
+  - TC-010a
+  - TC-010b
+  - TC-011
+  - TC-012
+  - TC-021
+  - TC-022
+  - TC-025
+  - TC-026
+  - TC-027
+  - TC-032
+  - TC-033
+  - TC-038
+  - TC-039
+  - TC-044
+  - TC-045
+  - TC-050
+  - TC-051
+  - TC-052
+  - TC-058
+  - TC-059
+  - TC-079
+  - TC-092
+  - TC-094
+  - TC-150
+  - TC-151
+  - TC-152
+  - TC-153
+  - TC-154
+  - TC-155
+  - TC-156
+  - TC-157
+  - TC-158
+  - TC-159
+  - TC-160
+  - TC-161
+  - TC-162
+  - TC-163
+  - TC-164
+  - TC-165
+  - TC-166
+  - TC-167
+  - TC-168
+  - TC-169
+  - TC-170
+  - TC-171
+  - TC-213
+  - TC-214
+  - TC-215
+  - TC-216
+  - TC-220
+  - TC-229
+  - TC-232
+  - TC-233
+  - TC-234
+  - TC-241
+  - TC-252
+  - TC-255
+  - TC-256
+  - TC-257
+  - TC-258
+  - TC-259
+  - TC-261
+  - TC-262
+  - TC-263
+  - TC-264
+  - TC-265
+  - TC-266
+  - TC-267
+  - TC-268
+  - TC-269
+  - TC-270
+  - TC-271
+  - TC-272
+  - TC-274
+  - TC-276
+  - TC-277
+  - TC-281
+  - TC-282
+  - TC-283
+  - TC-284
+  - TC-285
+  - TC-286
+  - TC-287
+  - TC-288
+  - TC-289
+  - TC-290
+  - TC-291
+  - TC-292
+  - TC-293
+  - TC-294
+  - TC-297
+  - TC-298
+  - TC-299
+  - TC-300
+  - TC-301
+  - TC-302
+  - TC-303
+  - TC-304
+  - TC-305
+  - TC-306
+  - TC-307
+  - TC-308
+  - TC-309
+  - TC-310
+  - TC-311
+  - TC-312
+  - TC-313
+  - TC-314
+  - TC-315
+  - TC-316
+  - TC-317
+  - TC-318
+  - TC-319
+  - TC-320
+  - TC-321
+  - TC-322
+  - TC-323
+  - TC-324
+  - TC-332
+  - TC-392
+  - TC-393
+  - TC-394
+  - TC-395
+  - TC-396
+  - TC-397
+  - TC-398
+  - TC-400
+  - TC-401
+  - TC-402
+  - TC-403
+  - TC-420
+  - TC-428
+  - TC-429
+  - TC-473
+  - TC-475
+  - TC-511
+  - TC-519
+  - TC-520
+  - TC-521
+  - TC-522
+  - TC-523
+  - TC-524
+  - TC-525
+  - TC-526
+  - TC-527
+  - TC-528
+  - TC-530
+  - TC-531
+  - TC-532
+  - TC-533
+  - TC-534
+  - TC-535
+  - TC-545
+  - TC-550
+  - TC-551
+  - TC-552
+  - TC-553
+  - TC-555
+  - TC-557
+  - TC-558
+  - TC-559
+  - TC-561
+  - TC-566
+  - TC-614
+  - TC-620
+  - TC-674
+  - TC-676
+  - TC-686
+  - TC-687
+  - TC-689
+  - TC-690
+  - TC-697
+  - TC-700
+  - TC-716
+  - TC-717
+  - TC-727
+  - TC-729
+  - TC-730
+  - TC-779
+  - TC-818
+  - TC-819
+  - TC-820
+  - TC-821
+  - TC-829
+  - TC-841
+write_paths:
+  - tests/fixtures/3d_java/api_surface.json
+  - tests/fixtures/cells_java/api_surface.json
+  - tests/fixtures/pdf_java/api_surface.json
+  - tests/fixtures/slides_java/api_surface.json
+  - tests/fixtures/3d_net/api_surface.json
+  - tests/fixtures/cells_net/api_surface.json
+  - tests/fixtures/email_net/api_surface.json
+  - tests/fixtures/imaging_net/api_surface.json
+  - tests/fixtures/pdf_net/api_surface.json
+  - tests/fixtures/slides_net/api_surface.json
+  - tests/fixtures/words_net/api_surface.json
+  - tests/extraction/*
+  - tests/deploy/test_served_coverage_matches_fixtures.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST:
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\regen1_design.md
+    section 2 Stage A and 6 (risks), src/foss_mcp/extraction/run_extraction.py CLI (`--help`),
+    infra/helm/foss-mcp/values.yaml pilot entries, and how an earlier fixture regeneration card did
+    it (git log --oneline -- tests/fixtures/<pilot>/api_surface.json; plans/TC-559.yaml,
+    plans/TC-729.yaml).
+  - >-
+    Pilots in this cohort: 3d_java, cells_java, pdf_java, slides_java, 3d_net, cells_net, email_net,
+    imaging_net, pdf_net, slides_net, words_net. words/net and pdf/java clones are slow: run them
+    with their own bounded command; the machine is heavily loaded.
+  - >-
+    TESTS: before changing anything run `{python} -m pytest tests/extraction -q -p no:cacheprovider`
+    and record the baseline; after regenerating, the same suite plus the card's checks must pass
+    with only intentional re-pins. Add a test tests/extraction/test_fixture_regeneration_<cohort>.py
+    only if it adds a real invariant (e.g. source_commit == pin for every fixture of the cohort);
+    otherwise none.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies the fixture diff;
+    the re-pinned tests must then FAIL, which they do if they pin the new values). ruff format +
+    ruff check on changed Python files; run the card's checks twice; report real counts from junit.
+    Do NOT use git stash. Never use PowerShell Set-Content to write repo files (BOM/CRLF) - write
+    JSON via python with newline='\n'. Never skip a test.
+actions:
+  - >-
+    Regenerate the java + dotnet extraction fixtures with the current extractor at the pinned
+    commits and re-pin the tests that counted the old data.
+checks:
+  - command: '{python} -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 3000
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 1000
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['tests/fixtures/3d_java/api_surface.json', 'tests/fixtures/cells_java/api_surface.json', 'tests/fixtures/pdf_java/api_surface.json', 'tests/fixtures/slides_java/api_surface.json', 'tests/fixtures/3d_net/api_surface.json', 'tests/fixtures/cells_net/api_surface.json', 'tests/fixtures/email_net/api_surface.json', 'tests/fixtures/imaging_net/api_surface.json', 'tests/fixtures/pdf_net/api_surface.json', 'tests/fixtures/slides_net/api_surface.json', 'tests/fixtures/words_net/api_surface.json']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-842/receipt.json
+closeout:
+  - >-
+    The java + dotnet fixtures reflect the current extractor; every pinned count is re-pinned to
+    real data.
+recovery: Re-run from a clean tree.
