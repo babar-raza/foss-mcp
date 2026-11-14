@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-799",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T10:12:04Z",
+  "base_rev": "4db1b046e458108f5845554547c377f60f44ae70",
+  "head_rev": "3d6aaf7a7a863abe1b6c5a8b8105a20c350a8147",
+  "card_sha256": "bf82779193067cc77746925a6cc02e5f687ae59d6be58146220450d637c2e929",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/conformance/test_symbol_self_retrieval.py",
+      "tests/fixtures/conformance/baseline_symbol_self_retrieval.json",
+      "tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_search_symbols_word_aware_suggestions.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 206.348,
+          "stdout_sha256": "e12193f87802a78bf78bf74d6b281dec5ac486bb0f90b910a8943ce24d84a691",
+          "tests": 186,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_symbols_suggestions_and_fragments.py tests/mcp/tools/test_search_symbols_word_aware_suggestions.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 202.576,
+          "stdout_sha256": "e12193f87802a78bf78bf74d6b281dec5ac486bb0f90b910a8943ce24d84a691",
+          "tests": 186,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/mcp/tools/search_symbols.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "4a8ca8a00acec000c493a00d0e5d6283a54f0d04b81fc93b8a3d9c4a35b3ca76",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_symbols.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
