@@ -5059,3 +5059,52 @@ Remaining known, deliberately-deferred items (none newly found this session): th
 14/14 passing - converting it proactively is low-priority, not urgent); the ~141 latent
 authored-example titles flagged by `TC-773` as possibly exceeding a sentence-frame's word bound
 (not yet swept - no evidence any of them are live-failing today).
+
+## 2026-11-14 — Operator decisions on the open owner items; the remaining-work programme is started (operator directive)
+
+The operator reviewed the 2026-11-14 "what is still open" list and gave four standing directives:
+(1) owner-blocked items are asked in plain language through an interactive form; (2) the
+infrastructure-blocked stages (`XA2`-`XA19`/`AD-*`, `KD11`) get a decision-grade deep dive - intention,
+measured present state, decide on merit, and if justified build it ("do not be afraid of long
+development and testing"); (3) every actionable-but-not-done item is executed without stopping to ask,
+after a fresh priority evaluation - the plan is not "done" until it is executed fully; (4) the 204
+still-`OPEN` round-2 ledger rows are the supervisor's own responsibility and were not to be left
+open by timidity. This entry records the owner decisions and the programme; the work itself lands
+through cards.
+
+**Owner decisions (interactive question, 2026-11-14)**:
+- `OWNER-17` (public-demo stall in the Cloudflare quick tunnel): operator chose to DOCUMENT it and revisit
+  when the product is published on the internal Kubernetes cluster. Recorded `DEFAULT_APPLIED`: the stall is a
+  measured property of the anonymous quick tunnel (nginx alone ~0.9 s vs 7.0-8.8 s through the tunnel at 48
+  concurrent sessions), `RT4`/`RT5` closure records it as a measured limitation (plan 2.9 contingency), and the
+  `R9` public-URL proof is re-scoped to the internal cluster ingress. A `docs/RELEASE.md` limitation entry
+  is part of the programme.
+- `OWNER-14` (rejected GitHub token): operator chose `GITHUB_TOKEN` instead, preflight first. Preflight done
+  without printing the value: set, accepted by GitHub (HTTP 200, 5000/h; a classic token with `repo` and
+  `workflow` scopes - broader than needed). The local `kind-foss-mcp` cluster no longer exists (no containers,
+  API refused), so no Secret was touched; the fetch tools already read `GITHUB_TOKEN` from the environment.
+  Recorded `OVERRIDDEN`. For the internal-cluster publish the Secret should be built from a least-privilege
+  read-only token.
+- `OWNER-10` (direct `docker compose`): operator allowed it for this project. Rule `Bash(docker compose:*)`
+  added to the project-local, git-ignored `.claude/settings.local.json`. Recorded `SATISFIED`.
+- `OWNER-11` (lost second-review item B08): operator retired it. Recorded `OVERRIDDEN`. **New fact from the
+  operator that shapes the end game**: the original prompts that produced the round-2/round-3 reviews will be
+  located and the WHOLE review re-run with the same prompts after this remediation - so success is measured
+  by a fresh independent audit round, not by this project's own tests, and "no pilot gets worse" applies to
+  that round too.
+- `OWNER-07` (pdf/java RadioButton example lacks an import in the upstream docs): not put to the operator -
+  there is an agent-side route within our authority (a correct authored pdf/java example through the
+  `authored_examples.yaml` sidecar, import included), so the item stays `OPEN` only until that example lands;
+  fixing the upstream docs is an optional courtesy to their owner.
+
+**Programme** (priorities set by merit; every item executed through taskcards, supervisor never writes
+product code): A. a decision-grade deep dive of the `XA2`-`XA19`/`AD-*` infrastructure; B. a triage of all
+204 `OPEN` ledger rows by live re-verification, then fix/disclose/disposition each root-cause group and
+finally flip the rows through the `Q17`/`I14`/`O10`/`C11`-style closure cards (`XA19`, `KD11`, `RT5`, `R7`);
+C. the actionable backlog (hermetic-regeneration audit `H1`-`H9`, `pdf/java` `Proto` chunk regeneration for
+`TC-790`, `test_reference_content.py` crash-masking conversion, the ~141 over-long example titles and a
+`_MAX_TITLE_WORDS` guard, `find_examples` matcher gains, known-defects sibling refs, `PDF-NET-002`/
+`EML-NET-002`, `3D-JAVA-005`, URL restructuring, `gate-exit` refresh, the `R1`-`R11` release program up to
+what needs only local Docker). Eight read-only investigators were launched in parallel (infra deep dive,
+release backlog, content backlog, five ledger-triage slices); their findings, not this entry, decide the
+card list.

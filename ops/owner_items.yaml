@@ -179,7 +179,7 @@ owner_items:
   last_checked_at: '2026-10-12T00:00:00Z'
 
 - id: OWNER-10
-  status: OPEN
+  status: SATISFIED
   summary: 'This session''s Claude Code auto-mode permission classifier denies a DIRECT, top-level `docker compose ...
     down -v`/`up` tool call against this repository''s own e2e-test projects (e.g. `foss-mcp-e2e-tc099`, used by
     tests/e2e/test_pdf_java_live_content.py and its siblings) when issued as the Bash tool''s own command, reason
@@ -197,12 +197,12 @@ owner_items:
   consumed_by:
   - NONE
   recorded_at: '2026-10-07T19:20:00Z'
-  note: 'Owner-only permission grant, narrow in practice: does not block CI, gatectl review, or any card whose own
+  note: 'RESOLVED 2026-11-14 (operator decision, interactive question): the operator approved a narrow permission rule. Bash(docker compose:*) was added to the project-local, git-ignored .claude/settings.local.json so the supervisor can run direct docker compose lifecycle commands for this repository during the release rebuild and the final 32-pilot checks. Owner-only permission grant, narrow in practice: does not block CI, gatectl review, or any card whose own
     check command is itself a pytest-based live e2e test - confirmed those all still work. Only blocks an agent''s
     own direct, ad hoc `docker compose` debugging command.'
-  last_checked_at: '2026-10-07T21:10:00Z'
+  last_checked_at: '2026-11-14T00:00:00Z'
 - id: OWNER-11
-  status: OPEN
+  status: OVERRIDDEN
   summary: 'B08 (one of ten blockers, B01-B10, a second independent audit pasted into a prior session) has no
     recoverable content anywhere in this repository. Exhaustively searched docs/DECISION_LOG.md (every mention),
     ops/open_questions.jsonl, ops/instructions.jsonl, ops/status.jsonl, every plans/*.yaml, and the full git log
@@ -218,11 +218,11 @@ owner_items:
   consumed_by:
   - NONE
   recorded_at: '2026-10-09T06:30:00Z'
-  note: 'Not a code defect and not blocking any current gate - G2''s own gate-exit already lists open questions as
+  note: 'OVERRIDDEN 2026-11-14 (operator decision): B08 is retired as unrecoverable. The operator will locate the original prompts that triggered the reviews and re-run the whole review again with the same prompts (a fresh audit round) once the current remediation is complete; any B08-equivalent concern is expected to be re-discovered by that audit. No further investigation of B08 is done here. Not a code defect and not blocking any current gate - G2''s own gate-exit already lists open questions as
     a separate, narrower mechanism (OQ-007/OQ-008, both gated to G3) and this item does not correspond to one of
     those. Recorded here per AGENTS.md''s blocking taxonomy (a missing-information item only a human can supply)
     rather than left as an unexplained recurring mention in DECISION_LOG.md with no resolution path.'
-  last_checked_at: '2026-10-09T06:30:00Z'
+  last_checked_at: '2026-11-14T00:00:00Z'
 - id: OWNER-12
   status: SATISFIED
   summary: 'A round-4 independent audit''s C2 finding ("fake install coordinates, 8/15 pilots still confidently
@@ -271,14 +271,14 @@ owner_items:
     copy of the gate report was already at that destination path.'
   last_checked_at: '2026-10-29T15:30:00Z'
 - id: OWNER-14
-  status: OPEN
+  status: OVERRIDDEN
   summary: 'The GitHub token held in the cluster Secret foss-mcp-github-token is rejected by the GitHub API (HTTP 401 Unauthorized) in the 2026-10-14 re-ingest of nearly every pilot. The releases fetch therefore fails and the previous recent_releases sidecars are kept with a .failed marker. Only the owner of the credential can replace it; an agent must not read or print it.'
   resume_predicate: 'The operator replaces the Secret foss-mcp-github-token in namespace foss-mcp with a valid token, then python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag <tag> ... --only <pilot> writes a fresh recent_releases sidecar (no .failed marker) for a pilot, and the demo manifests are re-snapshotted.'
   consumed_by:
   - NONE
   recorded_at: '2026-10-14T13:30:00Z'
-  note: 'Blocks nothing in the verified-examples work (clones still succeed). Effect if never resolved: list_recent_changes serves the last successfully fetched releases, which docs/RELEASE.md already describes as a snapshot. Same root cause (this rejected token) also blocks infra/fetch_product_reference.py build_sidecar()''s GitHub reads, so no pilot''s product_reference sidecar carries the manifest_path or readme_document fields TC-561/TC-575 added support for - a real, honestly-disclosed gap, not a silent regression, until this token is replaced (G3/TC-575).'
-  last_checked_at: '2026-10-23T00:00:00Z'
+  note: 'OVERRIDDEN 2026-11-14 (operator decision): use the GITHUB_TOKEN environment variable instead of the cluster Secret. Supervisor preflight, value never printed: GITHUB_TOKEN is set and GitHub accepts it (HTTP 200, 5000/hour core quota; classic token with repo and workflow scopes). The local kind cluster this Secret belonged to no longer exists (no containers, API server refused), so no Secret was changed. fetch_product_reference.py and fetch_recent_releases.py read GITHUB_TOKEN from the environment, which is how TC-786 to TC-788 regenerated all 32 product-reference sidecars with manifest_path and readme_document. When the product is published on the internal Kubernetes cluster, create the Secret from a least-privilege read-only token for public repositories instead of this broad one. Blocks nothing in the verified-examples work (clones still succeed). Effect if never resolved: list_recent_changes serves the last successfully fetched releases, which docs/RELEASE.md already describes as a snapshot. Same root cause (this rejected token) also blocks infra/fetch_product_reference.py build_sidecar()''s GitHub reads, so no pilot''s product_reference sidecar carries the manifest_path or readme_document fields TC-561/TC-575 added support for - a real, honestly-disclosed gap, not a silent regression, until this token is replaced (G3/TC-575).'
+  last_checked_at: '2026-11-14T00:00:00Z'
 - id: OWNER-15
   status: SATISFIED
   summary: 'The upstream GitHub repositories of the eight jmap pilots (for example aspose-email-foss/Aspose.JMAP-FOSS-for-.NET at 0d5cf17e0e9ee185eea2847f6587b918ac0eb016) return HTTP 404 with and without the operator token on 2026-10-16. The aspose-email-foss organisation now lists only three repositories (Email for Python, C++ and .NET) and a repository search finds no JMAP FOSS repository. They were renamed, moved, made private or deleted. The jmap pilots are served from data baked on 2026-10-14, so the release candidate is unaffected, but the jmap fixtures cannot be re-extracted and their release feed cannot be refreshed.'
@@ -331,7 +331,7 @@ owner_items:
   last_checked_at: '2026-10-27T06:00:00Z'
 
 - id: OWNER-17
-  status: OPEN
+  status: DEFAULT_APPLIED
   summary: 'RT4 (runtime/contract sub-program, section 2.7) latency measurement (2026-11-05) against the
     real live stack - 32 mcp-<family>-<platform> containers, mcp-gateway (nginx, already versioned at
     infra/hosting/nginx.conf by TC-685) and mcp-tunnel (a Cloudflare QUICK tunnel) - found a real,
@@ -360,11 +360,11 @@ owner_items:
   consumed_by:
   - NONE
   recorded_at: '2026-11-05T00:00:00Z'
-  note: 'Owner-only: a Cloudflare account/domain/billing decision, or a VM provisioning decision, neither of
+  note: 'DEFAULT_APPLIED 2026-11-14 (operator decision): document the Cloudflare quick-tunnel stall as a measured limitation and revisit when the product is published on the internal Kubernetes cluster (the real production ingress). The 7.0-8.8 s stall at 48 concurrent sessions belongs to the anonymous quick tunnel, not to the application: nginx alone stayed at about 0.9 s. RT4 and RT5 closure therefore record the measured limitation (plan section 2.9 contingency) and the R9 public-URL proof is re-scoped to the internal cluster ingress. Owner-only: a Cloudflare account/domain/billing decision, or a VM provisioning decision, neither of
     which any agent can make or create. Does not block the main card loop - RT5''s own wave-table closure
     is separately already blocked on KD11/XA19 (recorded 2026-11-05, DECISION_LOG), so this item is purely
     additive evidence for whenever RT4/RT5 are picked up, not a new blocker on anything currently in
     flight. The measurement itself (3 throwaway scripts, no repository file touched) is reproducible by any
     future agent against the live stack without needing this item resolved first - only a PERMANENT fix
     needs the owner action.'
-  last_checked_at: '2026-11-05T00:00:00Z'
+  last_checked_at: '2026-11-14T00:00:00Z'
