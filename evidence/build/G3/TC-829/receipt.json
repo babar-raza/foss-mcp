@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-829",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:22:44Z",
+  "base_rev": "57b463b27936267ea1ee8643b0a2d74f5252aa7d",
+  "head_rev": "5a715fae85299c590b67c2fb93845acb16986293",
+  "card_sha256": "1fa6afc3a7fa7dcfe648877eec70db3cd2f0aab6d322d868c12db75bc5b11615",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/pull_verification_cache.py",
+      "scripts/release/regenerate_local.py",
+      "scripts/release/snapshot_demo_from_cluster.py",
+      "tests/deploy/test_pull_verification_cache.py",
+      "tests/deploy/test_regenerate_local.py",
+      "tests/deploy/test_snapshot_demo_from_cluster.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_regenerate_local.py tests/deploy/test_snapshot_demo_from_cluster.py tests/deploy/test_pull_verification_cache.py tests/deploy/test_install_pilots.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 24.551,
+          "stdout_sha256": "5cc94952df5ebb59eb97cea35eedefefc9bc8ee09bf43ecf7e857f24779709bc",
+          "tests": 301,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_regenerate_local.py tests/deploy/test_snapshot_demo_from_cluster.py tests/deploy/test_pull_verification_cache.py tests/deploy/test_install_pilots.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 19.894,
+          "stdout_sha256": "5cc94952df5ebb59eb97cea35eedefefc9bc8ee09bf43ecf7e857f24779709bc",
+          "tests": 301,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['scripts/release/regenerate_local.py', 'scripts/release/snapshot_demo_from_cluster.py', 'scripts/release/pull_verification_cache.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "ee9e40eadfa168ca6b87890d4efba30eb2f08ba9f2bae5fcb6b7ce58da42ebae",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M scripts/release/pull_verification_cache.py",
+      "D scripts/release/regenerate_local.py",
+      "M scripts/release/snapshot_demo_from_cluster.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
