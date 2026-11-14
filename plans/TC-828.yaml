@@ -1,0 +1,92 @@
+id: TC-828
+gate: G3
+lane: verification
+purpose: >-
+  Found and verified by the TC-811 worker (2026-11-14), withheld only for a write_paths gap:
+  `Aspose.Pdf.OcspSettings` (src/Security/OcspSettings.cs in
+  aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET at b7172877, package 26.9.0) exposes `ServerUrl` and
+  `RequestTimeout`, and `Signature.OcspSettings` (src/Forms/Signature.cs:76) is documented as
+  'honoured by the signer when set', but a grep of all of `src` finds no read of OcspSettings,
+  ServerUrl or its RequestTimeout outside the declarations, and Signature.cs:192 states revocation
+  validation (OCSP/CRL) is not implemented in this FOSS build. The pdf/net product reference's own
+  troubleshooting text already says 'present but not active'. So an agent that sets OcspSettings
+  gets a silently ignored configuration. Disclose, never patch (Decision A): add a
+  method/class-kind known_defects entry in config/known_defects/pdf__net.yaml (id = the
+  ledger/finding id if one exists in docs/ROUND2_REVIEW.md or docs/round3/issues.json for this -
+  search for OCSP; otherwise a new project id of the form PDF-NET-0NN continuing the file's
+  numbering, recorded as an additional disclosable id) with refs = the real indexed FQNs of
+  Aspose.Pdf.OcspSettings and Aspose.Pdf.Forms.Signature (verify both against the real committed
+  corpus; also the `OcspSettings` property member name if it is indexed), applies_to
+  package_versions covering the version you verify, a factual summary <=240 chars, user_action,
+  evidence {repro, verified_on{package,version,date}}. Re-verify the claim yourself against the
+  real source at the pinned commit of the pilot AND against the published NuGet package
+  (decompile-free: reflection shows the properties exist; behaviour from source). If upstream has
+  since implemented OCSP at the pinned commit, do not write the entry and report that.
+depends_on:
+  - TC-811
+  - TC-815
+  - TC-656
+  - TC-796
+write_paths:
+  - config/known_defects/pdf__net.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_pdf_net_ocsp.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: config/known_defects/pdf__net.yaml (entry shape and the existing PDF-NET-003 entry
+    as extended by TC-811), tests/indexing/test_known_defects_completeness.py (the lock:
+    `_ADDITIONAL_DISCLOSABLE_IDS` and the hard-coded entry count which will change by +1 - update
+    both, never loosen the equality), tests/mcp/tools/test_known_defects_multi_ref.py and
+    test_known_defects_round3_siblings.py for how refs are asserted,
+    schemas/product/known_defects.schema.json.
+  - >-
+    REPRODUCE FIRST: clone aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET read-only into a temp dir
+    OUTSIDE the repo at the pdf/net pilot's pinned commit
+    (infra/demo-manifests/product_reference_pdf_net.json `source_ref`; the TC-811 worker verified at
+    b7172877 / 26.9.0) and show the grep evidence; call get_symbol on the real corpus for both refs.
+  - >-
+    NEW TEST tests/indexing/test_known_defects_data_pdf_net_ocsp.py: schema-valid, refs resolve in
+    the real corpus, get_symbol and list_members on each ref carry the disclosure line, no other
+    symbol of the pilot gains a line, user_action present.
+  - >-
+    Do not touch other registry files, sidecars, manifests or any other test. Commit EXACTLY ONE
+    commit (the supervisor's negative control reverse-applies the registry data change). Run ruff
+    format and ruff check on changed Python files, then the card's check command twice and report
+    real results. If a related test outside write_paths fails because of your change, stop and
+    report the exact failure.
+actions:
+  - >-
+    Disclose the silently ignored OcspSettings configuration of pdf/net through a verified
+    known_defects entry.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_pdf_net_ocsp.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects_sibling_refs_round3.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 253
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['config/known_defects/pdf__net.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-828/receipt.json
+closeout:
+  - >-
+    pdf/net discloses that OcspSettings is accepted but ignored, with source-level verification.
+recovery: Re-run from a clean tree.
