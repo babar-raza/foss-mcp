@@ -1,0 +1,135 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_dataclass_private_init_field.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_note_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3gpu308g\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_dataclass_private_init_field.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_note_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3gpu308g\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_dataclass_private_init_field.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_note_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3gpu308g\.junit-0.xml"
+--- stdout ---
+FFF.F.FFF............................................................... [ 34%]
+........................................................................ [ 69%]
+..............................................................           [100%]
+================================== FAILURES ===================================
+____ test_the_note_python_shape_drops_the_private_field_and_keeps_the_rest ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_the_note_python_shape_dro0')
+
+    def test_the_note_python_shape_drops_the_private_field_and_keeps_the_rest(tmp_path: Path) -> None:
+        init = _init_symbols(tmp_path)["Page"]
+>       assert init.signature == "def __init__(self, Title: str | None = None, Author: str | None = None)"
+E       AssertionError: assert 'def __init__... None = None)' == 'def __init__... None = None)'
+E         
+E         - def __init__(self, Title: str | None = None, Author: str | None = None)
+E         + def __init__(self, _children: list[int] = <factory>, Title: str | None = None, Author: str | None = None)
+E         ?                    ++++++++++++++++++++++++++++++++++
+
+tests\extraction\test_python_dataclass_private_init_field.py:157: AssertionError
+______ test_a_class_with_only_a_private_field_gets_an_empty_constructor _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_a_class_with_only_a_priva0')
+
+    def test_a_class_with_only_a_private_field_gets_an_empty_constructor(tmp_path: Path) -> None:
+        init = _init_symbols(tmp_path)["OnlyPrivate"]
+>       assert init.signature == "def __init__(self)"
+E       AssertionError: assert 'def __init__... = <factory>)' == 'def __init__(self)'
+E         
+E         - def __init__(self)
+E         + def __init__(self, _children: list[int] = <factory>)
+
+tests\extraction\test_python_dataclass_private_init_field.py:166: AssertionError
+________________ test_a_required_private_field_is_dropped_too _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_a_required_private_field_0')
+
+    def test_a_required_private_field_is_dropped_too(tmp_path: Path) -> None:
+        init = _init_symbols(tmp_path)["RequiredPrivate"]
+>       assert init.signature == "def __init__(self, name: str, size: int = 0)"
+E       AssertionError: assert 'def __init__...ize: int = 0)' == 'def __init__...ize: int = 0)'
+E         
+E         - def __init__(self, name: str, size: int = 0)
+E         + def __init__(self, name: str, _hidden: int, size: int = 0)
+E         ?                              ++++++++++++++
+
+tests\extraction\test_python_dataclass_private_init_field.py:173: AssertionError
+__________ test_initvar_keeps_a_public_name_and_drops_a_private_one ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_initvar_keeps_a_public_na0')
+
+    def test_initvar_keeps_a_public_name_and_drops_a_private_one(tmp_path: Path) -> None:
+        init = _init_symbols(tmp_path)["WithInitVar"]
+>       assert init.signature == "def __init__(self, token: str, label: str = '')"
+E       assert "def __init__...el: str = '')" == "def __init__...el: str = '')"
+E         
+E         - def __init__(self, token: str, label: str = '')
+E         + def __init__(self, _secret: str, token: str, label: str = '')
+E         ?                    ++++++++++++++
+
+tests\extraction\test_python_dataclass_private_init_field.py:183: AssertionError
+__________________ test_a_double_underscore_field_is_private __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_a_double_underscore_field0')
+
+    def test_a_double_underscore_field_is_private(tmp_path: Path) -> None:
+        init = _init_symbols(tmp_path)["DunderField"]
+>       assert init.signature == "def __init__(self, value: int = 0)"
+E       AssertionError: assert 'def __init__...lue: int = 0)' == 'def __init__...lue: int = 0)'
+E         
+E         - def __init__(self, value: int = 0)
+E         + def __init__(self, __slots_hint: int = 0, value: int = 0)
+
+tests\extraction\test_python_dataclass_private_init_field.py:195: AssertionError
+__ test_inherited_private_fields_are_dropped_and_inherited_public_ones_kept ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_inherited_private_fields_0')
+
+    def test_inherited_private_fields_are_dropped_and_inherited_public_ones_kept(tmp_path: Path) -> None:
+        symbols = _init_symbols(tmp_path)
+>       assert symbols["Base"].signature == "def __init__(self, base_public: int = 1)"
+E       AssertionError: assert 'def __init__...lic: int = 1)' == 'def __init__...lic: int = 1)'
+E         
+E         - def __init__(self, base_public: int = 1)
+E         + def __init__(self, _items: list[int] = <factory>, base_public: int = 1)
+
+tests\extraction\test_python_dataclass_private_init_field.py:200: AssertionError
+____ test_keyword_only_private_fields_are_dropped_without_a_dangling_star _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3387/test_keyword_only_private_fiel0')
+
+    def test_keyword_only_private_fields_are_dropped_without_a_dangling_star(tmp_path: Path) -> None:
+        symbols = _init_symbols(tmp_path)
+>       assert symbols["KeywordOnly"].signature == "def __init__(self, first: int = 0, *, kw_public: int = 0)"
+E       AssertionError: assert 'def __init__...lic: int = 0)' == 'def __init__...lic: int = 0)'
+E         
+E         - def __init__(self, first: int = 0, *, kw_public: int = 0)
+E         + def __init__(self, first: int = 0, *, _kw_private: int = 0, kw_public: int = 0)
+E         ?                                      ++++++++++++++++++++++
+
+tests\extraction\test_python_dataclass_private_init_field.py:207: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_the_note_python_shape_drops_the_private_field_and_keeps_the_rest
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_a_class_with_only_a_private_field_gets_an_empty_constructor
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_a_required_private_field_is_dropped_too
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_initvar_keeps_a_public_name_and_drops_a_private_one
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_a_double_underscore_field_is_private
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_inherited_private_fields_are_dropped_and_inherited_public_ones_kept
+FAILED tests/extraction/test_python_dataclass_private_init_field.py::test_keyword_only_private_fields_are_dropped_without_a_dangling_star
+
+--- stderr ---
+
