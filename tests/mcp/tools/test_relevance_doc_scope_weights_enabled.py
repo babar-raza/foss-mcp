@@ -236,7 +236,13 @@ def test_longq_001_real_weighted_coverage_through_the_real_wired_search_docs() -
     # This worker's own real, fresh numbers (see module docstring for why they differ from the
     # card's stated 0.4286/0.3895).
     assert pre_card_coverage == pytest.approx(0.3333333333333333, abs=1e-9)
-    assert scoped_coverage == pytest.approx(0.29841659976076695, abs=1e-9)
+    # TC-835 re-pin: 0.29841659976076695 -> 0.30119742228547147. Mechanism change, not a drift: the
+    # doc-scope weights now count DOCUMENTATION chunks only (25 of 948), no longer documentation + example
+    # chunks (33 of 948). Authored ``verified_example`` growth (TC-747: 943 -> 948 chunks) had raised the IDF of
+    # "file"/"reference" for search_docs and flipped LONGQ-001 onto generic chunks; with examples excluded the
+    # weights depend on the documentation alone (file 0.9045, reference 0.7357) and this passage scores
+    # 0.3012 while the generic 'Key Capabilities' chunks score 0.3976, both below PARTIAL_COVERAGE_THRESHOLD.
+    assert scoped_coverage == pytest.approx(0.30119742228547147, abs=1e-9)
     assert scoped_coverage < pre_card_coverage
     assert scoped_coverage < relevance.RELEVANCE_THRESHOLD
     assert pre_card_coverage < relevance.RELEVANCE_THRESHOLD
@@ -257,6 +263,8 @@ def test_longq_001_real_weighted_coverage_through_the_real_wired_search_docs() -
     pre_card_coverage_no_platform = search_docs_module.passage_coverage(pre_card_rule_no_platform, chunk_text)
 
     assert pre_card_coverage_no_platform == pytest.approx(0.42857142857142855, abs=1e-9)
-    assert scoped_coverage_no_platform == pytest.approx(0.3895071935068185, abs=1e-9)
+    # TC-835 re-pin (0.3895071935068185 -> 0.39266177604136077): same mechanism change as above (documentation-only
+    # scope); the unscoped platform=None figure moves with the weights too.
+    assert scoped_coverage_no_platform == pytest.approx(0.39266177604136077, abs=1e-9)
     assert math.isclose(pre_card_coverage_no_platform, 0.4286, abs_tol=5e-4)
-    assert math.isclose(scoped_coverage_no_platform, 0.3895, abs_tol=5e-4)
+    assert math.isclose(scoped_coverage_no_platform, 0.3927, abs_tol=5e-4)  # TC-835: was 0.3895

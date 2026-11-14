@@ -1300,20 +1300,32 @@ def term_weights(terms: Collection[str], lexical_payload: Mapping[str, object]) 
     }
 
 
-def doc_scope_term_weights(terms: Collection[str], lexical_payload: Mapping[str, object]) -> dict[str, float]:
+def doc_scope_term_weights(
+    terms: Collection[str],
+    lexical_payload: Mapping[str, object],
+    kinds: Collection[str] = (DOCUMENTATION,),
+) -> dict[str, float]:
     """``term_weights``'s own IDF weight, but scoped to doc/example chunks only (TC-625, Q5,
     REQ-G3-011) rather than the whole generation. ``term_weights``'s stored ``doc_freq`` table is a
     GLOBAL, whole-generation aggregate, so a documentation-specific word ends up weighing the same
     as a near-universal symbol-chunk word of the same raw frequency (the root mechanism behind
     LONGQ-001). Here, ``N`` is the count of *lexical_payload*'s own documents whose ``chunk_kind``
-    is ``DOCUMENTATION`` or ``EXAMPLE`` (never the whole generation), and each term's ``df`` is the
-    count of those same doc/example documents whose own stemmed token set contains it - recomputed
+    is in *kinds* (never the whole generation), and each term's ``df`` is the
+    count of those same documents whose own stemmed token set contains it - recomputed
     per document rather than read off the stored, whole-generation ``doc_freq`` table, which cannot
     be filtered after the fact. The exact same formula and clip ``term_weights`` already uses: a
     term this doc/example scope holds (``df`` above 0) weighs ``ln(1 + N / (1 + df))`` clipped to
-    [0.5, 1.0]; a term absent from the scope (``df`` 0) weighs most, 2.0. A generation with zero
-    doc/example chunks (``N`` 0) necessarily leaves every term's ``df`` at 0 too, so every term
-    weighs 2.0 - an absent scope means every term is "unseen" by it, never a division-by-zero or an
+    [0.5, 1.0]; a term absent from the scope (``df`` 0) weighs most, 2.0.
+
+    *kinds* (TC-835) defaults to ``(DOCUMENTATION,)``: the weights ``search_docs`` and ``lookup`` use count
+    DOCUMENTATION chunks only. Example chunks are a separate retrieval path (``find_examples``), so growing the
+    authored-example corpus must never move the documentation IDF - TC-747's five new ``verified_example``
+    chunks (943 -> 948 chunks) raised ``file`` / ``reference`` and flipped LONGQ-001 onto three generic 'Key
+    Capabilities' chunks. ``(DOCUMENTATION, EXAMPLE)`` reproduces the earlier doc+example scope for a caller that
+    still wants it.
+
+    A generation with zero chunks of the requested kinds (``N`` 0) necessarily leaves every term's ``df`` at 0
+    too, so every term weighs 2.0 - an absent scope means every term is "unseen" by it, never a division-by-zero or an
     arbitrary default.
 
     PURE and reads only its own two arguments, exactly like ``term_weights``. Deliberately NOT
@@ -1321,11 +1333,12 @@ def doc_scope_term_weights(terms: Collection[str], lexical_payload: Mapping[str,
     ``tests/test_unwired_modules.py``'s ``_KNOWN_UNWIRED`` entry for this symbol; wiring and the
     measurement-gated decision to enable it are Q6's separate job.
     """
+    kind_set = frozenset(kinds)
     doc_scope_documents = lexical_payload.get("documents") or {}
     scope_documents = [
         document
         for document in doc_scope_documents.values()  # type: ignore[union-attr]
-        if chunk_kind(document["text"]) in (DOCUMENTATION, EXAMPLE)
+        if chunk_kind(document["text"]) in kind_set
     ]
     document_count = len(scope_documents)
     frequency = dict.fromkeys(frozenset(terms), 0)

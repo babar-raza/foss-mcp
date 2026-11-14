@@ -42,6 +42,12 @@ _DOC_TEXT = ""
 _EXAMPLE_TEXT = "FQN: Example: Some Example\nSample code body."
 _SYMBOL_TEXT = "FQN: Namespace.Type.Method\nSymbol body."
 
+# TC-835: ``doc_scope_term_weights`` now defaults to DOCUMENTATION chunks only (example chunks are a separate
+# retrieval path and must not move search_docs' IDF). The TC-625 tests below pin the original doc+example
+# arithmetic, so they ask for that scope explicitly; the new default is pinned by
+# tests/mcp/tools/test_longq_doc_scope_excludes_examples.py and the default-scope test further down.
+_DOC_AND_EXAMPLE_KINDS = (DOCUMENTATION, EXAMPLE)
+
 
 def _lexical_payload(entries: list[tuple[list[str], str]]) -> dict[str, object]:
     """A lexical payload shaped like ``build_lexical_index``'s, where *entries* pairs each
@@ -91,8 +97,19 @@ def test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks
     "DOCUMENTATION or EXAMPLE" scope, not DOCUMENTATION alone."""
     entries = [(["alpha"], _DOC_TEXT)] * 5 + [(["alpha"], _EXAMPLE_TEXT)] * 5
     payload = _lexical_payload(entries)
-    weights = doc_scope_term_weights({"alpha"}, payload)
+    weights = doc_scope_term_weights({"alpha"}, payload, kinds=_DOC_AND_EXAMPLE_KINDS)
     assert weights["alpha"] == pytest.approx(math.log(1 + 10 / 11))
+
+
+def test_doc_scope_weights_default_scope_is_documentation_only() -> None:
+    """TC-835: with no *kinds* argument, EXAMPLE chunks do not count towards N or df - 5 documentation chunks
+    holding "alpha" weigh ln(1 + 5/6) whatever number of example chunks sit beside them."""
+    expected = math.log(1 + 5 / 6)
+    for example_count in (0, 5, 50):
+        entries = [(["alpha"], _DOC_TEXT)] * 5 + [(["alpha", "beta"], _EXAMPLE_TEXT)] * example_count
+        weights = doc_scope_term_weights({"alpha", "beta"}, _lexical_payload(entries))
+        assert weights["alpha"] == pytest.approx(expected)
+        assert weights["beta"] == WEIGHT_CEILING
 
 
 # ---- (b) a MIXED corpus: doc/example chunks AND many symbol chunks ---------------------------
@@ -117,7 +134,7 @@ def test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus() -> None
     assert sum(1 for d in documents.values() if chunk_kind(d["text"]) == SYMBOL) == 200
 
     whole = term_weights({"common", "other"}, payload)
-    scoped = doc_scope_term_weights({"common", "other"}, payload)
+    scoped = doc_scope_term_weights({"common", "other"}, payload, kinds=_DOC_AND_EXAMPLE_KINDS)
 
     # term_weights, over the WHOLE 220-chunk generation (df 200 of 220): correctly LOW, close to
     # the floor of what the generation "knows".
@@ -140,15 +157,16 @@ def test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus() -> None
 
 def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -> None:
     """The real reproduction of the plan's own row-1 diagnosis, against the real, committed
-    pdf/net pilot (943 chunks, 28 of them doc/example). Real measured numbers:
+    pdf/net pilot (948 chunks, 25 of them documentation). Real measured numbers (TC-835 re-measured
+    them on the current 948-chunk generation and moved the scope to documentation chunks only):
 
-    - whole-generation df: "install" 5, "file" 163 (out of 943) - term_weights' own
+    - whole-generation df: "install" 6, "file" 180 (out of 948) - term_weights' own
       ``ln(1 + N / (1 + df))`` SATURATES BOTH at the known ceiling (1.0), so the whole-generation
       gap between them is 0.0 - exactly the LONGQ-001 failure mode (a doc-specific word weighs
       the same as a near-universal symbol-chunk word).
-    - doc-scope df (within the 28 doc/example chunks only): "install" 3, "file" 18 -
-      doc_scope_term_weights gives "install" the known ceiling (1.0) and "file" ~0.9057, a real,
-      measured gap of ~0.0943 - WIDER than term_weights' own whole-generation gap of 0.0, proving
+    - doc-scope df (within the 25 documentation chunks only): "install" 2, "file" 16 -
+      doc_scope_term_weights gives "install" the known ceiling (1.0) and "file" ~0.9045, a real,
+      measured gap of ~0.0955 - WIDER than term_weights' own whole-generation gap of 0.0, proving
       this card's premise on real data, not an invented example.
 
     Do not weaken this test to match the plan's illustrative "df 5 vs df 163" figures more
@@ -162,11 +180,9 @@ def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -
 
     # Pin the real fixture's own shape so this test fails loudly (not silently) if
     # infra/demo-manifests' pdf/net generation is ever regenerated differently underneath it.
-    assert len(documents) == 943
-    doc_example_documents = [
-        d for d in documents.values() if chunk_kind(d["text"]) in (DOCUMENTATION, EXAMPLE)
-    ]
-    assert len(doc_example_documents) == 28
+    assert len(documents) == 948
+    doc_example_documents = [d for d in documents.values() if chunk_kind(d["text"]) == DOCUMENTATION]
+    assert len(doc_example_documents) == 25
 
     whole_generation_install_df = sum(
         count for token, count in payload["doc_freq"].items() if stem_token(token) == install_stem
@@ -174,8 +190,8 @@ def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -
     whole_generation_file_df = sum(
         count for token, count in payload["doc_freq"].items() if stem_token(token) == file_stem
     )
-    assert whole_generation_install_df == 5
-    assert whole_generation_file_df == 163
+    assert whole_generation_install_df == 6
+    assert whole_generation_file_df == 180
 
     doc_scope_install_df = sum(
         1 for d in doc_example_documents if install_stem in {stem_token(t) for t in d["tokens"]}
@@ -183,8 +199,8 @@ def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -
     doc_scope_file_df = sum(
         1 for d in doc_example_documents if file_stem in {stem_token(t) for t in d["tokens"]}
     )
-    assert doc_scope_install_df == 3
-    assert doc_scope_file_df == 18
+    assert doc_scope_install_df == 2
+    assert doc_scope_file_df == 16
 
     whole = term_weights(terms, payload)
     scoped = doc_scope_term_weights(terms, payload)
@@ -197,8 +213,8 @@ def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -
     assert whole_gap == pytest.approx(0.0)
 
     assert scoped[install_stem] == pytest.approx(1.0)
-    assert scoped[file_stem] == pytest.approx(0.9057086225436182, abs=1e-6)
-    assert scoped_gap == pytest.approx(0.09429137745638183, abs=1e-6)
+    assert scoped[file_stem] == pytest.approx(0.9044562742271522, abs=1e-6)
+    assert scoped_gap == pytest.approx(0.09554372577284775, abs=1e-6)
 
     # The whole point of this card: the doc-scope gap is real and WIDER than the whole-generation
     # gap for the exact same two terms on the exact same real generation.
