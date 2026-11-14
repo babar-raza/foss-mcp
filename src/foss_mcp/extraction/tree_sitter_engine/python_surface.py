@@ -71,6 +71,8 @@ _DEFAULT_TEXT_LIMIT = 120
 _MAX_REPAIRS = 2000
 _REPAIR_TRY = "if True: pass"
 _REPAIR_INERT = "if False: pass"
+# TC-847: the attribute that marks an ``ast.Pass`` the repair synthesised (never the author's own ``pass``).
+_SYNTHESISED_ATTR = "_foss_repair_synthesised"
 _BARE_TRY = re.compile(r"^(\s*)try:\s*$")
 _LADDER_HEADER = re.compile(r"^(\s*)(?:except\b.*|finally)\s*:\s*$")
 _LEADING_SPACE = re.compile(r"\s*")
@@ -188,6 +190,9 @@ def stub_reason(item: ast.FunctionDef | ast.AsyncFunctionDef, owner: ast.ClassDe
     if len(body) != 1:
         return ""
     statement = body[0]
+    if getattr(statement, _SYNTHESISED_ATTR, False):
+        # TC-847: a ``pass`` the syntax repair wrote over a lost body is not the author's empty body.
+        return ""
     if isinstance(statement, ast.Raise) and statement.exc is not None:
         raised = statement.exc.func if isinstance(statement.exc, ast.Call) else statement.exc
         if isinstance(raised, ast.Name) and raised.id == "NotImplementedError":
@@ -446,6 +451,18 @@ def _indent_of(line: str) -> str:
     return match.group(0) if match else ""
 
 
+def _mark_synthesised_pass(tree: ast.Module, repaired_header_lines: set[int]) -> None:
+    """TC-847: tag every ``pass`` the repair itself wrote, so ``stub_reason`` never reads it as an author's body.
+
+    The repair closes a header with `` pass`` on the header's own (last) line, so the ``ast.Pass`` it
+    produces sits on a repaired line. A ``pass`` the author wrote is on a line of its own (or on a header the
+    repair never touched) and stays untagged - it is still a stub when it is a function's whole body.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Pass) and node.lineno in repaired_header_lines:
+            setattr(node, _SYNTHESISED_ATTR, True)
+
+
 def _parse_repairing_collapsed_indentation(
     text: str, filename: str, *, repaired_lines: list[int] | None = None
 ) -> tuple[ast.Module, int]:
@@ -467,9 +484,13 @@ def _parse_repairing_collapsed_indentation(
     lines = text.split("\n")
     repairs = 0
     original: SyntaxError | None = None
+    repaired_header_lines: set[int] = set()
     while True:
         try:
-            return ast.parse("\n".join(lines), filename=filename), repairs
+            tree = ast.parse("\n".join(lines), filename=filename)
+            if repaired_header_lines:
+                _mark_synthesised_pass(tree, repaired_header_lines)
+            return tree, repairs
         except SyntaxError as exc:
             if original is None:
                 original = exc
@@ -508,6 +529,7 @@ def _parse_repairing_collapsed_indentation(
             else:
                 raise original from None
             repairs += 1
+            repaired_header_lines.add(header + 1)
             if repaired_lines is not None:
                 repaired_lines.append(header + 1)
             if was_try:
