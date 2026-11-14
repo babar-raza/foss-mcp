@@ -282,6 +282,35 @@ _MARKDOWN_PATTERNS: dict[str, re.Pattern[str]] = {
         re.IGNORECASE,
     ),
 }
+# G3/TC-798: the formats pattern also matches EXAMPLE headings ("Convert Every Input Format to PDF", "Handle
+# an Unrecognized 3D File Format") whose bodies are code recipes, not a statement of what is supported. A
+# formats heading is a noun phrase ("Supported formats", "Save formats", "Output formats and limits"); one
+# that opens with an imperative verb is a how-to and is rejected, unless it is just that verb directly
+# followed by "formats" ("Save formats", "Load formats").
+_IMPERATIVE_HEADING_VERBS = frozenset(
+    "add build call check choose configure convert create detect export format generate get handle "
+    "import insert load make open pass print read render save set show use work write".split()
+)
+_VERB_THEN_FORMATS = re.compile(r"^\w+\s+(?:file\s+)?formats?$", re.IGNORECASE)
+
+
+def _is_example_heading(title: str) -> bool:
+    """True for a heading that opens with an imperative verb and is not simply "<verb> formats"."""
+    words = title.split()
+    if not words or words[0].lower() not in _IMPERATIVE_HEADING_VERBS:
+        return False
+    return _VERB_THEN_FORMATS.match(title.strip()) is None
+
+
+def _has_prose_or_table(body: str) -> bool:
+    """False when *body* is only fenced code and blank lines: a code snippet states no supported format."""
+    in_fence = False
+    for line in body.splitlines():
+        if _MARKDOWN_FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence and line.strip():
+            return True
+    return False
 
 
 def _markdown_headings(lines: list[str]) -> list[tuple[int, int, str]]:
@@ -301,11 +330,18 @@ def _markdown_headings(lines: list[str]) -> list[tuple[int, int, str]]:
 
 
 def _pick_markdown_section(
-    lines: list[str], headings: list[tuple[int, int, str]], pattern: re.Pattern[str], commit: str | None
+    lines: list[str],
+    headings: list[tuple[int, int, str]],
+    pattern: re.Pattern[str],
+    commit: str | None,
+    *,
+    strict_formats: bool = False,
 ) -> ReadmeSection | None:
     """The README section(s) whose heading matches *pattern*, each running to the next heading of the same or
     a higher level (its sub-sections included). A matching heading inside an already picked section is part
-    of it; a heading that ends in a question mark is a FAQ question, never a section."""
+    of it; a heading that ends in a question mark is a FAQ question, never a section. *strict_formats*
+    (G3/TC-798, the formats section only) also rejects an imperative-verb example heading and a body that is
+    only fenced code."""
     titles: list[str] = []
     bodies: list[str] = []
     picked_until = -1
@@ -314,13 +350,15 @@ def _pick_markdown_section(
             continue
         if title.endswith("?") or pattern.search(title) is None:
             continue
+        if strict_formats and _is_example_heading(title):
+            continue
         end = len(lines)
         for next_line, next_level, _ in headings[position + 1 :]:
             if next_level <= level:
                 end = next_line
                 break
         body = "\n".join(lines[line + 1 : end]).strip("\n")
-        if not body.strip():
+        if not body.strip() or (strict_formats and not _has_prose_or_table(body)):
             continue
         titles.append(title)
         bodies.append(body)
@@ -340,7 +378,9 @@ def sections_from_markdown(text: str, *, commit: str | None = None) -> ReadmeSec
     headings = _markdown_headings(lines)
 
     def pick(name: str) -> ReadmeSection | None:
-        return _pick_markdown_section(lines, headings, _MARKDOWN_PATTERNS[name], commit)
+        return _pick_markdown_section(
+            lines, headings, _MARKDOWN_PATTERNS[name], commit, strict_formats=name == "formats"
+        )
 
     return ReadmeSections(
         limitations=pick("limitations"),

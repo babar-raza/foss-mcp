@@ -800,24 +800,211 @@ def _hazards_for_limitations(inputs: ProductReferenceInputs) -> tuple[KnownHazar
     return inputs.known_hazards + _known_defects_for_limitations(inputs)
 
 
-def _format_statements(text: str) -> list[str]:
-    """The bullets and sentences of *text* that name a file format and say it is supported, read,
-    written, loaded, saved, exported, imported or converted."""
-    statements: list[str] = []
+# G3/TC-798: README prose is hard-wrapped, so one bullet or sentence spans several physical lines. The
+# keyword test used to run on ONE physical line at a time, which served mid-sentence fragments ("...and
+# write STL (ASCII and binary),"). The logical items below are joined first; only then is a statement
+# tested, and an over-long one is cut at a clause boundary and marked, never mid-word.
+_FENCE_RE = re.compile(r"^```|^~~~")
+_BLOCK_BOUNDARY_RE = re.compile(r"^(?:#{1,6}\s|</?(?:details|summary)\b)", re.IGNORECASE)
+# A sentence ends at ".", "!" or "?" (plus any closing bracket or quote) followed by whitespace and the
+# start of the next sentence; the abbreviations below end in a period without ending the sentence. A
+# bold lead-in ("**Load format scope.** Load support ...") is not a sentence end: its closing "**" follows
+# the period, so the label stays attached to the statement it introduces, exactly as before.
+_SENTENCE_BREAK_RE = re.compile(r"[.!?][)\"'\]]*(?=\s+[A-Z`\"'(\[*])")
+_ABBREVIATION_TAILS = ("e.g.", "i.e.", "vs.", "cf.")
+# The Enterprise-edition tail ("These limitations don't apply to Aspose.X - Enterprise Edition, which
+# adds ... formats") describes a product the served build is not, so it is never a format claim.
+_COMMERCIAL_TAIL_RE = re.compile(r"\benterprise\b|\bcommercial\b|products\.aspose\.com", re.IGNORECASE)
+_FORMATS_MIN_STATEMENTS = 3
+_FORMATS_MIN_CUT = 60
+_FORMATS_MIN_STRONG_CUT = 100
+_FORMATS_ELLIPSIS = "…"
+_STRONG_CLAUSE_CUTS = (";", " — ", " – ", " - ")
+_WEAK_CLAUSE_CUTS = (": ", ", ")
+_STRONG_CLAUSE_RE = re.compile(r";| — | – | - ")
+_CODE_SPAN_RE = re.compile(r"`[^`]*`")
+_WORD_RE = re.compile(r"[^\W\d_]{2,}")
+_FORMAT_TABLE_HEADERS = frozenset({"format", "formats", "file format", "extension"})
+_FORMAT_ENUM_NAME_RE = re.compile(r"^\w*Formats?$")
+
+
+def _ends_a_sentence(line: str) -> bool:
+    """True when *line* ends with sentence punctuation (not an abbreviation such as "e.g." or an ellipsis)."""
+    stripped = line.rstrip().rstrip(")\"'*]")
+    return (
+        stripped.endswith((".", "!", "?"))
+        and not stripped.endswith("...")
+        and not stripped.lower().endswith(_ABBREVIATION_TAILS)
+    )
+
+
+def _logical_items(text: str) -> list[str]:
+    """The bullets and paragraphs of *text*, each hard-wrapped item joined onto one line. Code fences, table
+    rows, headings and ``<details>`` markers are not items (they end the one being built)."""
+    items: list[str] = []
+    current: list[str] = []
     in_fence = False
+
+    def flush() -> None:
+        if current:
+            items.append(" ".join(current))
+            current.clear()
+
     for line in text.splitlines():
-        stripped = line.lstrip()
-        if stripped.startswith("```"):
+        stripped = line.strip()
+        if _FENCE_RE.match(stripped):
+            flush()
             in_fence = not in_fence
             continue
-        # Code and table rows (the API class table) are neither bullets nor sentences.
-        if in_fence or stripped.startswith("|"):
+        if in_fence:
             continue
-        for sentence in line.split(". "):
-            cleaned = _BULLET_RE.sub("", sentence).strip()
-            if cleaned and _FORMAT_WORD_RE.search(cleaned) and _FORMAT_VERB_RE.search(cleaned):
-                statements.append(cleaned[:_FORMATS_LINE_CAP])
+        if not stripped or stripped.startswith("|") or _BLOCK_BOUNDARY_RE.match(stripped):
+            flush()
+            continue
+        if _BULLET_RE.match(line):
+            flush()
+            current.append(_BULLET_RE.sub("", line).strip())
+        else:
+            # A line that follows one ending a sentence starts a new item; any other is its wrapped tail.
+            if current and _ends_a_sentence(current[-1]):
+                flush()
+            current.append(stripped)
+    flush()
+    return items
+
+
+def _sentences(item: str) -> list[str]:
+    """*item* split into whole sentences, each keeping its own terminator."""
+    sentences: list[str] = []
+    start = 0
+    for match in _SENTENCE_BREAK_RE.finditer(item):
+        sentence = item[start : match.end()]
+        if sentence.lower().endswith(_ABBREVIATION_TAILS):
+            continue
+        sentences.append(sentence.strip())
+        start = match.end()
+    sentences.append(item[start:].strip())
+    return [sentence for sentence in sentences if sentence]
+
+
+def _balanced(fragment: str) -> bool:
+    return fragment.count("(") <= fragment.count(")") and fragment.count("`") % 2 == 0
+
+
+def _cut_prefix(statement: str, cap: int) -> str:
+    """*statement* when it fits *cap*; otherwise its longest prefix that ends at a clause boundary (outside any
+    parenthesis or code span), marked with an ellipsis. A strong boundary (``;`` or a dash) is preferred to
+    a weak one (a comma or colon), and a word boundary is the last resort. A statement with no boundary past
+    ``_FORMATS_MIN_CUT`` characters (one unbroken run) is cut at the cap, as before."""
+    if len(statement) <= cap:
+        return statement
+    window = statement[: cap - len(_FORMATS_ELLIPSIS)]
+    tiers = (
+        (_STRONG_CLAUSE_CUTS, _FORMATS_MIN_STRONG_CUT),
+        (_WEAK_CLAUSE_CUTS, _FORMATS_MIN_CUT),
+        ((" ",), _FORMATS_MIN_CUT),
+    )
+    for cuts, minimum in tiers:
+        best = -1
+        for cut in cuts:
+            position = window.rfind(cut)
+            while position >= minimum and not _balanced(window[:position]):
+                position = window.rfind(cut, 0, position)
+            best = max(best, position)
+        if best >= minimum:
+            return window[:best].rstrip(" ,;:-–—") + _FORMATS_ELLIPSIS
+    return statement[:cap]
+
+
+def _strong_clauses(statement: str) -> list[str]:
+    """*statement* split at its strong clause boundaries (``;`` or a dash outside any parenthesis or code span)."""
+    clauses: list[str] = []
+    start = 0
+    for match in _STRONG_CLAUSE_RE.finditer(statement):
+        if _balanced(statement[: match.start()]):
+            clauses.append(statement[start : match.start()])
+            start = match.end()
+    clauses.append(statement[start:])
+    return [clause.strip() for clause in clauses if clause.strip()]
+
+
+def _cap_statement(statement: str) -> str:
+    """*statement* within ``_FORMATS_LINE_CAP`` characters. An over-long one is cut at a clause boundary and
+    marked with an ellipsis (``_cut_prefix``); when that leading part names no format at all (the format claim
+    sits further along the sentence, e.g. a long "Not in the public API" bullet ending "...export to PDF,
+    HTML"), the first later clause that does name one is served instead, led by an ellipsis."""
+    if len(statement) <= _FORMATS_LINE_CAP:
+        return statement
+    prefix = _cut_prefix(statement, _FORMATS_LINE_CAP)
+    if _FORMAT_WORD_RE.search(prefix):
+        return prefix
+    for clause in _strong_clauses(statement)[1:]:
+        if _FORMAT_WORD_RE.search(clause) and _FORMAT_VERB_RE.search(clause):
+            return _FORMATS_ELLIPSIS + _cut_prefix(clause, _FORMATS_LINE_CAP - len(_FORMATS_ELLIPSIS))
+    return prefix
+
+
+def _is_signature_only(sentence: str) -> bool:
+    """True for an API signature or bare identifier line ("`LdmPdfWriter.write(doc, path) -> None`"): once its
+    code spans are removed fewer than two words remain, so it states nothing about a format."""
+    return len(_WORD_RE.findall(_CODE_SPAN_RE.sub(" ", sentence))) < 2
+
+
+def _format_statements(text: str) -> list[str]:
+    """The bullets and sentences of *text* that name a file format and say it is supported, read,
+    written, loaded, saved, exported, imported or converted - whole statements (hard-wrapped lines
+    joined, G3/TC-798), each within ``_FORMATS_LINE_CAP`` and cut only at a clause boundary."""
+    statements: list[str] = []
+    for item in _logical_items(text):
+        sentences = _sentences(item)
+        for index, sentence in enumerate(sentences):
+            if _COMMERCIAL_TAIL_RE.search(sentence) or _is_signature_only(sentence):
+                continue
+            if _FORMAT_WORD_RE.search(sentence) and _FORMAT_VERB_RE.search(sentence):
+                # As before this card, the full stop that separates one sentence of an item from the next
+                # is not part of the quoted statement (the item's last sentence keeps its own).
+                if index < len(sentences) - 1 and sentence.endswith("."):
+                    sentence = sentence[:-1]
+                statements.append(_cap_statement(sentence))
     return statements
+
+
+def _table_cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def _format_table_statements(text: str) -> list[str]:
+    """The fallback for a section with fewer than ``_FORMATS_MIN_STATEMENTS`` format statements (G3/TC-798):
+    the rows of a README table whose header names the format ("| Format | Load | Save |"), and the rows
+    that describe an enumeration of formats ("| `OutputFormat` | Supported output formats: DVI, PDF, SVG. |").
+    Each row is one line, its cells joined by " - ". Code fences are skipped."""
+    rows: list[str] = []
+    in_fence = False
+    header_is_format = False
+    previous_was_row = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if _FENCE_RE.match(stripped):
+            in_fence = not in_fence
+            previous_was_row = False
+            continue
+        if in_fence or not stripped.startswith("|"):
+            previous_was_row = False
+            continue
+        cells = _table_cells(stripped)
+        if not previous_was_row:
+            header_is_format = bool(cells) and cells[0].strip("`*").lower() in _FORMAT_TABLE_HEADERS
+        elif not all(set(cell) <= set("-: ") for cell in cells):
+            first = cells[0].strip("`*") if cells else ""
+            is_enum_row = (
+                _FORMAT_ENUM_NAME_RE.match(first) is not None
+                and len(cells) > 1
+                and _FORMAT_WORD_RE.search(" ".join(cells[1:])) is not None
+            )
+            if header_is_format or is_enum_row:
+                rows.append(_cap_statement(" - ".join(cell for cell in cells if cell)))
+        previous_was_row = True
+    return rows
 
 
 # G3/TC-680 (C5): the cue words/fragments that mark a format statement as a NEGATIVE claim ("X is
@@ -944,6 +1131,12 @@ def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvaila
             tagged_statements.append((statement, is_limitation))
             if statement not in lines:
                 lines.append(statement)
+    if len(lines) < _FORMATS_MIN_STATEMENTS:
+        # G3/TC-798: too few keyword statements - add the README's format table / enumeration rows.
+        for source in sources:
+            for row in _format_table_statements(source.text):
+                if row not in lines:
+                    lines.append(row)
     lines = lines[:_FORMATS_MAX_LINES]
     if not lines:
         return NotAvailable("formats", _FORMATS_NONE_REASON)
