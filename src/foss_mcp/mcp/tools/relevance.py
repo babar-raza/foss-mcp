@@ -1042,6 +1042,155 @@ def title_prefix_anchored(query: str, family: str, title: str) -> bool:
     return False
 
 
+# TC-797 (RD2-143, RD2-203): the README headings an example chunk inherits as a title when the README
+# has no real heading for that example. Measured over the 32 baked pilots (280 example chunks): exactly
+# these three headings recur - "Quick Start" (32 chunks, 15 of them "Quick Start (n)"), "Additional
+# Examples" (9) and "Installation, Dependencies, and Quick Start" (4, one "(part 2)") - and none of
+# them names a subject, so the TITLE anchor (TC-543) can never match a query for what the example
+# actually does. "example", "examples", "usage" and "getting started" are the same kind of heading
+# (named by the card) and are kept in the closed set although no baked pilot has them today. A title
+# is generic only when it equals one of these AFTER one trailing counter ("(2)", "(part 2)") and
+# case are removed; every other title is specific and keeps today's behaviour byte for byte.
+GENERIC_EXAMPLE_TITLES: frozenset[str] = frozenset(
+    {
+        "quick start",
+        "additional examples",
+        "installation, dependencies, and quick start",
+        "example",
+        "examples",
+        "usage",
+        "getting started",
+    }
+)
+
+_TITLE_COUNTER_RE = re.compile(r"\s*\((?:part\s+)?\d+\)\s*$", re.IGNORECASE)
+_EXAMPLE_MARKER_LINE = "Example:"
+_CHUNK_METADATA_LINE_PREFIXES = (
+    "FQN:",
+    "Kind:",
+    "Provenance:",
+    "Harness:",
+    "Runtime-Status:",
+    "Runtime-Error:",
+    "Source-Commit:",
+)
+_SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
+
+# TC-797: the longest lead-in sentence, in words, that may stand in for a generic title. Measured over the
+# 46 generic-titled examples of the 32 baked pilots: one has no lead-in, 40 hold 3 to 18 words and name ONE
+# subject ("Attach a stylesheet and resolve the computed style"), and the last five hold 22 to 35 - those
+# are summaries of a whole workflow ("creates a new presentation ..., then opens that file to read its
+# slide count and save a modified copy"), which share a word with almost any query. With no cap the
+# slides/python one alone turned 3 retrieval-corpus cases into wrong confident answers ("open a pptx file",
+# "copy a slide") and cost lookup a hit@3. 20 sits in the empty gap between 18 and 22.
+LEAD_IN_MAX_WORDS = 20
+
+
+def is_generic_example_title(title: str) -> bool:
+    """TC-797: whether *title* is one of the README headings in ``GENERIC_EXAMPLE_TITLES`` (a trailing
+    counter such as ``(2)`` or ``(part 2)`` and the case are ignored)."""
+    return _TITLE_COUNTER_RE.sub("", title).strip().lower() in GENERIC_EXAMPLE_TITLES
+
+
+def example_lead_in(text: str) -> str:
+    """TC-797: the first sentence of the prose paragraph that sits directly before the ``Example:`` marker
+    of the example chunk *text* ("" when the chunk has no marker or no such prose).
+
+    The paragraph is the run of non-blank lines nearest above the LAST line that is exactly ``Example:``
+    (the marker ``find_examples._extract_example`` splits at), without the chunk's own ``FQN:`` / ``Kind:``
+    / ``Provenance:`` / ``Harness:`` / ``Runtime-Status:`` / ``Runtime-Error:`` / ``Source-Commit:`` metadata
+    lines. It is cut after its first
+    sentence and a trailing ``:`` is dropped. Only prose BEFORE the marker is read, never the code.
+    """
+    lines = text.splitlines()
+    marker = next(
+        (index for index in range(len(lines) - 1, -1, -1) if lines[index].rstrip() == _EXAMPLE_MARKER_LINE),
+        None,
+    )
+    if marker is None:
+        return ""
+    paragraph: list[str] = []
+    for line in reversed(lines[:marker]):
+        if not line.strip():
+            if paragraph:
+                break
+            continue
+        if line.startswith(_CHUNK_METADATA_LINE_PREFIXES):
+            break
+        paragraph.append(line.strip())
+    sentence = " ".join(reversed(paragraph))
+    end = _SENTENCE_END_RE.search(sentence)
+    if end is not None:
+        sentence = sentence[: end.end()]
+    return sentence.rstrip(":").strip()
+
+
+def lead_in_anchored(
+    query: str, family: str, text: str, ubiquitous_terms: Collection[str] = frozenset()
+) -> bool:
+    """TC-797: whether the lead-in sentence of the GENERIC-titled example chunk *text* names everything
+    *query* asks for - the sentence stands in for the title the README never gave the example.
+
+    False for every example whose title is specific (``is_generic_example_title``), so those keep
+    today's behaviour byte for byte. For a generic title it is True exactly when the query has at least
+    one distinctive term, no more than ``TITLE_ANCHOR_GRADUATED_MAX_TERMS`` of them (above that
+    ``title_anchored`` is already unconditional), and EVERY one of them (stemmed, a synonym counting, as
+    in ``present_terms``) is a word of the lead-in. This is deliberately stricter than the title anchor,
+    which needs only ONE title word: a lead-in is a whole sentence of ordinary words ("Create a workbook,
+    write values, style a cell, and save it"), so admitting an example on one shared word measured as
+    +13 wrong-confident find_examples answers over the 729-case retrieval corpus (41 -> 54 against a
+    ceiling of 43); requiring every distinctive term keeps the answers that name the subject
+    ("computed style" -> "...resolve the computed style") and drops the ones that share a single word.
+    At least one of those terms must also be a subject word, not only one of the boilerplate verbs/nouns
+    of ``TITLE_ANCHOR_GENERIC_STEMS`` (``save``, ``open`` ...) or a request-kind verb of ``ACTION_TERMS`` /
+    ``WEAK_TERMS`` (``write``, ``set`` ...), and a generic verb present only as a
+    synonym ("save" for "export") does not count (``_synonym_only_generic_anchor``): the ``save`` / ``open``
+    queries TC-543 exists to keep out never anchor through a lead-in that merely says "save it". A ONE-word
+    query that is in *ubiquitous_terms* (the scope's own ubiquitous words, see ``family_generic_stems``) is
+    not anchored either: cells' "workbook" starts every lead-in there and says nothing about which example
+    is meant.
+    """
+    title = (extract_fqn(text) or "")[len(_EXAMPLE_FQN_PREFIX) :]
+    if not is_generic_example_title(title):
+        return False
+    terms = distinctive_terms(query, family)
+    if not terms or len(terms) > TITLE_ANCHOR_GRADUATED_MAX_TERMS:
+        return False
+    lead_in = example_lead_in(text)
+    if not lead_in or len(lead_in.split()) > LEAD_IN_MAX_WORDS:
+        return False
+    lead_in_tokens = list(tokenize(lead_in))
+    stemmed_lead_in = {stem_token(token) for token in lead_in_tokens}
+    # The words that count are the ones the lead-in really holds: a generic verb standing in for a term
+    # only as a synonym ("save" for "export") is the boilerplate TC-810 already refuses to anchor on.
+    present = frozenset(
+        term
+        for term in present_terms(terms, lead_in_tokens)
+        if not _synonym_only_generic_anchor(term, stemmed_lead_in)
+    )
+    # ... and at least one of them must be a real subject word, never only boilerplate: the eight words of
+    # TITLE_ANCHOR_GENERIC_STEMS ("save", "open", "create", "page", "add", "text", "document", "load";
+    # TC-543/TC-810) or a verb that only says what KIND of request it is - ``ACTION_TERMS`` ("write",
+    # "read", "show") and ``WEAK_TERMS`` ("set", "put", "new"). A README lead-in is a sentence of such
+    # verbs ("Create a workbook, write values, style a cell, and save it"), so "write" alone found
+    # cells/java's Quick Start although nothing in that example is about writing (round-2 recall ratchet:
+    # one more unexplained answer than its frozen budget of 8).
+    subject = frozenset(
+        term
+        for term in present
+        if term not in TITLE_ANCHOR_GENERIC_STEMS
+        and canon(term) not in ACTION_KEYS
+        and canon(term) not in _WEAK_KEYS
+    )
+    if len(terms) == 1:
+        # A ONE-word query is only as specific as that word: when it is one the scope's examples all use
+        # (*ubiquitous_terms*, ``family_generic_stems``: "workbook" on cells) it says nothing about which
+        # example is meant. Several words that all occur in the lead-in are specific together even when
+        # each is common ("computed style" on html/python: 0.28 and 0.36 of its chunks).
+        subject -= frozenset(ubiquitous_terms)
+    return present == terms and bool(subject)
+
+
 def required_terms(query: str) -> frozenset[str]:
     """The identifier-like words of *query*, as the stemmed tokens a chunk MUST contain.
 

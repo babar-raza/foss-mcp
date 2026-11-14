@@ -163,11 +163,13 @@ from foss_mcp.mcp.tools.relevance import (
     TITLE_ANCHOR_MAX_TERMS,
     code_anchored,
     distinctive_terms,
+    family_generic_stems,
     fold_query,
     fqn_last_segment,
     guarded_coverage,
     has_minimum_evidence,
     known_symbol_names,
+    lead_in_anchored,
     normalize_query,
     query_terms,
     required_terms,
@@ -948,6 +950,11 @@ def find_examples(
         else frozenset()
     )
     code_anchor_required = required | symbol_required | rare_code_required
+    # TC-797: a query word this scope's own examples all use (cells' "workbook") names the product, not a
+    # subject, so a lead-in sentence that merely repeats it (relevance.lead_in_anchored) must not anchor.
+    ubiquitous_terms = family_generic_stems(
+        distinctive_terms(query, scope.family), scope.family, lexical_payload
+    )
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
     # TC-635 (Q10, G3/REQ-G3-011): two more, strictly additive admission paths beside the existing
     # title anchor - a code-identifier anchor and a bounded prefix title match - never replacing or
@@ -964,7 +971,11 @@ def find_examples(
         doc_coverage = guarded_coverage(terms, documents[doc_id]["tokens"], required, weights)
         text = documents[doc_id]["text"]
         title = (extract_fqn(text) or "")[len(_EXAMPLE_FQN_PREFIX) :]
-        title_hit = title_anchored(query, scope.family, title)
+        # TC-797: a generic README heading ("Quick Start (2)") names no subject, so its lead-in sentence
+        # (relevance.lead_in_anchored) stands in for the title; a specific title is judged as before.
+        title_hit = title_anchored(query, scope.family, title) or lead_in_anchored(
+            query, scope.family, text, ubiquitous_terms
+        )
         prefix_hit = not title_hit and title_prefix_anchored(query, scope.family, title)
         # ``code_anchor_required`` (the compound-identifier check widened by the real-symbol-name
         # check, TC-670, and by the rarity-gated plain word, TC-672) is checked FIRST so that a
