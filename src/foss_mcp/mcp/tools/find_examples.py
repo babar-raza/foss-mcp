@@ -157,7 +157,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifest, Generation
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.get_symbol import extract_fqn, known_defect_lines
+from foss_mcp.mcp.tools.get_symbol import called_member_defect_lines, extract_fqn, known_defect_lines
 from foss_mcp.mcp.tools.relevance import (
     RELEVANCE_THRESHOLD,
     TITLE_ANCHOR_MAX_TERMS,
@@ -729,7 +729,11 @@ def _real_symbol_fqns(documents: Mapping[str, Mapping[str, str]]) -> dict[str, f
 
 
 def _example_known_defects(
-    scope: Scope, fqns_by_short: Mapping[str, frozenset[str]], code: str, text: str
+    scope: Scope,
+    fqns_by_short: Mapping[str, frozenset[str]],
+    code: str,
+    text: str,
+    documents: Mapping[str, Mapping[str, str]] | None = None,
 ) -> tuple[str, ...]:
     """TC-670 (G3/REQ-G3-011): the known-defect disclosure for every REAL symbol this example's own
     CODE SNIPPET literally names, through the real ``get_symbol.known_defect_lines`` (the identical
@@ -750,6 +754,11 @@ def _example_known_defects(
     The alphanumeric-run scan itself is ``relevance.symbol_words``, not a locally compiled
     pattern - this module may never compile its own regex pattern (see
     ``relevance.symbol_words``'s own docstring for the security-boundary reason).
+
+    TC-795 (RD2-237): when *documents* is given, the lines for the types that OWN a member this
+    code calls are appended (``get_symbol.called_member_defect_lines``) - the literal scan above
+    cannot see ``pres.getSlides().addClone(slide)``'s defective ``ISlideCollection``, since that
+    type's name never appears. Appended after, deduplicated by rendered line.
     """
     code_words = symbol_words(code)
     if not code_words:
@@ -771,6 +780,11 @@ def _example_known_defects(
     seen_lines: set[str] = set()
     for candidate in candidates:
         for line in known_defect_lines(scope, candidate, text):
+            if line not in seen_lines:
+                seen_lines.add(line)
+                lines.append(line)
+    if documents is not None:
+        for line in called_member_defect_lines(scope, documents, code, text):
             if line not in seen_lines:
                 seen_lines.add(line)
                 lines.append(line)
@@ -833,7 +847,9 @@ def find_examples(
                 # TC-688 (RT3, SLIDES-NET-005): always confident - definitionally exact.
                 confidence=_lexical_confidence(MATCH_BASIS_EXACT_TITLE),
                 # TC-670: disclose a known defect for any real symbol this example's own CODE names.
-                known_defects=_example_known_defects(scope, _real_symbol_fqns(documents), exact_code, text),
+                known_defects=_example_known_defects(
+                    scope, _real_symbol_fqns(documents), exact_code, text, documents
+                ),
             )
         ]
 
@@ -1055,7 +1071,7 @@ def find_examples(
                 # see _lexical_confidence and the ExampleMatch class docstring.
                 confidence=_lexical_confidence(match_basis),
                 # TC-670: disclose a known defect for any real symbol this example's own CODE names.
-                known_defects=_example_known_defects(scope, fqns_by_short, lexical_code, text),
+                known_defects=_example_known_defects(scope, fqns_by_short, lexical_code, text, documents),
             )
         )
     return matches

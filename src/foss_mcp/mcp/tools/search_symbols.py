@@ -731,13 +731,15 @@ def _render_known_defect(defect: KnownDefect) -> str:
     return f"Known defect: {defect.summary} {defect.user_action} (repro: {defect.evidence.repro})"
 
 
-def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+def known_defect_lines(scope: Scope, fqn: str, text: str, aliases: Sequence[str] = ()) -> tuple[str, ...]:
     """Every method/class/package-scoped known-defect disclosure line that applies to *fqn*, in
     registry file order (TC-642, KD3, G3/REQ-G3-015; kind set widened by TC-660).
 
     A defect applies here only when its ``subject.kind`` is in ``_SYMBOL_DEFECT_SUBJECT_KINDS``
     (``"method"``, ``"class"``, or ``"package"`` - a ``"commit"``-scoped entry is KD4's
-    ``get_product_reference`` path, never surfaced through a symbol match) and *fqn* is a member of
+    ``get_product_reference`` path, never surfaced through a symbol match) and *fqn* - or, TC-795,
+    any of *aliases* (the chunk's ``Exported-As:`` / ``Defined-In:`` names, see
+    ``get_symbol.extract_aliases``) - is a member of
     its ``subject.refs`` (G3/TC-658: a non-empty tuple, since the same real upstream bug can affect
     several real sibling symbols in the identical causal chain), and, when it is scoped by
     ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:`` line - the same
@@ -750,11 +752,12 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
         return ()
     commit_match = _SOURCE_COMMIT_LINE.search(text)
     chunk_commit = commit_match.group(1) if commit_match is not None else None
+    names = (fqn, *aliases)
     lines: list[str] = []
     for defect in defects:
         if defect.subject.kind not in _SYMBOL_DEFECT_SUBJECT_KINDS:
             continue
-        if fqn not in defect.subject.refs:
+        if not any(name in defect.subject.refs for name in names):
             continue
         indexed_commit = defect.applies_to.indexed_commit
         if indexed_commit is not None and indexed_commit != chunk_commit:
@@ -1430,7 +1433,7 @@ def search_symbols(
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
     """
-    from foss_mcp.mcp.tools.get_symbol import extract_fqn, generation_coverage_note
+    from foss_mcp.mcp.tools.get_symbol import extract_aliases, extract_fqn, generation_coverage_note
     from foss_mcp.mcp.tools.relevance import fold_query, normalize_query
 
     key = scope_key(scope, SOURCE_KIND)
@@ -1605,7 +1608,7 @@ def search_symbols(
                 next_offset=next_offset,
                 aliases=aliases.get(doc_id, ()),
                 limitation=limitation_line(text),
-                known_defects=known_defect_lines(scope, fqn, text),
+                known_defects=known_defect_lines(scope, fqn, text, extract_aliases(text)),
                 match_kind=kinds.get(doc_id, ""),
             )
         )

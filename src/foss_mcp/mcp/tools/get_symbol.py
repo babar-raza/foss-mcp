@@ -39,6 +39,7 @@ _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _KIND_LINE = re.compile(r"^Kind:\s*(.+)$", re.MULTILINE)
 _BULLET_PREFIX = "  - "
 _DEFINED_IN_LINE = re.compile(r"^Defined-In:\s*(\S.*)$", re.MULTILINE)
+_EXPORTED_AS_LINE = re.compile(r"^Exported-As:\s*(\S.*)$", re.MULTILINE)
 _MEMBER_BLOCKS = ("Methods:", "Properties:", "Members:")
 _ENUM_VALUE_SEPARATOR = " = "
 _NAME_END = re.compile(r"[\s\[]")
@@ -157,6 +158,20 @@ def extract_defined_in(text: str) -> str | None:
     return match.group(1).strip() if match is not None else None
 
 
+def extract_aliases(text: str) -> tuple[str, ...]:
+    """TC-795 (RD2-136/159/165/282, G3/REQ-G3-015): every OTHER name a user can reach this chunk's
+    symbol by - the values of its ``Exported-As:`` lines (the public re-export names a definition is
+    also known as) and its ``Defined-In:`` line (the definition a re-export shell points at), in chunk
+    order, deduplicated. Empty for a chunk that is neither a definition with a re-export nor a shell.
+    The chunk's own ``FQN:`` is never part of the result."""
+    names = [match.group(1).strip() for match in _EXPORTED_AS_LINE.finditer(text)]
+    defined_in = extract_defined_in(text)
+    if defined_in is not None:
+        names.append(defined_in)
+    own = extract_fqn(text)
+    return tuple(dict.fromkeys(name for name in names if name and name != own))
+
+
 def _extract_block(text: str, header: str) -> tuple[str, ...]:
     lines = text.splitlines()
     if header not in lines:
@@ -190,16 +205,20 @@ def _render_known_defect(defect: KnownDefect) -> str:
     return f"Known defect: {defect.summary} {defect.user_action} (repro: {defect.evidence.repro})"
 
 
-def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+def known_defect_lines(scope: Scope, fqn: str, text: str, aliases: Sequence[str] = ()) -> tuple[str, ...]:
     """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
     G3/REQ-G3-015).
 
-    A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+    A defect applies when *fqn* - or, TC-795 (RD2-136/159/165/282), any of *aliases*, the other names
+    the same symbol is reachable by (``extract_aliases(text)``: its ``Exported-As:`` and
+    ``Defined-In:`` values) - is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
     since the same real upstream bug can affect several real sibling symbols in the identical
     causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
     matching how a resolved name is already treated elsewhere in this module - and, when it is
     scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
-    line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+    line. A defect that names only the public alias (or only the defining class) therefore reaches
+    a user whichever of the two names they used; *aliases* defaults to none, which is the exact
+    pre-TC-795 matching. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
     of commit: this tool has no live registry check against a currently served package version -
     that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
     one.
@@ -209,15 +228,67 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
         return ()
     commit_match = _SOURCE_COMMIT_LINE.search(text)
     chunk_commit = commit_match.group(1) if commit_match is not None else None
+    names = (fqn, *aliases)
     lines: list[str] = []
     for defect in defects:
-        if fqn not in defect.subject.refs:
+        if not any(name in defect.subject.refs for name in names):
             continue
         indexed_commit = defect.applies_to.indexed_commit
         if indexed_commit is not None and indexed_commit != chunk_commit:
             continue
         lines.append(_render_known_defect(defect))
     return tuple(lines)
+
+
+def called_member_defect_lines(
+    scope: Scope, documents: Mapping[str, Mapping[str, str]], code: str, text: str
+) -> tuple[str, ...]:
+    """TC-795 (RD2-237, G3/REQ-G3-015): the known-defect disclosure lines for the TYPES that own a
+    member *code* calls, when the defect is about that member - registry file order, no duplicates.
+
+    An example's snippet often reaches a defective type only through a chained call
+    (``pres.getSlides().addClone(slide)``), never naming ``ISlideCollection`` itself, so the
+    literal-type-name match ``find_examples`` already does cannot see it. ``called_member_owners``
+    binds each accessed member to the indexed types declaring it; this then asks, for each owner type
+    and its aliases, which defects name that type in ``subject.refs`` - the identical match and
+    ``applies_to.indexed_commit`` scoping against *text* (the example chunk's own text)
+    ``known_defect_lines`` applies.
+
+    A member name is shared by many types (``get``, ``size``, ``save``, ``name``), and a type-level
+    defect is about ONE member of the type, so owning the member is not enough: the defect's own
+    rendered disclosure must also name the called member as a whole word. Measured over every example
+    of every pilot with a registry (2026-11-14), binding on ownership alone attached an unrelated
+    defect to examples that merely call a common accessor (a ``.name`` read gaining a
+    ``Mesh.get_bounding_box()`` stub warning); requiring the member in the defect's text keeps the
+    ``addClone`` case and drops those.
+    """
+    defects = load_known_defects(scope.family, scope.platform)
+    if not defects:
+        return ()
+    owners = called_member_owners(documents, code)
+    if not owners:
+        return ()
+    commit_match = _SOURCE_COMMIT_LINE.search(text)
+    chunk_commit = commit_match.group(1) if commit_match is not None else None
+    lines: list[str] = []
+    for defect in defects:
+        indexed_commit = defect.applies_to.indexed_commit
+        if indexed_commit is not None and indexed_commit != chunk_commit:
+            continue
+        line = _render_known_defect(defect)
+        if line in lines:
+            continue
+        for owner_fqn, aliases, member in owners:
+            if not any(name in defect.subject.refs for name in (owner_fqn, *aliases)):
+                continue
+            if _word_pattern(member).search(line) is not None:
+                lines.append(line)
+                break
+    return tuple(lines)
+
+
+def _word_pattern(word: str) -> re.Pattern[str]:
+    return re.compile(r"(?<![A-Za-z0-9_])" + re.escape(word) + r"(?![A-Za-z0-9_])")
 
 
 def _parse_signature(
@@ -245,7 +316,7 @@ def _parse_signature(
         # TC-688 (3D-NET-014): real text only when the caller opted in - see RAW_TEXT_OMITTED.
         raw_text=text if include_raw_text else RAW_TEXT_OMITTED,
         limitations=limitation_lines(text),
-        known_defects=known_defect_lines(scope, fqn, text),
+        known_defects=known_defect_lines(scope, fqn, text, extract_aliases(text)),
     )
 
 
@@ -312,6 +383,61 @@ def _declared_members(text: str) -> dict[str, list[str]]:
             if name:
                 declared.setdefault(name, []).append(item)
     return declared
+
+
+_MEMBER_ACCESS = re.compile(r"(?:\.|->|::)\s*([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def called_member_owners(
+    documents: Mapping[str, Mapping[str, str]], code: str
+) -> tuple[tuple[str, tuple[str, ...], str], ...]:
+    """TC-795 (RD2-237, G3/REQ-G3-015): for every member *code* ACCESSES (an identifier right after
+    ``.``, ``->`` or ``::`` - ``pres.getSlides().addClone(slide)`` accesses ``getSlides`` and
+    ``addClone``), every indexed type that DECLARES a member of that name, as ``(type_fqn,
+    type_aliases, member_name)`` triples - ``type_aliases`` being ``extract_aliases`` of the type's own
+    chunk. This is how an example that calls ``addClone`` on a chained expression, never naming the
+    owning type ``ISlideCollection`` itself, is still connected to that type's known-defect entry.
+    Order: the code's own first-appearance order of member, then the index's chunk order; no
+    duplicates. Matching is by the member's exact, case-sensitive declared name."""
+    accessed = list(dict.fromkeys(_MEMBER_ACCESS.findall(code)))
+    if not accessed:
+        return ()
+    index = _member_owner_index(documents)
+    found: list[tuple[str, tuple[str, ...], str]] = []
+    for name in accessed:
+        found.extend((fqn, aliases, name) for fqn, aliases in index.get(name, ()))
+    return tuple(found)
+
+
+_MEMBER_INDEX_CACHE_SIZE = 6
+# Keyed by ``id(documents)`` and holding ``documents`` itself, so an id can never be mistaken for
+# another generation's - the identical scheme ``search_symbols._entry_cache`` uses.
+_member_index_cache: dict[
+    int, tuple[Mapping[str, Mapping[str, str]], dict[str, tuple[tuple[str, tuple[str, ...]], ...]]]
+] = {}
+
+
+def _member_owner_index(
+    documents: Mapping[str, Mapping[str, str]],
+) -> dict[str, tuple[tuple[str, tuple[str, ...]], ...]]:
+    """Declared member name -> ``(type_fqn, type_aliases)`` of every symbol chunk declaring it."""
+    cached = _member_index_cache.get(id(documents))
+    if cached is not None and cached[0] is documents:
+        return cached[1]
+    built: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
+    for document in documents.values():
+        text = document["text"]
+        fqn = extract_fqn(text)
+        if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        aliases = extract_aliases(text)
+        for name in _declared_members(text):
+            built.setdefault(name, []).append((fqn, aliases))
+    index = {name: tuple(owners) for name, owners in built.items()}
+    _member_index_cache[id(documents)] = (documents, index)
+    while len(_member_index_cache) > _MEMBER_INDEX_CACHE_SIZE:
+        _member_index_cache.pop(next(iter(_member_index_cache)))
+    return index
 
 
 def _separator(fqn: str) -> str:
@@ -431,7 +557,7 @@ def _canonical_signature(
     )
     # A known-defect entry may name the shell (the public import path) or the definition; report both,
     # in registry order of first appearance, never twice.
-    known_defects = known_defect_lines(scope, requested, shell_text)
+    known_defects = known_defect_lines(scope, requested, shell_text, extract_aliases(shell_text))
     known_defects += tuple(line for line in base.known_defects if line not in known_defects)
     return SymbolSignature(
         scope=base.scope,
