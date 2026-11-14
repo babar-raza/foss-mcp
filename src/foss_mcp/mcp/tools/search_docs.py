@@ -452,6 +452,36 @@ MATCH_BASIS_EMBEDDING = "embedding_similarity"
 DOC_VECTOR_SIMILARITY_THRESHOLD = 0.55
 
 
+# G3/TC-823 (REQ-G3-011, RD2-100): a line that draws a directory tree. A query word that occurs only there
+# ("LICENSE.txt" in a repository-layout diagram) names a file of the repository, not a topic of the
+# documentation, so it is never evidence that the chunk answers a question about that word.
+_TREE_LINE = re.compile(r"[├└┬┼│]|^\s*(?:\|\s+)*[|+`]-{2,}\s")
+# A fenced block is a tree diagram when at least this share of its non-empty body lines draw one.
+_TREE_FENCE_MIN_SHARE = 0.5
+
+
+def _tree_diagram_lines(lines: list[str]) -> frozenset[int]:
+    """G3/TC-823 (REQ-G3-011, RD2-100): the indexes of the *lines* that belong to an ASCII directory-tree
+    diagram: every line that draws a tree (box-drawing branch glyphs, or ``|--``/``+--`` ASCII branches),
+    plus every other line of a fenced block that is mostly tree lines (the root name and the lines that
+    carry no glyph). Ordinary code fences, tables and prose are never in this set - only a tree diagram is
+    excluded, so a query word that a code example or a paragraph really uses still counts."""
+    tree = {index for index, line in enumerate(lines) if _TREE_LINE.search(line)}
+    if not tree:
+        return frozenset()
+    blocks = fence_blocks(lines)
+    seen: set[tuple[int, int]] = set()
+    for block in blocks:
+        if block is None or block in seen:
+            continue
+        seen.add(block)
+        first, last = block
+        body = [index for index in range(first + 1, last) if lines[index].strip()]
+        if body and sum(1 for index in body if index in tree) >= _TREE_FENCE_MIN_SHARE * len(body):
+            tree.update(range(first, last + 1))
+    return frozenset(tree)
+
+
 def _passage_match(rule: _Rule, text: str) -> tuple[float, frozenset[str]]:
     """``passage_coverage``'s own best-window coverage, together with which of ``rule.terms``
     were present in that SAME best-scoring window (G3/TC-627/TC-630, REQ-G3-011): synonym-aware,
@@ -467,7 +497,8 @@ def _passage_match(rule: _Rule, text: str) -> tuple[float, frozenset[str]]:
     of the WHOLE chunk, not just the physical lines near line 0 - so the title's own tokens are folded
     into every window. A chunk with no such title line is unaffected (``title_tokens`` is empty)."""
     lines = text.splitlines()
-    line_tokens = [tokenize(line) for line in lines]
+    tree_lines = _tree_diagram_lines(lines)
+    line_tokens = [[] if index in tree_lines else tokenize(line) for index, line in enumerate(lines)]
     title_tokens = tokenize(lines[0]) if lines and lines[0].startswith(_DOC_TITLE_PREFIX) else []
     best = 0.0
     best_matched: frozenset[str] = frozenset()

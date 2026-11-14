@@ -80,7 +80,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import tokenize
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch, find_examples
-from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from foss_mcp.mcp.tools.get_symbol import _extract_block, extract_fqn
 from foss_mcp.mcp.tools.relevance import (
     DOCUMENTATION,
     RELEVANCE_THRESHOLD,
@@ -94,6 +94,7 @@ from foss_mcp.mcp.tools.relevance import (
     normalize_query,
     present_terms,
     query_terms,
+    stem_token,
 )
 from foss_mcp.mcp.tools.search_docs import (
     CONTENT_TYPES,
@@ -120,6 +121,7 @@ from foss_mcp.mcp.tools.search_symbols import (
     SOURCE_KIND,
     Miss,
     SymbolMatch,
+    _declared_member_names,
     limitation_line,
     naming_tokens,
     scope_key,
@@ -196,6 +198,102 @@ def _looks_like_a_task_question(query: str) -> bool:
         return False
     first_word = words[0].strip(string.punctuation).lower()
     return first_word in _QUESTION_OR_AUXILIARY_WORDS
+
+
+# G3/TC-823 (REQ-G3-011, RD2-230 / RD2-278): ``search_symbols`` labels a hit ``exact`` on its two loosest evidence
+# tiers - every word of the query is a word of the candidate's qualified name (``bag_of_words``) or a sentence
+# of evidence explains the question (``evidence_sentence``) - even when the candidate does not hold the thing the
+# user named: ``DocumentBuilder`` -> ``MarkdownDocumentBuilder`` (the name only ENDS with the query) and
+# ``HtmlInsertOptions`` (only its module is called ``document_builder``); ``hyperlink`` -> an empty marker
+# interface. ``search_symbols`` is not this card's to edit, so ``lookup`` - the one entry point that composes and
+# returns those hits - re-checks each such label against the candidate itself and degrades it to ``partial`` (the
+# hit stays, in its place, with the words it does not explain) instead of claiming a confident answer. A hit
+# reached only through a synonym (``transition`` -> ``EffectFormat`` via "effect") is deliberately NOT re-judged
+# here: the same mechanism is what answers "add a cube" with ``Box`` on the 3d pilots, and the retrieval corpus
+# shows that degrading it changes the label of correct answers (it flipped "add a slide" on four slides pilots).
+_LOOSE_TIERS = frozenset({"bag_of_words", "evidence_sentence"})
+_IDENTIFIER_RUN = re.compile(r"[A-Za-z0-9_]+")
+_LOWER_THEN_CAPITAL = re.compile(r"[a-z][A-Z]")
+_NON_ALNUM = re.compile(r"[^a-z0-9]")
+_INTERFACE_PREFIX = re.compile(r"I(?=[A-Z])")
+_MEMBER_BLOCK_HEADERS = ("Methods:", "Properties:", "Members:")
+
+
+def _name_key(name: str) -> str:
+    """*name* lower-cased, with every non-alphanumeric character removed and its plural stripped."""
+    return stem_token(_NON_ALNUM.sub("", name.casefold()))
+
+
+def _identifier_runs(query: str) -> list[str]:
+    """The identifier-like runs of *query* as typed (``DocumentBuilder``, ``getValue``, ``set_password``): a
+    run with a lower-case letter directly followed by a capital, or with an underscore."""
+    return [
+        run
+        for run in _IDENTIFIER_RUN.findall(query)
+        if _LOWER_THEN_CAPITAL.search(run) is not None or ("_" in run and len(run.strip("_")) > 1)
+    ]
+
+
+def _own_name_keys(text: str) -> frozenset[str]:
+    """The names a symbol chunk calls its own: its final qualified-name segment (also without a leading ``I``
+    interface marker) and every member it declares itself."""
+    fqn = extract_fqn(text)
+    keys: set[str] = set()
+    if fqn is not None:
+        segment = _FINAL_SEGMENT.split(fqn.strip())[-1]
+        keys.add(_name_key(segment))
+        keys.add(_name_key(_INTERFACE_PREFIX.sub("", segment, count=1)))
+    keys.update(_name_key(member) for member in _declared_member_names(text))
+    return frozenset(keys)
+
+
+def _unsupported_words(match: SymbolMatch, query: str, family: str, platform: str | None) -> tuple[str, ...]:
+    """The words of *query* that the ``exact`` loose-tier hit *match* does NOT hold - ``()`` when it holds all
+    of them and the ``exact`` label stands.
+
+    - an identifier-like run of the query (``DocumentBuilder``) must be the candidate's own name or one of the
+      members it declares: a name that merely ends or starts with it (``MarkdownDocumentBuilder``), or that
+      shares its words only through the module path, is a different thing;
+    - for a one-word query, a ``bag_of_words`` hit whose chunk lists no member that so much as mentions the word
+      is a name collision with an empty or unrelated type (``hyperlink`` and a marker interface that declares
+      nothing); a longer question is left to the stronger checks of ``search_symbols`` itself.
+    """
+    text = match.text
+    own = _own_name_keys(text)
+    missing = [run for run in _identifier_runs(query) if _name_key(run) not in own]
+    if missing:
+        return tuple(missing)
+    terms = distinctive_terms(query, family, platform=platform)
+    if match.match_kind == "bag_of_words" and len(terms) == 1:
+        # A constructor or destructor carries the type's own name, so it can never say the type does the thing.
+        short = _name_key(_FINAL_SEGMENT.split((extract_fqn(text) or "").strip())[-1])
+        members = [
+            item
+            for header in _MEMBER_BLOCK_HEADERS
+            for item in _extract_block(text, header)
+            if _name_key(item.split("(", 1)[0].strip().lstrip("~")) != short
+        ]
+        if not any(terms & {stem_token(token) for token in tokenize(item)} for item in members):
+            return tuple(sorted(terms))
+    return ()
+
+
+def _precise_symbol_labels(
+    result: list[SymbolMatch] | Miss, query: str, scope: Scope
+) -> list[SymbolMatch] | Miss:
+    """TC-823: *result* of ``search_symbols`` with every ``exact`` label that rests only on a loose tier and is
+    not borne out by the candidate degraded to ``partial``, naming the words it does not explain. A ``Miss``
+    and every hit that is not a loose-tier ``exact`` are returned unchanged."""
+    if not isinstance(result, list):
+        return result
+    checked: list[SymbolMatch] = []
+    for match in result:
+        if match.match_quality == MATCH_EXACT and match.match_kind in _LOOSE_TIERS:
+            unmatched = _unsupported_words(match, query, scope.family, scope.platform)
+            if unmatched:
+                match = replace(match, match_quality=MATCH_PARTIAL, unmatched_terms=unmatched)
+        checked.append(match)
+    return checked
 
 
 def _lookup_miss(symbol_result: list[SymbolMatch] | Miss, query: str) -> list[SymbolMatch] | Miss:
@@ -669,7 +767,9 @@ def lookup(
     def explained_symbols() -> tuple[SymbolMatch, ...]:
         """TC-562: the symbols that explain the question in the user's words (search_symbols' evidence stage)."""
         if not explained_cache:
-            result = search_symbols(store, scope, query, top_k=_MAX_EXPLAINING_SYMBOLS)
+            result = _precise_symbol_labels(
+                search_symbols(store, scope, query, top_k=_MAX_EXPLAINING_SYMBOLS), query, scope
+            )
             explained_cache.append(tuple(result) if isinstance(result, list) else ())
         return explained_cache[0]
 
@@ -697,12 +797,12 @@ def lookup(
         task_answer = _compose_from_docs()
         if task_answer is not None:
             return task_answer
-        symbol_result = search_symbols(store, scope, query, top_k=top_k)
+        symbol_result = _precise_symbol_labels(search_symbols(store, scope, query, top_k=top_k), query, scope)
         if isinstance(symbol_result, list) and symbol_result:
             return symbol_result
         return _answer_naming_a_type() or _lookup_miss(symbol_result, query)
 
-    symbol_result = search_symbols(store, scope, query, top_k=top_k)
+    symbol_result = _precise_symbol_labels(search_symbols(store, scope, query, top_k=top_k), query, scope)
     if isinstance(symbol_result, list) and symbol_result:
         return symbol_result
 
