@@ -21,3 +21,29 @@ schedule:
   cron: "0 6 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-815 (round-2 audit WORDS-PY-009 / RD2-283): a project-authored, project-verified hazard.
+# Paragraph(children=[Run(...)]) works on the real aspose-words-foss 26.7.0 source (built from the
+# indexed commit 2d2efee2, the package is not on PyPI) but only through a private pydantic
+# wrap-validator; the library's own Paragraph docstring says the collection is "intentionally not
+# part of the public attribute surface". Re-verified 2026-11-14 by reading
+# aspose/words_foss/light_document_model.py and by direct reproduction. Keep this the LAST
+# top-level key.
+known_hazards:
+  - text: >-
+      Paragraph(children=[Run(text="...")]) - the constructor idiom for putting Run content into a
+      Paragraph built from scratch - is NOT part of the public API of aspose-words-foss 26.7.0, and
+      nothing in get_symbol, list_members or the docs says so. Paragraph declares no public children
+      field: reading paragraph.children raises AttributeError, assigning it raises ValueError, and
+      paragraph.runs is a read-only view. The keyword is accepted only because a private pydantic
+      wrap-validator (Paragraph._absorb_children in light_document_model.py) removes "children" from
+      the constructor input and stores it on a private _children slot; the library's own Paragraph
+      docstring states the collection "is intentionally not part of the public attribute surface".
+      Confirmed by direct reproduction on the real 26.7.0 source: Paragraph(children=[Run(text="Hello"),
+      Run(text=" world")]).text == "Hello world", but entries that are not Run, Shape, BookmarkStart/End
+      or FieldStart/Separator/End are silently dropped with no error. Treat this idiom as unsupported
+      and unstable: it is a private implementation detail that can change or disappear in any release
+      without notice, so do not build on it for production code and re-check it against the installed
+      version first. (Body.children and HeaderFooter.children, by contrast, are ordinary public pydantic
+      fields.)
+    verified_at: "2026-11-14"

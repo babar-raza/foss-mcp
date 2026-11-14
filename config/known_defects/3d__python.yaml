@@ -165,3 +165,51 @@ defects:
       version: 26.1.0
       date: '2026-11-12'
   status: open
+- id: 3D-PYTHON-009
+  subject:
+    kind: class
+    refs:
+    - aspose.threed.FileFormat
+    - aspose.threed.FileFormat.FileFormat
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: >-
+    FileFormat in aspose-3d-foss 26.1.0 lists 48 format constants (GLTF, STL_BINARY, PLY, ...) as
+    '= None (read-only)'; every one is None at runtime. Only 4 static factory methods return a format,
+    and WAVEFRONT_OBJ() raises ModuleNotFoundError.
+  user_action: >-
+    Do not use any of the 48 FileFormat.<NAME> constants listed as '= None' (for example GLTF,
+    STL_BINARY, STLASCII, PLY, COLLADA, DISCREET_3DS, PDF, FBX7500_BINARY, USD): each is None, so
+    reading .extension or .can_export on it raises AttributeError, Scene.save(stream, FileFormat.GLTF)
+    raises AttributeError ('NoneType' object has no attribute 'create_save_options'), and
+    Scene.save(path, FileFormat.X) silently ignores X and picks the format from the file extension
+    instead (an unrecognised extension raises the same AttributeError). The only FileFormat members
+    that return a real format object are the static factory methods FBX7400ASCII(), GLTF2() and
+    MICROSOFT_3MF_FORMAT(); FileFormat.WAVEFRONT_OBJ() raises ModuleNotFoundError in 26.1.0 (its
+    module aspose.threed.formats._obj_formats does not exist in the package). To export, pass a real
+    format object such as FileFormat.GLTF2(), or pass a file path with a recognised extension and no
+    format argument, and check the written file.
+  evidence:
+    repro: >-
+      In a throwaway venv outside the repository, pip install aspose-3d-foss==26.1.0, then inspected
+      aspose/threed/FileFormat.py and the live class (run twice, identical output): 48 public class
+      attributes are None (AMF, ASE, ASPOSE_3D_WEB, BLENDER, COLLADA, DISCREET_3DS, DRACO, DXF, the
+      FBX6100..FBX7700 ASCII/binary variants except FBX7400ASCII, GLTF, GLTF2_BINARY, GLTF_BINARY, PDF,
+      PLY, STL_BINARY, STLASCII, USD and the rest), and 4 are static methods; FBX7400ASCII() returns
+      FbxFormat, GLTF2() GltfFormat, MICROSOFT_3MF_FORMAT() ThreeMfFormat, while WAVEFRONT_OBJ() raised
+      ModuleNotFoundError ('aspose.threed.formats._obj_formats'; the package ships formats/obj, not
+      formats/_obj_formats). Scene.save(BytesIO(), FileFormat.GLTF) and Scene.save('a.bin',
+      FileFormat.GLTF) raised AttributeError ('NoneType' object has no attribute 'create_save_options'),
+      FileFormat.GLTF.extension raised AttributeError, Scene.save('a.stl', FileFormat.GLTF) wrote a real
+      STL file (the constant was ignored), and Scene.save(BytesIO(), FileFormat.GLTF2()) wrote a glTF
+      document. The upstream repository at the indexed commit 65b1f577c0f16d0d9112bb6c1153d3024543ac02
+      has a byte-identical FileFormat.py (also without any formats/_obj_formats module). The served
+      get_symbol for aspose.threed.FileFormat.FileFormat lists the 48 constants as 'X = None
+      (read-only)' beside the 4 static methods with no annotation (round-2 ledger RD2-034). The audit's
+      claim that all 4 factories are working singletons did not reproduce for WAVEFRONT_OBJ().
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-11-14'
+  status: open

@@ -5,11 +5,12 @@ concurrency crash), never upstream content.
 ``tests/schemas/test_product_schemas.py`` already covers this schema's general shape (required
 fields, repository pattern, schedule) with its own negative controls; this file is scoped to
 ``known_hazards`` alone, per this card's own write_paths. It proves: the field is OPTIONAL (every
-one of the other 17 real pilot manifests - every pilot except cells/go, the 5 more G3/TC-650 later
+one of the other 15 real pilot manifests - every pilot except cells/go, the 5 more G3/TC-650 later
 added known_hazards to (3d/net, html/python, pdf/java, slides/java, slides/python), the 1 more
 G3/TC-653 later added (words/net), the 6 more G3/TC-784 confirmed (3d/typescript, cells/python,
 cells/rust, email/cpp, page/python, slides/cpp), and the 2 more G3/TC-796 added (cells/cpp,
-cells/typescript) - with no such field, still validates), the field accepts
+cells/typescript), and the 2 more G3/TC-815 added (words/python, 3d/python) - with no such
+field, still validates), the field accepts
 ``config/products/cells/go.yaml`` exactly as this card leaves it, and a malformed entry (missing
 the required ``text`` field) is rejected.
 """
@@ -60,9 +61,10 @@ def test_schema_accepts_a_manifest_with_no_known_hazards_field():
 # G3/TC-650: 5 more pilots now carry a real known_hazards entry alongside cells/go; G3/TC-653 adds
 # 1 more (words/net); 6 more were added by later, already-accepted disclosure work (3d/typescript,
 # cells/python, cells/rust, email/cpp, page/python, slides/cpp - G3/TC-720..726, confirmed by
-# G3/TC-784); G3/TC-796 adds 2 more (cells/cpp, cells/typescript) - this is the full set of every
-# pilot manifest that does, today. test_every_other_real_pilot_manifest_still_validates_with_no_
-# known_hazards_field below excludes all 15 of them, not only cells/go.
+# G3/TC-784); G3/TC-796 adds 2 more (cells/cpp, cells/typescript); G3/TC-815 adds 2 more
+# (words/python, 3d/python) - this is the full set of every pilot manifest that does, today.
+# test_every_other_real_pilot_manifest_still_validates_with_no_known_hazards_field below excludes
+# all 17 of them, not only cells/go.
 PILOTS_WITH_KNOWN_HAZARDS = frozenset(
     {
         ("cells", "go"),
@@ -80,17 +82,19 @@ PILOTS_WITH_KNOWN_HAZARDS = frozenset(
         ("slides", "cpp"),
         ("cells", "cpp"),
         ("cells", "typescript"),
+        ("words", "python"),
+        ("3d", "python"),
     }
 )
 
 
 def test_every_other_real_pilot_manifest_still_validates_with_no_known_hazards_field():
-    """Every one of the other 17 real pilot manifests (today, every pilot outside
+    """Every one of the other 15 real pilot manifests (today, every pilot outside
     PILOTS_WITH_KNOWN_HAZARDS) has no ``known_hazards`` field and still validates - no regression
     from adding the OPTIONAL field."""
     paths = sorted(CONFIG_PRODUCTS.glob("*/*.yaml"))
     others = [path for path in paths if (path.parent.name, path.stem) not in PILOTS_WITH_KNOWN_HAZARDS]
-    assert len(others) == 17, others
+    assert len(others) == 15, others
     for path in others:
         manifest = yaml.safe_load(path.read_text(encoding="utf-8"))
         assert "known_hazards" not in manifest, path

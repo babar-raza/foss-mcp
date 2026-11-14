@@ -13,13 +13,14 @@ field); ``known_hazards_from_manifest`` parses it and ``get_product_reference`` 
 
 These tests prove: (1) cells/go's LIVE answer (the real baked sidecar, the real README, the real
 config/products/cells/go.yaml) discloses the hazard, distinctly framed, never marked
-``untrusted_upstream_content``. (2) Every one of the other 17 real pilot manifests - every pilot
+``untrusted_upstream_content``. (2) Every one of the other 15 real pilot manifests - every pilot
 EXCEPT cells/go, the 5 more G3/TC-650 later added (3d/net, html/python, pdf/java, slides/java,
 slides/python), the 1 more G3/TC-653 later added (words/net), the 6 more G3/TC-784 confirmed
 already carried by later, already-accepted disclosure work (3d/typescript, cells/python,
-cells/rust, email/cpp, page/python, slides/cpp), and the 2 more G3/TC-796 added (cells/cpp,
-cells/typescript) - carries no ``known_hazards`` field, and feeding
-that absence through the real merge path changes nothing - no regression.
+cells/rust, email/cpp, page/python, slides/cpp), the 2 more G3/TC-796 added (cells/cpp,
+cells/typescript), and the 2 more G3/TC-815 added (words/python, 3d/python) - carries no
+``known_hazards`` field, and feeding that absence through the real merge path changes nothing - no
+regression.
 (3) A synthetic manifest with two ``known_hazards`` entries produces both, in a stable,
 deterministic order.
 """
@@ -58,9 +59,9 @@ KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
 # G3/TC-650: 5 more pilots now carry a real known_hazards entry alongside cells/go; G3/TC-653 adds
 # 1 more (words/net); G3/TC-784 confirms 6 more already carried by later, already-accepted
 # disclosure work (3d/typescript, cells/python, cells/rust, email/cpp, page/python, slides/cpp);
-# G3/TC-796 adds 2 more (cells/cpp, cells/typescript) - this is the full set of every pilot
-# manifest that does, today, and OTHER_PILOT_MANIFEST_PATHS below excludes all 15 of them, not
-# only cells/go.
+# G3/TC-796 adds 2 more (cells/cpp, cells/typescript); G3/TC-815 adds 2 more (words/python,
+# 3d/python) - this is the full set of every pilot manifest that does, today, and
+# OTHER_PILOT_MANIFEST_PATHS below excludes all 17 of them, not only cells/go.
 PILOTS_WITH_KNOWN_HAZARDS = frozenset(
     {
         ("cells", "go"),
@@ -78,6 +79,8 @@ PILOTS_WITH_KNOWN_HAZARDS = frozenset(
         ("slides", "cpp"),
         ("cells", "cpp"),
         ("cells", "typescript"),
+        ("words", "python"),
+        ("3d", "python"),
     }
 )
 
@@ -87,15 +90,15 @@ OTHER_PILOT_MANIFEST_PATHS = [
     for path in ALL_PRODUCT_MANIFEST_PATHS
     if (path.parent.name, path.stem) not in PILOTS_WITH_KNOWN_HAZARDS
 ]
-# 32 is every real pilot manifest under config/products/; 17 is that count minus the 15 pilots that
+# 32 is every real pilot manifest under config/products/; 15 is that count minus the 17 pilots that
 # carry a real known_hazards entry today (cells/go, the 5 G3/TC-650 added: 3d/net, html/python,
 # pdf/java, slides/java, slides/python; the 1 G3/TC-653 added: words/net; the 6 G3/TC-784
 # confirmed: 3d/typescript, cells/python, cells/rust, email/cpp, page/python, slides/cpp; and the 2
-# G3/TC-796 added: cells/cpp, cells/typescript).
+# G3/TC-796 added: cells/cpp, cells/typescript; and the 2 G3/TC-815 added: words/python, 3d/python).
 # If a pilot is ever added or removed, or another known_hazards entry is added, re-pin both counts
 # here to match the new total.
 assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS
-assert len(OTHER_PILOT_MANIFEST_PATHS) == 17, OTHER_PILOT_MANIFEST_PATHS
+assert len(OTHER_PILOT_MANIFEST_PATHS) == 15, OTHER_PILOT_MANIFEST_PATHS
 
 
 def _real_manifest(family: str, platform: str) -> dict[str, Any]:
@@ -182,7 +185,7 @@ def test_other_pilots_manifest_carries_no_known_hazards(path: Path) -> None:
 
 @pytest.mark.parametrize(
     "family,platform",
-    [("pdf", "net"), ("words", "python"), ("cells", "java"), ("cells", "net")],
+    [("pdf", "net"), ("pdf", "go"), ("cells", "java"), ("cells", "net")],
 )
 def test_other_pilot_limitations_answer_is_unchanged_by_the_known_hazards_field(
     tmp_path: Path, family: str, platform: str
@@ -204,7 +207,12 @@ def test_other_pilot_limitations_answer_is_unchanged_by_the_known_hazards_field(
     "no disclosure" pilot any more. Both were replaced with ``cells/java`` and ``cells/net``,
     independently confirmed (a ``known_hazards_from_manifest`` call on their real committed
     manifests, and a ``load_known_defects`` call on their registry) to carry neither a
-    ``known_hazards`` field nor any package/commit-kind ``known_defects`` entry."""
+    ``known_hazards`` field nor any package/commit-kind ``known_defects`` entry.
+
+    G3/TC-815: ``words/python`` now genuinely carries a ``known_hazards`` entry (WORDS-PY-009, the
+    private ``Paragraph(children=[...])`` idiom), so it was replaced with ``pdf/go``, independently
+    confirmed (a ``known_hazards_from_manifest`` call on its real committed manifest, and a
+    ``load_known_defects`` call on its registry) to carry neither."""
     inputs, readme = _load_baked(tmp_path, family, platform)
     manifest = _real_manifest(family, platform)
     hazards_from_manifest = known_hazards_from_manifest(manifest)

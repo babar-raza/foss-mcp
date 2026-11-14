@@ -21,3 +21,26 @@ schedule:
   cron: "0 1 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-815 (round-2 audit 3D-PYTHON-009 / RD2-034): a project-authored, project-verified hazard.
+# get_symbol for aspose.threed.FileFormat.FileFormat lists 48 class-level constants as
+# "X = None (read-only)" beside 4 static factory methods; the constants really are None on the
+# installed aspose-3d-foss 26.1.0 package (and in the indexed source). Re-verified 2026-11-14 by
+# direct reproduction in a throwaway venv. The symbol-scoped disclosure is
+# config/known_defects/3d__python.yaml (3D-PYTHON-009). Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      In aspose-3d-foss 26.1.0, 48 of the FileFormat class attributes that get_symbol and list_members
+      show as "NAME = None (read-only)" (GLTF, GLTF_BINARY, GLTF2_BINARY, STL_BINARY, STLASCII, PLY,
+      COLLADA, DISCREET_3DS, PDF, USD, the FBX6100..FBX7700 variants other than FBX7400ASCII, and the
+      rest) are genuinely None at runtime, not format objects - only the four static factory methods
+      FBX7400ASCII(), GLTF2(), MICROSOFT_3MF_FORMAT() and WAVEFRONT_OBJ() are real, and
+      WAVEFRONT_OBJ() itself raises ModuleNotFoundError because the module it imports does not exist
+      in the package. The real trigger is using FileFormat.GLTF (or any other "= None" constant) as a
+      format argument or reading its .extension/.can_export: Scene.save(stream, FileFormat.GLTF)
+      raises AttributeError ("'NoneType' object has no attribute 'create_save_options'"), and
+      Scene.save(path, FileFormat.GLTF) silently ignores the constant and picks the format from the
+      file extension instead. The safe pattern: pass a real format object such as FileFormat.GLTF2()
+      or a format-specific SaveOptions instance, or pass a path with a recognised extension and no
+      format argument, and check the written file rather than assuming the named format was used.
+    verified_at: "2026-11-14"

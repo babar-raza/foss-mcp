@@ -80,3 +80,41 @@ defects:
       version: 26.3.0
       date: '2026-11-07'
   status: open
+- id: WORDS-NET-005
+  subject:
+    kind: method
+    refs:
+    - Aspose.Words.Document
+  applies_to:
+    package_versions:
+    - 26.3.0
+  summary: >-
+    Document.Save(HttpResponse, string, ContentDisposition, SaveOptions) is listed with no framework
+    qualifier but is compiled only into the net462 build of Aspose.Words.FOSS 26.3.0; the net8.0 and
+    netstandard2.0 builds do not contain it.
+  user_action: >-
+    Do not call Document.Save(HttpResponse, fileName, contentDisposition, saveOptions) from a project
+    that targets net8.0 or netstandard2.0: the overload does not exist in those builds (and
+    System.Web.HttpResponse is not available there) so the call does not compile. It exists only when
+    the project targets .NET Framework (net462). On modern .NET, save to a Stream with
+    Document.Save(Stream, SaveFormat) or Document.Save(Stream, SaveOptions) and write that stream to
+    the response yourself.
+  evidence:
+    repro: >-
+      Read the real upstream source at the indexed commit 0d3f1add920f5294d726b4f286c2d6ba7c3ae22c:
+      Aspose.Words/Model/Document/Document.cs wraps the overload (and the protected virtual
+      WriteDocToHttResponse helper) in '#if NETFRAMEWORK' with the comment 'There is no HttpResponse in
+      .NET Framework Client Profile'; Aspose.Words/Aspose.Words.csproj multi-targets
+      net462;netstandard2.0;net8.0 and adds the System.Web reference only for net462. Then read the
+      metadata (System.Reflection.Metadata, run on the real published Aspose.Words.FOSS 26.3.0 NuGet
+      package) of lib/net462, lib/netstandard2.0 and lib/net8.0 Aspose.Words.FOSS.dll: Aspose.Words.Document
+      declares 7 Save overloads in net462 (including Save(System.Web.HttpResponse, String,
+      ContentDisposition, SaveOptions)) and 6 in each of netstandard2.0 and net8.0 (the same six without
+      the HttpResponse one); WriteDocToHttResponse is present only in net462. The served get_symbol for
+      Aspose.Words.Document lists the HttpResponse overload with no framework qualifier (round-2 ledger
+      RD2-269).
+    verified_on:
+      package: Aspose.Words.FOSS
+      version: 26.3.0
+      date: '2026-11-14'
+  status: open

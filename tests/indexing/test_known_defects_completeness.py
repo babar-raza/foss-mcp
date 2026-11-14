@@ -195,6 +195,17 @@ comment for the independent re-verification against the real indexed ``excel-cel
 at ``fc186507``). The real new union count is 65 (not 63): both equality assertions above still
 hold exactly, just against this slightly wider set; the real registry file count is unchanged at
 27 (both entries land in the already-existing ``cells__typescript.yaml``).
+
+**Widened again (G3/TC-815, 2026-11-14):** ``3D-PYTHON-009`` (round-2/round-3, category
+``"mcp-docs-quality"`` in round-2 / ``"coverage-gap"`` in round-3; ledger row RD2-034) and
+``WORDS-NET-005`` (round-2/round-3, category ``"coverage-gap"``; ledger row RD2-269) are real,
+cited, committed audit findings this module's own category-filtered id source would otherwise never
+admit; both are added to ``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way. Both were
+re-verified on 2026-11-14 against the real upstream source and the real published package (the
+``aspose-3d-foss`` 26.1.0 wheel, and the ``Aspose.Words.FOSS`` 26.3.0 NuGet package's three
+per-framework assemblies). The real new union count is 67 (not 65): both equality assertions above
+still hold exactly, just against this slightly wider set; the real registry file count is unchanged
+at 27 (the entries land in the already-existing ``3d__python.yaml`` and ``words__net.yaml``).
 """
 
 from __future__ import annotations
@@ -387,6 +398,8 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "WORDS-PY-013",
         "CELLS-TYPESCRIPT-006",
         "CELLS-TYPESCRIPT-009",
+        "3D-PYTHON-009",
+        "WORDS-NET-005",
     }
 )
 
@@ -487,9 +500,10 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-796 (2026-11-14) this real union
-    # count is 65 (63 as of TC-772, plus TC-796's own additive ``CELLS-TYPESCRIPT-006`` and
-    # ``CELLS-TYPESCRIPT-009``); earlier, as of G3/TC-772 (2026-11-12) this real union
+    # Sanity anchor only, not a floor on the future: as of G3/TC-815 (2026-11-14) this real union
+    # count is 67 (65 as of TC-796, plus TC-815's own additive ``3D-PYTHON-009`` and
+    # ``WORDS-NET-005``); earlier, as of G3/TC-796 (2026-11-14) it was 65 (63 as of TC-772, plus
+    # TC-796's own additive ``CELLS-TYPESCRIPT-006`` and ``CELLS-TYPESCRIPT-009``); earlier, as of G3/TC-772 (2026-11-12) this real union
     # count was 63 (62 as of TC-771, plus TC-772's own additive ``WORDS-PY-013``); earlier, as of
     # TC-771 (2026-11-12) this real union count was 62 (61 as of TC-767, plus TC-771's own
     # additive ``3D-PYTHON-013``); earlier, as of TC-767 (2026-11-12) this real union count was 61
@@ -504,7 +518,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 65
+    assert len(upstream_issue_ids) == 67
 
 
 # --------------------------------------------------------------------------------------------
