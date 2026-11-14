@@ -1,0 +1,190 @@
+id: TC-850
+gate: G3
+lane: verification
+purpose: >-
+  REGEN cohort C3 (pdf_java, slides_java, cells_java, 3d_java). The committed infra/demo-manifests
+  data for these pilots was last baked before TC-700..TC-847 (one-chunk verified examples, honest
+  verification levels, authored examples, python re-export shells TC-818, private dataclass init
+  fields TC-819, stub detection TC-559/TC-844/TC-847, TS class docs TC-821, run steps TC-805..807,
+  known_hazards, coverage-line clause split) and, for 31 of 32 pilots, carries 64-dim hashing
+  vectors, which makes find_examples permanently lexical-only (docs/RELEASE.md,
+  example_search_mode.py). Regenerate the cohort with the cluster-free route
+  scripts/release/regenerate_local.py (helm template + docker run in the ingestion image built
+  from THIS branch, gateway 4096-dim vectors, copy-back of pointer + active generation +
+  verification caches, compaction), review what changed per pilot, and land the data together with
+  the test pins it legitimately moves. No pilot may get worse (AGENTS.md): every regenerated pilot
+  is compared with the committed one by generation_diff.py and answer_diff.py before the data is
+  committed.
+depends_on:
+  - TC-808
+  - TC-537
+  - TC-575
+  - TC-576
+  - TC-579
+  - TC-597
+  - TC-602
+  - TC-615
+  - TC-678
+  - TC-695
+  - TC-698
+  - TC-699
+  - TC-730
+  - TC-731
+  - TC-774
+  - TC-776
+  - TC-777
+  - TC-778
+  - TC-792
+  - TC-799
+  - TC-809
+  - TC-813
+  - TC-820
+  - TC-829
+  - TC-831
+  - TC-839
+  - TC-841
+  - TC-842
+  - TC-846
+  - TC-848
+  - TC-849
+write_paths:
+  - infra/demo-manifests/pdf__java__self_extracted/**
+  - infra/demo-manifests/slides__java__self_extracted/**
+  - infra/demo-manifests/cells__java__self_extracted/**
+  - infra/demo-manifests/3d__java__self_extracted/**
+  - tests/fixtures/verified_examples/pdf_java.json
+  - tests/fixtures/verified_examples/slides_java.json
+  - tests/fixtures/verified_examples/cells_java.json
+  - tests/fixtures/verified_examples/3d_java.json
+  - infra/demo-inputs/embeddings/pdf__java.json
+  - infra/demo-inputs/embeddings/slides__java.json
+  - infra/demo-inputs/embeddings/cells__java.json
+  - infra/demo-inputs/embeddings/3d__java.json
+  - tests/deploy/test_fleet_consistency.py
+  - tests/deploy/test_regenerated_cohort_c3.py
+  - tests/deploy/*
+  - tests/poc/*
+  - tests/furnished_content/*
+  - tests/conformance/*
+  - tests/fixtures/conformance/*
+  - tests/mcp/tools/test_post_regen_retrieval_ratchets.py
+  - tests/mcp/tools/post_regen_simulation.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: scripts/release/regenerate_local.py (module docstring: what it does, what it
+    refuses, exit codes), scripts/release/generation_diff.py, scripts/release/answer_diff.py (module
+    docstrings), plans/TC-829.yaml, tests/deploy/test_fleet_consistency.py (the STALE_BAKED_PILOTS /
+    STALE_BY_MEMBERS tables and their comments), tests/deploy/test_compact_demo_manifests.py, and
+    the docs/RELEASE.md sections on regeneration.
+  - >-
+    ENVIRONMENT (PowerShell; run `.
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first in every
+    command that needs docker/helm/toolchains). Docker Desktop is running. The gateway variables
+    GPT_OSS_ENDPOINT / GPT_OSS_API_KEY and GITHUB_TOKEN exist in the environment: NEVER print, echo,
+    log or write any value (regenerate_local.py maps them by NAME into the container). Your worktree
+    has no venv: use E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with
+    PYTHONPATH set to your worktree root, src and infra; tests/conftest.py puts the worktree src
+    first.
+  - >-
+    BUILD THE IMAGE FROM YOUR WORKTREE: `docker build -f Dockerfile.ingestion -t
+    foss-mcp-ingestion:regen-c3 .` run in your worktree (it COPYs the worktree's
+    src/fixtures/config), then pass `--image foss-mcp-ingestion:regen-c3` to regenerate_local.py.
+    The work directory must stay OUTSIDE the repository and OneDrive (the default
+    %LOCALAPPDATA%\foss-mcp-regen is fine; delete this cohort's subdirectories when done).
+  - >-
+    BASELINE FIRST: before changing anything, copy the committed infra/demo-manifests scope
+    directories of these pilots to a scratch directory (OLD tree, same layout:
+    <scratch>/old/<family>__<platform>__self_extracted) and record for each pilot the committed
+    generation's symbol/doc/example counts, vector dimension(s), vector point count and whether
+    tests/deploy/test_fleet_consistency.py currently pins it stale.
+  - >-
+    RUN: `python scripts/release/regenerate_local.py --only pdf_java,slides_java,cells_java,3d_java
+    --image foss-mcp-ingestion:regen-c3 --parallel 2` (it refuses to publish anything that is not
+    4096-dim; a pilot can take up to 2 hours; run it as a background process writing to a log file
+    in your scratch dir and poll the log, never block a single call for more than ~10 minutes). If
+    ingest.py's TC-510 shrink guard stops a pilot (symbols/docs/examples would shrink) do NOT bypass
+    it blindly: find out why (generation_diff output), and only if the shrink is a deliberate,
+    explained consequence of a merged card (for example TC-844/TC-847 removing false stubs, TC-818
+    re-export shells, one chunk per example) pass `--accept-regression KIND:OLD->NEW --reason
+    '<specific explanation>'` for that pilot and record it in your report. A pilot that fails for an
+    environmental reason (network, rate limit, registry) is re-run, not skipped; if it still fails
+    twice for the same reason, stop and report it - do not commit a cohort with a pilot silently
+    missing.
+  - >-
+    REVIEW WHAT CHANGED (the 'no pilot gets worse' gate): for every pilot run `python
+    scripts/release/generation_diff.py <OLD tree> <NEW tree> --format text` and `python
+    scripts/release/answer_diff.py --old-dir <OLD tree> --new-dir <NEW tree> --pilots
+    <family__platform> --markdown-out <scratch>/<pilot>.md` (pilots:
+    pdf__java,slides__java,cells__java,3d__java). A removed symbol, a lost answer (answer_diff
+    'lost' > 0), a vanished disclosure line (API-Coverage, Stub, Known-defect, Verification-Level)
+    or a lower example count must be explained by a merged card or is a defect: report it precisely
+    and stop for that pilot instead of committing. Spot check at least three example chunks per
+    pilot by reading the generation JSON: each carries `Verification-Level:` / `Verified-With:`, one
+    example per chunk, a 4096-dim vector for example chunks, and `find_examples` run in-process
+    against the new tree answers in non-lexical-only mode (see
+    src/foss_mcp/mcp/tools/example_search_mode.py).
+  - >-
+    LAND THE DATA: let regenerate_local.py copy back (never hand-edit generated JSON). It also
+    merges tests/fixtures/verified_examples/<pilot>.json. Refresh infra/demo-inputs/embeddings/ for
+    these pilots from the new generations with the recipe in plans/TC-601.yaml (inputs) if a test
+    pins or reads them (grep tests for 'demo-inputs/embeddings'); never fabricate vectors. Then
+    remove from tests/deploy/test_fleet_consistency.py the STALE_BAKED_PILOTS / STALE_BY_MEMBERS
+    entries for exactly these pilots (pdf_java, slides_java, cells_java, 3d_java) and update the
+    comments; leave every other pilot's entry untouched. If a test pins the old data (counts, 64-dim
+    hashing vectors accepted as {64, 4096}, example counts, a pilot-specific served line) re-pin it
+    to the real new value ONLY after confirming the new value is correct - never loosen a pin to
+    make it pass, never skip or xfail. Anything outside write_paths that breaks: stop and report
+    file + test + what it pins.
+  - >-
+    NEW TEST tests/deploy/test_regenerated_cohort_c3.py: pin, for exactly this cohort's pilots, (a)
+    every vector index in the active generation is 4096-dimensional and every Example chunk has a
+    vector point, (b) the pilot is not listed in STALE_BAKED_PILOTS / STALE_BY_MEMBERS, (c) the
+    active generation's example chunks carry Verification-Level and Verified-With lines and no chunk
+    holds two examples, (d) the pilot's verified_examples cache file exists. Use only the committed
+    files, offline, no gateway. The test must fail on the old committed data.
+  - >-
+    SIZE: after compaction run `python scripts/release/compact_demo_manifests.py --check` and report
+    the baked tree size (tests/deploy/test_compact_demo_manifests.py LEAN_CEILING_BYTES = 45_000_000
+    is the operator's lean-image ceiling: a worker NEVER raises it). If this cohort alone makes the
+    tree exceed the ceiling, stop and report the exact numbers; the supervisor decides.
+  - >-
+    CHECKS: run the card's check command yourself, twice, plus ruff check / ruff format --check on
+    the new test. Make exactly ONE commit with FOSS_MCP_WORKER set to your card id (the regenerated
+    data, the cache merge, the test pins and the new test). Do not leave any docker container or
+    background process running after your report, and report exactly once.
+actions:
+  - >-
+    Regenerate cohort C3 locally, review per-pilot diffs, land the data with its test pins and a new
+    cohort test; report per-pilot before/after numbers.
+checks:
+  - command: '{python} -m pytest tests/deploy tests/poc tests/furnished_content tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 3000
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 1000
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['infra/demo-manifests', 'tests/fixtures/verified_examples', 'infra/demo-inputs']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-850/receipt.json
+closeout:
+  - >-
+    Cohort C3 serves freshly regenerated, gateway-4096-dim data and is no longer pinned stale.
+recovery: Re-run from a clean tree.
