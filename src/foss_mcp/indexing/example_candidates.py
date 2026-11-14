@@ -41,9 +41,11 @@ from dataclasses import dataclass, field
 __all__ = [
     "CHAIN_PREFIX_PLATFORMS",
     "IMPORT_ONLY_GUARD_PLATFORMS",
+    "GENERIC_README_TITLES",
     "PLATFORM_FENCE_TAGS",
     "CandidateExample",
     "CandidateSupply",
+    "derive_title_from_description",
     "effective_candidate",
     "extract_candidate_examples",
     "extract_candidate_supply",
@@ -51,6 +53,7 @@ __all__ = [
     "import_like_lines",
     "merge_authored_candidates",
     "normalised_code_sha256",
+    "retitle_counter_examples",
 ]
 
 _FENCE_RE = re.compile(
@@ -760,6 +763,93 @@ def _readme_candidate_supply(page: Mapping[str, object], platform: str) -> Candi
         fallback=False,
         placeholder_dropped=placeholder_dropped,
     )
+
+
+# --- description-derived titles (TC-804) ---------------------------------------------------------
+
+# The README headings that name no subject (``foss_mcp.mcp.tools.relevance.GENERIC_EXAMPLE_TITLES`` is the
+# retrieval side's copy of this set; a test pins the two equal - ``foss_mcp.mcp`` imports this package, so
+# it cannot be imported here). A candidate titled with one of them AND a trailing counter (``(2)``,
+# ``(part 2)``) is indistinguishable from its siblings by title, so its title is derived from its own
+# description sentence. A generic title WITHOUT a counter keeps its heading: retitling those too was
+# measured (TC-804) to raise the find_examples wrong-confident count from 41/729 to 54/729 (ceiling 43).
+GENERIC_README_TITLES: frozenset[str] = frozenset(
+    {
+        "quick start",
+        "additional examples",
+        "installation, dependencies, and quick start",
+        "example",
+        "examples",
+        "usage",
+        "getting started",
+    }
+)
+_TITLE_COUNTER_RE = re.compile(r"\s*\((?:part\s+)?\d+\)\s*$", re.IGNORECASE)
+_MARKDOWN_HEADING_PREFIX_RE = re.compile(r"^#{1,6}[ \t]+", re.MULTILINE)
+_SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
+# The longest sentence, in words, that may become a title: the retrieval side's ``LEAD_IN_MAX_WORDS`` measured
+# that a 22-to-35-word sentence summarises a whole workflow and shares a word with almost any query.
+DERIVED_TITLE_MAX_WORDS = 20
+
+
+def derive_title_from_description(description: str) -> str:
+    """The title a candidate's own ``description`` supports: the first sentence of the prose paragraph
+    nearest above its fence (markdown heading marks removed, a trailing ``:`` or full stop dropped,
+    whitespace collapsed), or ``""`` when there is none, it is longer than ``DERIVED_TITLE_MAX_WORDS``
+    words, or it would corrupt the chunk header (it holds the ``Example:`` marker).
+
+    It reads the same sentence ``relevance.example_lead_in`` reads from the published chunk, which is why
+    the retitled example stays findable by the words it was found by before.
+    """
+    paragraph: list[str] = []
+    for line in reversed(_MARKDOWN_HEADING_PREFIX_RE.sub("", description).splitlines()):
+        if not line.strip():
+            if paragraph:
+                break
+            continue
+        paragraph.append(line.strip())
+    sentence = " ".join(reversed(paragraph))
+    end = _SENTENCE_END_RE.search(sentence)
+    if end is not None:
+        sentence = sentence[: end.end()]
+    sentence = sentence.rstrip(":").rstrip(".!?").strip()
+    if not sentence or "Example:" in sentence or len(sentence.split()) > DERIVED_TITLE_MAX_WORDS:
+        return ""
+    if sentence.lower() in GENERIC_README_TITLES:
+        return ""
+    return sentence
+
+
+def retitle_counter_examples(candidates: Iterable[CandidateExample]) -> list[CandidateExample]:
+    """*candidates* with every ``<generic README heading> (<n>)`` / ``(part <n>)`` title replaced by one
+    derived from the candidate's own description (``derive_title_from_description``).
+
+    A candidate whose title is anything else, or whose description supports no title, is returned unchanged
+    (it keeps its counter). Order and every other field are kept. A derived title is unique among all the
+    titles of the list: one that is already taken gets `` (<k>)`` with the smallest free ``k`` from 2, so
+    this never introduces a collision.
+    """
+    items = list(candidates)
+    replace = [
+        _TITLE_COUNTER_RE.search(item.title) is not None
+        and _TITLE_COUNTER_RE.sub("", item.title).strip().lower() in GENERIC_README_TITLES
+        for item in items
+    ]
+    used = {item.title for item, flag in zip(items, replace, strict=True) if not flag}
+    result: list[CandidateExample] = []
+    for item, flag in zip(items, replace, strict=True):
+        derived = derive_title_from_description(item.description) if flag else ""
+        if not derived:
+            used.add(item.title)
+            result.append(item)
+            continue
+        title, suffix = derived, 2
+        while title in used:
+            title = f"{derived} ({suffix})"
+            suffix += 1
+        used.add(title)
+        result.append(dataclasses.replace(item, title=title))
+    return result
 
 
 def merge_authored_candidates(

@@ -89,6 +89,7 @@ from foss_mcp.indexing.example_candidates import (
     extract_candidate_supply,
     import_like_lines,
     merge_authored_candidates,
+    retitle_counter_examples,
 )
 from foss_mcp.indexing.example_candidates import normalised_code_sha256 as _candidate_code_sha256
 from foss_mcp.indexing.example_fixtures import input_literals
@@ -1224,6 +1225,9 @@ def _build_verified_example_chunks(
         candidates, _ = merge_authored_candidates(extract_candidate_examples(page), authored)
     else:
         candidates = list(supply.candidates)
+    # TC-804: a README heading that names no subject plus a counter ("Quick Start (2)") becomes the example's own
+    # description sentence; the supply above is unchanged (its titles are the README's), only what is published moves.
+    candidates = retitle_counter_examples(candidates)
     if supply.fallback:
         print(
             f"candidate supply: no {platform} code fences on the page; "
