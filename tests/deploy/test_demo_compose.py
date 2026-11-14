@@ -296,6 +296,10 @@ RUNTIME_STAGE = [
     "COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py",
     "COPY infra/verify_package_registry.py ./infra/verify_package_registry.py",
     "ENV PYTHONPATH=/app/src",
+    # TC-793 (G3/REQ-G3-017, H8) added this pin to the runtime stage: search_symbols' stem tie-break iterated
+    # frozensets whose order depends on PYTHONHASHSEED, so the image fixes it for reproducible ranking.
+    # tests/test_serving_hashseed_pin.py proves the pin's purpose; this list stays an exact stage pin.
+    "ENV PYTHONHASHSEED=0",
     "RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp && mkdir -p /data/manifests"
     " && chown -R foss-mcp:foss-mcp /data",
     "USER foss-mcp",

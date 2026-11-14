@@ -204,16 +204,36 @@ def enum_member_problems(key: str, enum_fqn: str, member: str) -> list[str]:
     return []
 
 
-def fragment_problems(key: str, real_symbol: str, fragment: str, label: str) -> list[str]:
-    chunk = symbol_chunk_for(key, real_symbol)
+def symbol_chunk_with_fqn(key: str, fqn: str) -> str | None:
+    """The symbol chunk whose ``FQN:`` line equals *fqn* exactly (the chunk ``get_symbol(fqn)`` serves)."""
+    for text in pilot_chunk_texts(key):
+        if chunk_kind(text) == SYMBOL and fqn_of(text) == fqn:
+            return text
+    return None
+
+
+def fragment_problems(
+    key: str, real_symbol: str, fragment: str, label: str, real_symbol_fqn: str | None = None
+) -> list[str]:
+    """Check a method/base fragment against the symbol chunk the e2e file actually asserts it on.
+
+    TC-846: when the e2e file also pins ``REAL_SYMBOL_FQN`` it asserts the fragment on
+    ``get_symbol(REAL_SYMBOL_FQN).raw_text``, i.e. on THAT chunk. Selecting by the bare ``REAL_SYMBOL`` alone
+    stopped being that chunk once TC-818 added a package-root re-export shell (``aspose.slides_foss.Shape``,
+    a pointer chunk with no ``Bases:``/``Methods:``) that matches ``Shape`` first; the definition chunk
+    (``aspose.slides_foss.Shape.Shape``) is the one the e2e proves and the one still checked here, exactly.
+    Without a pinned FQN the selection is unchanged (by ``REAL_SYMBOL``).
+    """
+    if real_symbol_fqn is not None:
+        chunk = symbol_chunk_with_fqn(key, real_symbol_fqn)
+        selector = f"REAL_SYMBOL_FQN {real_symbol_fqn!r}"
+    else:
+        chunk = symbol_chunk_for(key, real_symbol)
+        selector = f"REAL_SYMBOL {real_symbol!r}"
     if chunk is None:
-        return [
-            f"{key}: no symbol chunk is selected by REAL_SYMBOL {real_symbol!r}, so {label} cannot be checked"
-        ]
+        return [f"{key}: no symbol chunk is selected by {selector}, so {label} cannot be checked"]
     if fragment not in chunk:
-        return [
-            f"{key}: {label} {fragment!r} is not a substring of the symbol chunk selected by {real_symbol!r}"
-        ]
+        return [f"{key}: {label} {fragment!r} is not a substring of the symbol chunk selected by {selector}"]
     return []
 
 
@@ -249,7 +269,7 @@ def problems_for(filename: str, pilot_key: str, constants: dict[str, str], name:
         real_symbol = constants.get("REAL_SYMBOL")
         if real_symbol is None:
             return [f"{filename}: {name} is pinned without a literal REAL_SYMBOL"]
-        return fragment_problems(pilot_key, real_symbol, value, name)
+        return fragment_problems(pilot_key, real_symbol, value, name, constants.get("REAL_SYMBOL_FQN"))
     if name == "REAL_EXAMPLE_SYMBOL":
         return example_problems(pilot_key, value)
     if name == "REAL_DOC_FRAGMENT":

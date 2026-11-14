@@ -50,6 +50,10 @@ REQUIRED_FIELDS = ("manifest_path", "readme_document")
 _ROOT_CAUSE_TOKEN_RE = re.compile(r"github[ _-]?token", re.IGNORECASE)
 _ROOT_CAUSE_REJECTION_RE = re.compile(r"401|unauthorized|rejected", re.IGNORECASE)
 
+# OWNER-14's status values that account for the entry today: OPEN (the owner-blocked excuse), or resolved by
+# the owner/operator (SATISFIED, OVERRIDDEN, DEFAULT_APPLIED), in which case the data itself must be complete.
+_OWNER14_ACCOUNTING_STATUSES = frozenset({"OPEN", "SATISFIED", "OVERRIDDEN", "DEFAULT_APPLIED"})
+
 
 def _pilots() -> list[dict[str, Any]]:
     data = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
@@ -143,11 +147,13 @@ def test_owner14_is_the_entry_this_gap_depends_on() -> None:
     per-pilot test above relies on, so a reader sees the dependency in one place."""
     owner14 = _owner_item("OWNER-14")
     assert owner14 is not None, "ops/owner_items.yaml has no OWNER-14 entry"
-    any_missing = any(_missing_fields(p["family"], p["platform"]) for p in _PILOTS)
-    if not any_missing:
-        pytest.skip("every sidecar already carries both fields - OWNER-14's status no longer matters here")
-    assert owner14.get("status") == "OPEN", (
-        f"OWNER-14 is {owner14.get('status')!r} but {sum(1 for p in _PILOTS if _missing_fields(p['family'], p['platform']))} "
+    missing_count = sum(1 for p in _PILOTS if _missing_fields(p["family"], p["platform"]))
+    # TC-846: this used to pytest.skip when no sidecar was missing a field - which is the permanent state now
+    # (TC-786..TC-788 regenerated all 32 sidecars) and gatectl rejects any skipped test. The same condition is
+    # asserted directly instead: either nothing is missing (OWNER-14's status no longer matters), or OWNER-14
+    # must still be the OPEN owner-blocked excuse.
+    assert missing_count == 0 or owner14.get("status") == "OPEN", (
+        f"OWNER-14 is {owner14.get('status')!r} but {missing_count} "
         "sidecar(s) are still missing manifest_path/readme_document - the owner-blocked excuse is gone"
     )
 
@@ -182,10 +188,24 @@ def test_owner14_accounts_for_the_real_entry_today() -> None:
     file's guard depends on today - so a reader does not have to trust the per-pilot test alone."""
     owner14 = _owner_item("OWNER-14")
     assert owner14 is not None
-    assert owner14.get("status") == "OPEN", (
-        "OWNER-14 is no longer OPEN; re-check whether every product_reference sidecar now carries "
-        "manifest_path and readme_document before resolving it further"
+    # TC-846: OWNER-14 was OVERRIDDEN on 2026-11-14 (operator decision: the GITHUB_TOKEN environment variable
+    # is used instead of the cluster Secret; TC-786..TC-788 then regenerated all 32 sidecars with both
+    # fields), so this pin no longer hard-codes OPEN. It asserts the entry's CURRENT status is one that
+    # accounts for it. A non-OPEN status removes the owner-blocked excuse (see _owner14_accounts_for_the_gap),
+    # so then every sidecar must really carry both fields - the original "re-check the sidecars" intent.
+    status = owner14.get("status")
+    assert status in _OWNER14_ACCOUNTING_STATUSES, (
+        f"OWNER-14 status {status!r} is not one of {sorted(_OWNER14_ACCOUNTING_STATUSES)}; re-check "
+        "whether every product_reference sidecar carries manifest_path and readme_document"
     )
+    if status != "OPEN":
+        still_missing = {
+            f"{p['family']}_{p['platform']}": _missing_fields(p["family"], p["platform"]) for p in _PILOTS
+        }
+        still_missing = {key: fields for key, fields in still_missing.items() if fields}
+        assert not still_missing, (
+            f"OWNER-14 is {status!r} (no longer an excuse) but sidecars still miss fields: {still_missing}"
+        )
     text = _owner14_text(owner14)
     assert _ROOT_CAUSE_TOKEN_RE.search(text), "OWNER-14's text no longer names the GITHUB_TOKEN root cause"
     assert _ROOT_CAUSE_REJECTION_RE.search(text), "OWNER-14's text no longer names the rejection (401)"
