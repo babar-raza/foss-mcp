@@ -1,0 +1,227 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_package_root_reexports.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_central_classes_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-om9dxgd7\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+......................................................................   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_package_root_reexports.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_central_classes_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-om9dxgd7\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+......................................................................   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_package_root_reexports.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_central_classes_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-om9dxgd7\.junit-0.xml"
+--- stdout ---
+FFFFFF....FFF........................................................... [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 75%]
+......................................................................   [100%]
+================================== FAILURES ===================================
+__________ test_unused_import_hidden_by_all_is_a_package_root_shell ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_unused_import_hidden_by_a0')
+
+    def test_unused_import_hidden_by_all_is_a_package_root_shell(tmp_path: Path) -> None:
+        _library(tmp_path)
+        shells = _shells(_surface(tmp_path))
+>       assert shells["pkg.Mode"] == "pkg.model.enums.Mode"
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'pkg.Mode'
+
+tests\extraction\test_python_package_root_reexports.py:101: KeyError
+____________ test_chain_of_package_inits_exposes_each_public_path _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_chain_of_package_inits_ex0')
+
+    def test_chain_of_package_inits_exposes_each_public_path(tmp_path: Path) -> None:
+        _library(tmp_path)
+        shells = _shells(_surface(tmp_path))
+        # Mode is importable from pkg, from pkg.model and from pkg.model.enums, and defined in layout.
+>       assert shells["pkg.Mode"] == "pkg.model.enums.Mode"
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'pkg.Mode'
+
+tests\extraction\test_python_package_root_reexports.py:115: KeyError
+_____________ test_a_branch_import_is_exposed_by_its_last_binding _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_a_branch_import_is_expose0')
+
+    def test_a_branch_import_is_exposed_by_its_last_binding(tmp_path: Path) -> None:
+        _library(tmp_path)
+        shells = _shells(_surface(tmp_path))
+>       assert shells["pkg.Speedy"] == "pkg.model.slow.Speedy"  # the last binding of a try/except wins
+               ^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'pkg.Speedy'
+
+tests\extraction\test_python_package_root_reexports.py:127: KeyError
+___________________ test_internal_plumbing_is_never_exposed ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_internal_plumbing_is_neve0')
+
+    def test_internal_plumbing_is_never_exposed(tmp_path: Path) -> None:
+        _library(tmp_path)
+        surface = _surface(tmp_path)
+        shells = _shells(surface)
+        # used by make(): imported for the module's own use, even though a noqa comment sits on the import
+        assert "pkg.Used" not in shells
+        # no re-export marker: a package may keep an import out of __all__ on purpose
+        assert "pkg.Plain" not in shells
+        # `if TYPE_CHECKING:` is never a runtime re-export
+        assert "pkg.OnlyForTypes" not in shells
+        # a leading underscore is private, whatever the import statement says
+        assert not any(name.rsplit(".", 1)[-1].startswith("_") for name in shells)
+        # code outside the scanned tree is not the package's to re-export
+        assert "pkg.Any" not in shells
+        assert "pkg.TYPE_CHECKING" not in shells
+        assert "pkg.annotations" not in shells
+        # nothing is guessed from a star import or an import that resolves to nothing: both stay disclosed
+        assert any("import *" in entry for entry in surface.unresolved)
+>       assert any("unresolved-reexport:pkg.missing.Ghost" in entry for entry in surface.unresolved)
+E       assert False
+E        +  where False = any(<generator object test_internal_plumbing_is_never_exposed.<locals>.<genexpr> at 0x000001B2B52FFB90>)
+
+tests\extraction\test_python_package_root_reexports.py:148: AssertionError
+_________ test_nothing_is_duplicated_and_the_definition_is_untouched __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_nothing_is_duplicated_and0')
+
+    def test_nothing_is_duplicated_and_the_definition_is_untouched(tmp_path: Path) -> None:
+        _library(tmp_path)
+        surface = _surface(tmp_path)
+        names = [s.qualified_name for s in surface.symbols]
+        assert len(names) == len(set(names))
+        definition = next(s for s in surface.symbols if s.qualified_name == "pkg.model.enums.layout.Mode")
+        assert definition.public_by == "name"
+        assert definition.reexported_from is None
+>       shell = next(s for s in surface.symbols if s.qualified_name == "pkg.Mode")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\extraction\test_python_package_root_reexports.py:160: StopIteration
+___________ test_the_marker_is_a_noqa_naming_f401_or_a_blanket_noqa ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_the_marker_is_a_noqa_nami0')
+
+    def test_the_marker_is_a_noqa_naming_f401_or_a_blanket_noqa(tmp_path: Path) -> None:
+        _write(
+            tmp_path,
+            {
+                "pkg/__init__.py": (
+                    "from pkg.real import A  # noqa: F401\n"
+                    "from pkg.real import B  # NOQA\n"
+                    "from pkg.real import (\n    C,\n)  # noqa: E501, F401\n"
+                    "from pkg.real import D  # noqa: E501\n"
+                    "from pkg.real import E  # noqa:F401 - a re-export\n"
+                    "from pkg.real import F  # just a comment\n"
+                    '__all__ = ["G"]\n'
+                    "def G(): ...\n"
+                ),
+                "pkg/real.py": "".join(f"class {name}: ...\n" for name in "ABCDEF"),
+            },
+        )
+>       assert sorted(_shells(_surface(tmp_path))) == ["pkg.A", "pkg.B", "pkg.C", "pkg.E"]
+E       AssertionError: assert [] == ['pkg.A', 'pk...g.C', 'pkg.E']
+E         
+E         Right contains 4 more items, first extra item: 'pkg.A'
+E         Use -v to get more diff
+
+tests\extraction\test_python_package_root_reexports.py:181: AssertionError
+___ test_a_short_name_defined_twice_exposes_only_the_path_that_was_imported ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_a_short_name_defined_twic0')
+
+    def test_a_short_name_defined_twice_exposes_only_the_path_that_was_imported(tmp_path: Path) -> None:
+        """The unique-name case resolves; the twin that nothing re-exports gains no package-root path."""
+        _write(
+            tmp_path,
+            {
+                "pkg/__init__.py": 'from pkg.a import Twin  # noqa: F401\n__all__ = ["other"]\ndef other(): ...\n',
+                "pkg/a.py": "class Twin:\n    def go(self): ...\n",
+                "pkg/b.py": "class Twin:\n    def stop(self): ...\n",
+            },
+        )
+        surface = _surface(tmp_path)
+>       assert _shells(surface) == {"pkg.Twin": "pkg.a.Twin"}
+E       AssertionError: assert {} == {'pkg.Twin': 'pkg.a.Twin'}
+E         
+E         Right contains 1 more item:
+E         {'pkg.Twin': 'pkg.a.Twin'}
+E         Use -v to get more diff
+
+tests\extraction\test_python_package_root_reexports.py:249: AssertionError
+_ test_the_package_root_shell_travels_into_the_extracted_types_and_pairs_with_its_definition _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_the_package_root_shell_tr0')
+
+    def test_the_package_root_shell_travels_into_the_extracted_types_and_pairs_with_its_definition(
+        tmp_path: Path,
+    ) -> None:
+        _library(tmp_path)
+        types = _types(tmp_path)
+        by_import = {entry["class_import"]: entry for entry in types}
+>       shell = by_import["pkg.Mode"]
+                ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'pkg.Mode'
+
+tests\extraction\test_python_package_root_reexports.py:267: KeyError
+__________ test_the_real_words_shape_resolves_the_package_root_name ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3351/test_the_real_words_shape_reso0')
+
+    def test_the_real_words_shape_resolves_the_package_root_name(tmp_path: Path) -> None:
+        """RD2-276, in miniature: the exact import shape of ``aspose/words_foss/__init__.py``."""
+        _write(
+            tmp_path,
+            {
+                "aspose/__init__.py": "",
+                "aspose/words_foss/__init__.py": (
+                    "from aspose.words_foss.document import Document, SaveFormat\n"
+                    "from aspose.words_foss.model import wrap_type, enums\n"
+                    "from aspose.words_foss.model.enums import (  # noqa: F401 - re-export for aw.Underline etc.\n"
+                    "    CellMerge,\n    Underline,\n)\n"
+                    '__all__ = ["Document", "SaveFormat"]\n'
+                ),
+                "aspose/words_foss/document.py": "class Document: ...\nclass SaveFormat:\n    DOCX = 1\n",
+                "aspose/words_foss/model/__init__.py": "",
+                "aspose/words_foss/model/wrap_type.py": "def wrap(x): ...\n",
+                "aspose/words_foss/model/enums/__init__.py": (
+                    "from aspose.words_foss.model.enums.table import CellMerge  # noqa: F401\n"
+                    "from aspose.words_foss.model.enums.font import Underline  # noqa: F401\n"
+                ),
+                "aspose/words_foss/model/enums/table.py": "class CellMerge:\n    NONE = 0\n    FIRST = 1\n",
+                "aspose/words_foss/model/enums/font.py": "class Underline:\n    NONE = 0\n    SINGLE = 1\n",
+            },
+        )
+        types = _types_of(tmp_path, "aspose")
+        by_import = {entry["class_import"]: entry for entry in types}
+        for name in ("CellMerge", "Underline"):
+>           assert f"aspose.words_foss.{name}" in by_import
+E           AssertionError: assert 'aspose.words_foss.CellMerge' in {'aspose.words_foss.Document': {'name': 'Document', 'kind': 'class', 'file': 'aspose/words_foss/__init__.py', 'line': ...ent.SaveFormat': {'name': 'SaveFormat', 'kind': 'class', 'file': 'aspose/words_foss/document.py', 'line': 2, ...}, ...}
+
+tests\extraction\test_python_package_root_reexports.py:307: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_python_package_root_reexports.py::test_unused_import_hidden_by_all_is_a_package_root_shell
+FAILED tests/extraction/test_python_package_root_reexports.py::test_chain_of_package_inits_exposes_each_public_path
+FAILED tests/extraction/test_python_package_root_reexports.py::test_a_branch_import_is_exposed_by_its_last_binding
+FAILED tests/extraction/test_python_package_root_reexports.py::test_internal_plumbing_is_never_exposed
+FAILED tests/extraction/test_python_package_root_reexports.py::test_nothing_is_duplicated_and_the_definition_is_untouched
+FAILED tests/extraction/test_python_package_root_reexports.py::test_the_marker_is_a_noqa_naming_f401_or_a_blanket_noqa
+FAILED tests/extraction/test_python_package_root_reexports.py::test_a_short_name_defined_twice_exposes_only_the_path_that_was_imported
+FAILED tests/extraction/test_python_package_root_reexports.py::test_the_package_root_shell_travels_into_the_extracted_types_and_pairs_with_its_definition
+FAILED tests/extraction/test_python_package_root_reexports.py::test_the_real_words_shape_resolves_the_package_root_name
+
+--- stderr ---
+
