@@ -1,0 +1,122 @@
+id: TC-837
+gate: G3
+lane: verification
+purpose: >-
+  Restore the three authored examples that TC-825/TC-826/TC-827 had to DROP only because every
+  authored sidecar is capped at `_MAX_EXAMPLES = 5` (src/foss_mcp/indexing/authored_examples.py;
+  rationale unknown - the 2026-11-14 infra decision record could not find one): slides/python 'Set
+  Core and Custom Document Properties and Delete One' (replaced by the placeholder example; its
+  queries 'document properties', 'custom property', 'property', 'set the title and author of a
+  presentation' became misses), pdf/java 'Build a two-column row and confirm its text survives a
+  reload' (the Table example; the bare query 'table' and 'two-column row table' became misses) and
+  words/python 'Compare DOCX package sizes across OOXML compression levels' (lower value: a README
+  example 'Set DOCX Compression Level' covers the topic - restore ONLY if the measurements below
+  allow it). This is a 'no pilot gets worse' repair. Mechanism: raise `_MAX_EXAMPLES` from 5 to 6
+  (schema schemas/product/authored-examples.schema.json maxItems, validator, boundary tests 6 ok /
+  7 rejected) and put the dropped examples back into their sidecars (recover each from git: `git
+  log -p -S '<title>' -- tests/fixtures/furnished/<pilot>/authored_examples.yaml`; the entries
+  were verified when first authored but MUST be re-run now: install the pilot library as the
+  earlier worker did (TC-825: aspose-slides-foss 26.8.0 at commit 4e63447b; TC-827: the
+  org.aspose:aspose-pdf-foss 26.9.0 jar/Maven build from the TC-748 scratch; TC-826: the r815/vw
+  venv) and confirm each still passes, then update code_sha256 only if the code changed).
+  MEASUREMENT GATE (decide per pilot before committing anything): `find_examples` has scope-size
+  cliffs - TC-810 measured that the rare-code-word admission path only applies to scopes with <=
+  12 examples (`_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES`, find_examples.py) and slides/net has 13,
+  slides/java 16; and TC-543/586 title-anchor floors. For each of slides/python, pdf/java,
+  words/python compute the pilot's served example count today (committed demo-manifests) and after
+  adding one example (committed + 1 authored not yet baked: the baked manifests do not contain
+  authored examples for many pilots, so compute from the sidecar + README candidate counts instead
+  and say so), and the effect on the retrieval ratchets via the same simulate-in-a-copy approach
+  the TC-827 worker used (copy of the pilot's manifest with the example chunk added; run the
+  729-case corpus + forgiveness + the round-2 recall ratchet
+  tests/mcp/tools/test_find_examples_round2_recall_ratchet.py). Restore an example ONLY if: (a)
+  the scope stays <= 12 examples OR the measured effect of crossing 12 is zero lost round-2 recall
+  pairs, (b) wrong-confident count stays <= the committed ceiling and no floor drops. If an
+  example fails the gate, do NOT add it; report the numbers. The validator cap raise itself is
+  only justified if at least one example is restored; if none passes, make NO commit and report.
+depends_on:
+  - TC-825
+  - TC-826
+  - TC-827
+  - TC-813
+  - TC-810
+  - TC-797
+  - TC-799
+  - TC-760
+  - TC-750
+  - TC-762
+  - TC-770
+write_paths:
+  - src/foss_mcp/indexing/authored_examples.py
+  - schemas/product/authored-examples.schema.json
+  - tests/indexing/test_authored_examples.py
+  - tests/fixtures/furnished/slides_python/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/fixtures/furnished/words_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_slides_python.py
+  - tests/indexing/test_authored_examples_pdf_java.py
+  - tests/indexing/test_authored_examples_words_python.py
+  - tests/indexing/test_authored_examples_title_word_limit.py
+  - tests/infra/test_authored_examples_fixtures.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: authored_examples.py (`_MAX_EXAMPLES`, every structural rule, the 12-word title
+    limit from TC-813), schemas/product/authored-examples.schema.json,
+    tests/indexing/test_authored_examples.py, the three pilots' sidecars and tests (the
+    TC-825/826/827 commits show exactly what was replaced: `git log --oneline -3 -- <sidecar>` and
+    `git show <commit>`), tests/mcp/tools/test_find_examples_round2_recall_ratchet.py (TC-810) and
+    src/foss_mcp/mcp/tools/find_examples.py `_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES`.
+  - >-
+    REPRODUCE FIRST: record the pre-change round-2 recall (132 must-hit pairs), wrong-confident
+    (41/729, ceiling 43) and each pilot's example count; then run the measurement gate described in
+    the purpose BEFORE editing anything, and write the table in your report.
+  - >-
+    Tests must bite: new boundary tests for the cap (6 accepted, 7 rejected, schema agrees with the
+    validator) and, per restored example, pin tests like the ones TC-825/827 added (title words <=
+    12, symbols, key code lines, example count == 6 for that sidecar). Never skip a test. Never use
+    PowerShell Set-Content to write repo files. Do NOT touch infra/demo-manifests or
+    tests/fixtures/verified_examples. Commit EXACTLY ONE commit; ruff format + ruff check; run the
+    card's checks twice; report real counts.
+actions:
+  - >-
+    Raise the authored-example cap to 6 and restore the dropped slides/python, pdf/java and (if
+    measurements allow) words/python examples, each re-verified and gated on the retrieval ratchets.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_title_word_limit.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 60
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/authored_examples.py', 'schemas/product/authored-examples.schema.json', 'tests/fixtures/furnished/slides_python/authored_examples.yaml', 'tests/fixtures/furnished/pdf_java/authored_examples.yaml', 'tests/fixtures/furnished/words_python/authored_examples.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-837/receipt.json
+closeout:
+  - >-
+    Examples that were dropped only for the cap are restored where the retrieval ratchets allow it;
+    the cap is 6 with boundary tests.
+recovery: Re-run from a clean tree.
