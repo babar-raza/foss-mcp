@@ -1,0 +1,107 @@
+id: TC-826
+gate: G3
+lane: verification
+purpose: >-
+  RD2-275 (words/python, P1): find_examples for scratch/builder/create/add paragraph/insert
+  table/LdmDocxWriter/light_document_model all miss, and search_docs('construct document') returns
+  the developer_guide chunk saying Document is constructed from a file path - the from-scratch
+  construction path (`aspose.words_foss.light_document_model` + `docx_writer.LdmDocxWriter`,
+  searchable as a symbol) has no example. Author ONE verified, self-checking example that builds a
+  document from scratch with that API (paragraph + run + a table if the API supports it), writes
+  DOCX, reloads it and asserts the text; aspose-words-foss is NOT on PyPI - build/install it from
+  GitHub source at the pilot's pinned commit (see the pilot manifest and TC-770/TC-792 notes) in a
+  throwaway venv outside the repo. Replace the weakest of the five existing words/python examples.
+  If the `Paragraph(children=[...])` idiom is private/unsupported (RD2-283, handled as a
+  disclosure by TC-815), use only the public builder API. Success: find_examples('create a
+  document from scratch') returns it confidently.
+depends_on:
+  - TC-770
+  - TC-813
+  - TC-792
+  - TC-815
+write_paths:
+  - tests/fixtures/furnished/words_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_words_python.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`). It is a LEAD, not truth: REPRODUCE everything yourself first; if
+    something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: the pilot's existing tests/fixtures/furnished/<pilot>/authored_examples.yaml and its
+    tests/indexing/test_authored_examples_<pilot>.py, `src/foss_mcp/indexing/authored_examples.py`
+    in full (every structural rule: `_MAX_EXAMPLES` = 5, `_MAX_TITLE_CHARS`, the 12-word title limit
+    added by TC-813, FORBIDDEN_CODE_PATTERNS, `code_sha256` must equal
+    `normalised_code_sha256(code)`, symbols must be real FQNs, `library_commit` the real pinned
+    40-hex commit), the language's verifier in `src/foss_mcp/indexing/example_verifier.py`, and
+    `infra/build_chunks.py::_load_authored_candidates`. The sidecar is AT its 5-example cap: REPLACE
+    the weakest existing example (justify the choice in your report by what its title/code adds that
+    the others do not and by which find_examples queries it currently answers - check
+    test_round3_retrieval_corpus and docs/round2 for that pilot) - do not raise the cap.
+  - >-
+    CRITICAL - TITLES: generic-word titles ('page', 'read', 'set', 'add', 'save', 'node') collided
+    with unrelated queries via title_anchored (src/foss_mcp/mcp/tools/relevance.py) and caused a
+    fleet regression (docs/DECISION_LOG.md 2026-11-10..12). Give the example a SPECIFIC multi-word
+    title of at most 12 words, and grep the pilot's real task queries and existing titles for each
+    word before finalizing. After adding it, run the real find_examples corpus checks (the card's
+    second check) - they must stay green with no floor change.
+  - >-
+    VERIFY THE EXAMPLE YOURSELF before committing: build/install the real pinned library as the
+    language requires in a throwaway directory OUTSIDE the repo, run the program, confirm its real
+    output/assertions. The example must be self-checking (asserts or throws on failure) like its
+    siblings. Never submit an example you have not personally run successfully; if it cannot be made
+    to verify, say so honestly and change nothing (a real upstream bug found this way becomes a
+    disclosure finding in your report, not a wrong assertion).
+  - >-
+    Do NOT touch infra/demo-manifests or tests/fixtures/verified_examples - the coordinated
+    re-bake/regeneration is a later card.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-data part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check commands twice and report the real results. If a related test
+    outside write_paths fails because of your change, do not edit it: stop and report it with the
+    exact failure.
+actions:
+  - >-
+    Replace the weakest authored example of words_python with one verified, specifically-titled
+    example that closes the named ledger rows.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_words_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 249
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['tests/fixtures/furnished/words_python/authored_examples.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-826/receipt.json
+closeout:
+  - >-
+    words/python serves a verified from-scratch document-building example.
+recovery: Re-run from a clean tree.
