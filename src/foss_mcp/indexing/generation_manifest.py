@@ -411,7 +411,7 @@ class GenerationManifestStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp-", suffix=".json")
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
                 json.dump(doc, fh, indent=2, sort_keys=True)
                 fh.write("\n")
                 fh.flush()

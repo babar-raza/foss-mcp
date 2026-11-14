@@ -836,7 +836,7 @@ def _safe_extra_generic(
         # Nothing to protect (no strong term at all), or only the one the bug itself turns on - either
         # way there was never a second, independent strong term whose loss would be a real regression.
         return candidates
-    ranked = sorted(candidates, key=lambda stem: -family_generic_fraction(stem, lexical_payload))
+    ranked = sorted(candidates, key=lambda stem: (-family_generic_fraction(stem, lexical_payload), stem))
     chosen: set[str] = set()
     for stem in ranked:
         if strong_stems - (chosen | {stem}):
