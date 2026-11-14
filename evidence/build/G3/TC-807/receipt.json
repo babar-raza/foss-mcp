@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "card": "TC-807",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T19:34:54Z",
+  "base_rev": "15aadb8e65abb868e3f408dff1be7fa51dced68a",
+  "head_rev": "db486b075874eb1afbd1dca02d4cb51659aeff7b",
+  "card_sha256": "8ea5917c569fcd8714830ad460e244195bd4b56457da1068296793b8a77f437a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "src/foss_mcp/indexing/example_runtime.py",
+      "src/foss_mcp/indexing/example_verifier.py",
+      "tests/indexing/test_example_run_step_typescript.py",
+      "tests/indexing/test_round3_example_runtime_truth.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_example_run_step_typescript.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 249.0,
+          "stdout_sha256": "b8ee76c21cfa7caf236d5217a76ab029e53d62bec40f7bd1542ce538a7628b4a",
+          "tests": 282,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_example_run_step_typescript.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 456.352,
+          "stdout_sha256": "b8ee76c21cfa7caf236d5217a76ab029e53d62bec40f7bd1542ce538a7628b4a",
+          "tests": 282,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/example_runtime.py', 'src/foss_mcp/indexing/example_verifier.py', 'infra/build_chunks.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "78648a323be236ba3431c92200d08e108d2ab82ebd45758471f478911ac63d57",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "M src/foss_mcp/indexing/example_runtime.py",
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

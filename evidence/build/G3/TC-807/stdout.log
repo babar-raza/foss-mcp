@@ -1,0 +1,930 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_run_step_typescript.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f65mts3m\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_run_step_typescript.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f65mts3m\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, M src/foss_mcp/indexing/example_runtime.py, M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_run_step_typescript.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f65mts3m\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFFF..FFFFF.FFFFFFFFFFFFFFFF.FF............................... [ 25%]
+.........................F.F............................................ [ 51%]
+........................................................................ [ 76%]
+..................................................................       [100%]
+================================== FAILURES ===================================
+__ test_a_failing_self_check_is_a_failed_run_and_does_not_count_as_verified ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_failing_self_check_is_a0')
+
+    def test_a_failing_self_check_is_a_failed_run_and_does_not_count_as_verified(tmp_path: Path) -> None:
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=1, stderr=THROWN_STDERR))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:158: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_failing_self_check_is_a0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A2CC20>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+______________ test_the_thrown_error_lands_in_the_recorded_error ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_thrown_error_lands_in0')
+
+    def test_the_thrown_error_lands_in_the_recorded_error(tmp_path: Path) -> None:
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=1, stderr=THROWN_STDERR))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_thrown_error_lands_in0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A2C4A0>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_________________ test_an_uncaught_rejection_is_a_failed_run __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_an_uncaught_rejection_is_0')
+
+    def test_an_uncaught_rejection_is_a_failed_run(tmp_path: Path) -> None:
+        stderr = "node:internal/process/promises:394\n    triggerUncaughtException(err, true);\nError: boom\n"
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=1, stderr=stderr))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_an_uncaught_rejection_is_0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1DBC0>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_ test_the_error_line_is_node_s_message_not_the_source_line_printed_above_it __
+
+    def test_the_error_line_is_node_s_message_not_the_source_line_printed_above_it() -> None:
+>       find = runtime_module.node_error_line
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'node_error_line'
+
+tests\indexing\test_example_run_step_typescript.py:179: AttributeError
+____________ test_the_node_error_line_is_used_for_typescript_only _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_node_error_line_is_us0')
+
+    def test_the_node_error_line_is_used_for_typescript_only(tmp_path: Path) -> None:
+        stderr = "triggerUncaughtException(err);\nError: from node\n"
+        record = ev.execute_in_sandbox(
+            ["node", "x"], runner=fake_runner(exit_code=1, stderr=stderr), platform="typescript"
+        )
+>       assert record.error == "Error: from node"
+E       AssertionError: assert 'triggerUncau...ception(err);' == 'Error: from node'
+E         
+E         - Error: from node
+E         + triggerUncaughtException(err);
+
+tests\indexing\test_example_run_step_typescript.py:194: AssertionError
+__________ test_an_explicit_exit_one_with_no_message_is_a_failed_run __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_an_explicit_exit_one_with0')
+
+    def test_an_explicit_exit_one_with_no_message_is_a_failed_run(tmp_path: Path) -> None:
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=1))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_an_explicit_exit_one_with0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1F880>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+____ test_exit_zero_with_output_is_recorded_as_ran_with_the_bytes_printed _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_exit_zero_with_output_is_0')
+
+    def test_exit_zero_with_output_is_recorded_as_ran_with_the_bytes_printed(tmp_path: Path) -> None:
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=0, stdout="cand1 OK\n"))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_exit_zero_with_output_is_0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1ED40>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+___ test_exit_zero_with_no_output_is_recorded_as_ran_exit0_and_not_demoted ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_exit_zero_with_no_output_0')
+
+    def test_exit_zero_with_no_output_is_recorded_as_ran_exit0_and_not_demoted(tmp_path: Path) -> None:
+        """A self-checking program prints nothing when every check holds: that is a pass, level ``ran-exit0``."""
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=0))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_exit_zero_with_no_output_0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1E480>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_ test_the_no_output_demotion_stays_java_and_dotnets_and_counts_as_verified_is_untouched _
+
+    def test_the_no_output_demotion_stays_java_and_dotnets_and_counts_as_verified_is_untouched() -> None:
+        empty = RuntimeRecord(compiled=True, ran=True, exit_code=0, produced_output=0)
+        assert empty.status == RUNTIME_NO_OUTPUT and ev.counts_as_verified(empty.status) is False
+        entry = {"platform": "java", "verified": True, "compiled": True, "ran": True, "exit_code": 0}
+        assert ev.runtime_record_from_entry({**entry, "produced_output": 0}).status == RUNTIME_NO_OUTPUT
+        ts_entry = {**entry, "platform": "typescript", "produced_output": 0}
+>       assert ev.runtime_record_from_entry(ts_entry).status == RUNTIME_RAN_OK
+E       AssertionError: assert 'no_output' == 'ran'
+E         
+E         - ran
+E         + no_output
+
+tests\indexing\test_example_run_step_typescript.py:230: AssertionError
+____ test_a_timeout_is_a_failed_run_that_is_environmental_and_never_cached ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_timeout_is_a_failed_run0')
+
+    def test_a_timeout_is_a_failed_run_that_is_environmental_and_never_cached(tmp_path: Path) -> None:
+>       record, _, _ = run_ts(tmp_path, fake_runner(exit_code=124, stderr="[foss-mcp] TIMEOUT: killed after 60s"))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:237: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_timeout_is_a_failed_run0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1D800>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_ test_a_candidate_that_emitted_nothing_is_the_machines_failure_and_nothing_is_run _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_candidate_that_emitted_0')
+
+    def test_a_candidate_that_emitted_nothing_is_the_machines_failure_and_nothing_is_run(tmp_path: Path) -> None:
+        seen: list = []
+>       record, _, _ = run_ts(tmp_path, fake_runner(seen=seen, emit=False, tsc_exit_code=2, tsc_stdout="TS6053"))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_candidate_that_emitted_0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1D080>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+________ test_a_tsc_exit_code_alone_is_not_a_verdict_the_entry_file_is ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_tsc_exit_code_alone_is_0')
+
+    def test_a_tsc_exit_code_alone_is_not_a_verdict_the_entry_file_is(tmp_path: Path) -> None:
+        """A library that does not type-check cleanly still emits: tsc exits 2 and the program runs."""
+        seen: list = []
+>       record, _, _ = run_ts(tmp_path, fake_runner(seen=seen, tsc_exit_code=2, stdout="ok\n"))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:258: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_tsc_exit_code_alone_is_0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1E340>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+____________ test_a_runner_that_cannot_start_node_is_environmental ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_runner_that_cannot_star0')
+
+    def test_a_runner_that_cannot_start_node_is_environmental(tmp_path: Path) -> None:
+>       record, _, _ = run_ts(tmp_path, fake_runner(raises=OSError("no such file")))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:263: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_runner_that_cannot_star0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085A1F4C0>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+______________ test_a_project_with_no_tsconfig_cannot_be_emitted ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_project_with_no_tsconfi0')
+
+    def test_a_project_with_no_tsconfig_cannot_be_emitted(tmp_path: Path) -> None:
+        workdir, library = make_project(tmp_path)
+        (workdir / "candidate_project" / "tsconfig.json").unlink()
+        seen: list = []
+        record = ev.run_compiled_candidate(
+            "typescript", candidate(), workdir=workdir, library=library, runner=fake_runner(seen=seen)
+        )
+>       assert seen == [] and record.ran is False and "tsconfig.json" in record.error
+E       AssertionError: assert ([] == []
+E         
+E         Use -v to get more diff and None is False)
+E        +  where None = RuntimeRecord(compiled=True, ran=None, exit_code=None, produced_output=None, error='', artefact_extensions=(), output_optional=False).ran
+
+tests\indexing\test_example_run_step_typescript.py:276: AssertionError
+_______ test_legacy_typescript_entry_levels_are_read_from_the_run_facts _______
+
+    def test_legacy_typescript_entry_levels_are_read_from_the_run_facts() -> None:
+        type_checked_only = RuntimeRecord(compiled=True)
+        assert ev.legacy_verification_level("typescript", type_checked_only) == LEVEL_TYPE_CHECKED
+        ran = RuntimeRecord(compiled=True, ran=True, exit_code=0, produced_output=0, output_optional=True)
+>       assert ev.legacy_verification_level("typescript", ran) == LEVEL_RAN_EXIT0
+E       AssertionError: assert 'type-checked' == 'ran-exit0'
+E         
+E         - ran-exit0
+E         + type-checked
+
+tests\indexing\test_example_run_step_typescript.py:303: AssertionError
+_ test_a_package_import_is_emitted_as_esm_into_the_project_and_started_in_a_sandbox _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_package_import_is_emitt0')
+
+    def test_a_package_import_is_emitted_as_esm_into_the_project_and_started_in_a_sandbox(tmp_path: Path) -> None:
+        seen: list = []
+>       _, workdir, library = run_ts(tmp_path, fake_runner(seen=seen))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:311: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_package_import_is_emitt0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085554900>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_ test_the_package_is_linked_into_the_emit_directory_by_the_verifiers_existing_link _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_package_is_linked_int0')
+
+    def test_the_package_is_linked_into_the_emit_directory_by_the_verifiers_existing_link(tmp_path: Path) -> None:
+>       _, workdir, library = run_ts(tmp_path, fake_runner())
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:329: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_package_is_linked_int0')
+runner = <function fake_runner.<locals>.runner at 0x0000027085554CC0>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_ test_a_relative_import_is_emitted_in_place_in_the_library_and_cleaned_up_after_the_run _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_relative_import_is_emit0')
+
+    def test_a_relative_import_is_emitted_in_place_in_the_library_and_cleaned_up_after_the_run(
+        tmp_path: Path,
+    ) -> None:
+        seen: list = []
+        workdir, library = make_project(tmp_path)
+        during: list[bool] = []
+        inner = fake_runner(seen=seen)
+    
+        def runner(argv: Sequence[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+            if not _is_tsc(argv):
+                during.append((library / runtime_module.TYPESCRIPT_ROOT_ENTRY).is_file())
+            return inner(argv, cwd, timeout_seconds)
+    
+        record = ev.run_compiled_candidate(
+            "typescript", candidate(ROOT_SELF_CHECK), workdir=workdir, library=library, runner=runner
+        )
+>       assert record.status == RUNTIME_RAN_OK
+E       AssertionError: assert 'unknown' == 'ran'
+E         
+E         - ran
+E         + unknown
+
+tests\indexing\test_example_run_step_typescript.py:352: AssertionError
+_ test_the_in_place_config_extends_the_librarys_tsconfig_and_emits_next_to_the_sources _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_in_place_config_exten0')
+
+    def test_the_in_place_config_extends_the_librarys_tsconfig_and_emits_next_to_the_sources(
+        tmp_path: Path,
+    ) -> None:
+        workdir, library = make_project(tmp_path)
+        (library / "tsconfig.json").write_text('{"compilerOptions": {"module": "esnext"}}\n', encoding="utf-8")
+        configs: list[dict] = []
+    
+        def runner(argv: Sequence[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+            if _is_tsc(argv):
+                configs.append(json.loads((library / argv[argv.index("-p") + 1]).read_text(encoding="utf-8")))
+                (library / runtime_module.TYPESCRIPT_ROOT_ENTRY).write_text("//\n", encoding="utf-8")
+                return RunOutcome(exit_code=0)
+            return RunOutcome(exit_code=0, stdout="x")
+    
+        ev.run_compiled_candidate(
+            "typescript", candidate(ROOT_SELF_CHECK), workdir=workdir, library=library, runner=runner
+        )
+>       (config,) = configs
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_example_run_step_typescript.py:378: ValueError
+_______________ test_an_esm_library_is_emitted_as_esm_in_place ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_an_esm_library_is_emitted0')
+
+    def test_an_esm_library_is_emitted_as_esm_in_place(tmp_path: Path) -> None:
+        workdir, library = make_project(tmp_path)
+        (library / "package.json").write_text(json.dumps({"type": "module"}), encoding="utf-8")
+        seen_options: list[dict] = []
+    
+        def runner(argv: Sequence[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+            if _is_tsc(argv):
+                document = json.loads((library / argv[argv.index("-p") + 1]).read_text(encoding="utf-8"))
+                seen_options.append(document["compilerOptions"])
+                (library / runtime_module.TYPESCRIPT_ROOT_ENTRY).write_text("//\n", encoding="utf-8")
+            return RunOutcome(exit_code=0)
+    
+        ev.run_compiled_candidate(
+            "typescript", candidate(ROOT_SELF_CHECK), workdir=workdir, library=library, runner=runner
+        )
+>       assert seen_options[0]["module"] == "esnext" and seen_options[0]["moduleResolution"] == "bundler"
+               ^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_example_run_step_typescript.py:422: IndexError
+______________ test_a_failed_in_place_emit_leaves_nothing_behind ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_failed_in_place_emit_le0')
+
+    def test_a_failed_in_place_emit_leaves_nothing_behind(tmp_path: Path) -> None:
+        workdir, library = make_project(tmp_path)
+        record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(ROOT_SELF_CHECK),
+            workdir=workdir,
+            library=library,
+            runner=fake_runner(emit=False, tsc_exit_code=2),
+        )
+>       assert record.ran is False
+E       AssertionError: assert None is False
+E        +  where None = RuntimeRecord(compiled=True, ran=None, exit_code=None, produced_output=None, error='', artefact_extensions=(), output_optional=False).ran
+
+tests\indexing\test_example_run_step_typescript.py:435: AssertionError
+________ test_the_in_place_files_are_removed_even_when_the_run_raises _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_in_place_files_are_re0')
+
+    def test_the_in_place_files_are_removed_even_when_the_run_raises(tmp_path: Path) -> None:
+        workdir, library = make_project(tmp_path)
+    
+        def runner(argv: Sequence[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+            if _is_tsc(argv):
+                (library / runtime_module.TYPESCRIPT_ROOT_ENTRY).write_text("//\n", encoding="utf-8")
+                return RunOutcome(exit_code=0)
+            raise KeyboardInterrupt
+    
+>       with pytest.raises(KeyboardInterrupt):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE KeyboardInterrupt
+
+tests\indexing\test_example_run_step_typescript.py:448: Failed
+________ test_the_runtime_command_matches_the_layout_the_code_asks_for ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_runtime_command_match0')
+
+    def test_the_runtime_command_matches_the_layout_the_code_asks_for(tmp_path: Path) -> None:
+        by_package = ev.runtime_command("typescript", candidate(), workdir=tmp_path, library=tmp_path / "lib")
+        in_place = ev.runtime_command(
+            "typescript", candidate(ROOT_SELF_CHECK), workdir=tmp_path, library=tmp_path / "lib"
+        )
+>       assert by_package == ["node", str(tmp_path / "candidate_project" / "ts_run" / "out" / "candidate.js")]
+E       AssertionError: assert None == ['node', 'C:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-4125\\test_the_runtime_command_match0\\candidate_project\\ts_run\\out\\candidate.js']
+
+tests\indexing\test_example_run_step_typescript.py:460: AssertionError
+__________ test_the_sandbox_has_the_directory_an_example_saves_into ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_sandbox_has_the_direc0')
+
+    def test_the_sandbox_has_the_directory_an_example_saves_into(tmp_path: Path) -> None:
+        code = 'workbook.save("outputfiles/cand1.xlsx");\nconst back = load(`outputfiles/other.pdf`);\n'
+>       runtime_module.ensure_output_directories(code, "typescript", tmp_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'ensure_output_directories'
+
+tests\indexing\test_example_run_step_typescript.py:469: AttributeError
+__________ test_only_a_plain_relative_file_literal_makes_a_directory __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_only_a_plain_relative_fil0')
+
+    def test_only_a_plain_relative_file_literal_makes_a_directory(tmp_path: Path) -> None:
+        code = (
+            'import { A } from "./dist/aspose/threed";\n'
+            'import b from "@scope/pkg/sub.js";\n'
+            'const u = "https://example.com/a/b.txt";\n'
+            "const t = `${root}/x/y.txt`;\n"
+            'const up = "../escape/file.txt";\n'
+            'const abs = "/etc/passwd.txt";\n'
+        )
+>       runtime_module.ensure_output_directories(code, "typescript", tmp_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'ensure_output_directories'
+
+tests\indexing\test_example_run_step_typescript.py:483: AttributeError
+________________ test_other_platforms_get_no_extra_directories ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_other_platforms_get_no_ex0')
+
+    def test_other_platforms_get_no_extra_directories(tmp_path: Path) -> None:
+>       runtime_module.ensure_output_directories('save("outputfiles/a.pdf")', "python", tmp_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'ensure_output_directories'
+
+tests\indexing\test_example_run_step_typescript.py:488: AttributeError
+_______ test_the_run_writes_into_the_sandbox_directory_not_the_project ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_run_writes_into_the_s0')
+
+    def test_the_run_writes_into_the_sandbox_directory_not_the_project(tmp_path: Path) -> None:
+        """The program's working directory has ``outputfiles/`` before it starts, and a file it writes counts."""
+        code = PACKAGE_SELF_CHECK + 'save("outputfiles/report.bin");\n'
+        seen_dirs: list[bool] = []
+        inner = fake_runner()
+    
+        def runner(argv: Sequence[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+            if not _is_tsc(argv):
+                seen_dirs.append((cwd / "outputfiles").is_dir())
+                (cwd / "outputfiles" / "report.bin").write_bytes(b"12345")
+                return RunOutcome(exit_code=0)
+            return inner(argv, cwd, timeout_seconds)
+    
+>       record, workdir, _ = run_ts(tmp_path, runner, code)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_run_step_typescript.py:505: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_run_writes_into_the_s0')
+runner = <function test_the_run_writes_into_the_sandbox_directory_not_the_project.<locals>.runner at 0x0000027085555080>
+code = 'import { Thing } from "@example/reference";\nconst thing = new Thing();\nif (thing.size !== 1) throw new Error("self-check: expected size 1");\nsave("outputfiles/report.bin");\n'
+
+    def run_ts(
+        tmp_path: Path, runner: Runner, code: str = PACKAGE_SELF_CHECK
+    ) -> tuple[RuntimeRecord, Path, Path]:
+        workdir, library = make_project(tmp_path)
+>       record = ev.run_compiled_candidate(
+            "typescript",
+            candidate(code),
+            workdir=workdir,
+            library=library,
+            runner=runner,
+            package_name=PACKAGE,
+        )
+E       TypeError: run_compiled_candidate() got an unexpected keyword argument 'package_name'
+
+tests\indexing\test_example_run_step_typescript.py:143: TypeError
+_ test_the_error_helpers_name_the_tsc_failure_and_read_only_inside_the_library _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_error_helpers_name_th0')
+
+    def test_the_error_helpers_name_the_tsc_failure_and_read_only_inside_the_library(tmp_path: Path) -> None:
+        outcome = RunOutcome(exit_code=5, stdout="out text", stderr="err text")
+>       message = runtime_module._tsc_failure(outcome)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute '_tsc_failure'
+
+tests\indexing\test_example_run_step_typescript.py:516: AttributeError
+_______ test_remove_emitted_files_tolerates_a_file_that_is_already_gone _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_remove_emitted_files_tole0')
+
+    def test_remove_emitted_files_tolerates_a_file_that_is_already_gone(tmp_path: Path) -> None:
+        there = tmp_path / "there.js"
+        there.write_text("x", encoding="utf-8")
+>       runtime_module.remove_emitted_files([there, tmp_path / "gone.js"])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'remove_emitted_files'
+
+tests\indexing\test_example_run_step_typescript.py:526: AttributeError
+______ test_a_failing_self_check_is_not_published_as_a_verified_example _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_failing_self_check_is_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027085527310>
+
+    def test_a_failing_self_check_is_not_published_as_a_verified_example(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ts = _TypeScriptPipeline(monkeypatch, tmp_path)
+        ts.exit_code, ts.stderr = 1, THROWN_STDERR
+        out = ts.build(tmp_path, "failing")
+>       assert "Check the size" not in _example_texts(out)
+E       assert 'Check the size' not in {'Check the size': 'FQN: Example: Check the size\nKind: verified_example\nVerification-Level: type-checked\nVerified-W....size !== 1) throw new Error("self-check: expected size 1");\nSource-Commit: 7777777777777777777777777777777777777777'}
+E        +  where {'Check the size': 'FQN: Example: Check the size\nKind: verified_example\nVerification-Level: type-checked\nVerified-W....size !== 1) throw new Error("self-check: expected size 1");\nSource-Commit: 7777777777777777777777777777777777777777'} = _example_texts(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_failing_self_check_is_n0/failing'))
+
+tests\indexing\test_example_run_step_typescript.py:648: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for typescript (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4125\test_a_failing_self_check_is_n0\failing\chunks.json
+______ test_the_package_name_reaches_the_run_step_from_the_command_line _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_package_name_reaches_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000270859F4830>
+
+    def test_the_package_name_reaches_the_run_step_from_the_command_line(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ts = _TypeScriptPipeline(monkeypatch, tmp_path)
+        out = ts.build(tmp_path, "named")
+        assert ts.packages == [PACKAGE]
+>       emitted_into = Path(ts.runs[0][ts.runs[0].index("--outDir") + 1])
+                            ^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_example_run_step_typescript.py:662: IndexError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for typescript (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4125\test_the_package_name_reaches_0\named\chunks.json
+___ test_a_passing_silent_self_check_is_published_with_the_ran_exit0_level ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_passing_silent_self_che0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027085527620>
+
+    def test_a_passing_silent_self_check_is_published_with_the_ran_exit0_level(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ts = _TypeScriptPipeline(monkeypatch, tmp_path)
+        out = ts.build(tmp_path, "silent")
+        text = _example_texts(out)["Check the size"]
+>       assert "Verification-Level: ran-exit0\n" in text
+E       assert 'Verification-Level: ran-exit0\n' in 'FQN: Example: Check the size\nKind: verified_example\nVerification-Level: type-checked\nVerified-With: v24.13.1 (test...g.size !== 1) throw new Error("self-check: expected size 1");\nSource-Commit: 7777777777777777777777777777777777777777'
+
+tests\indexing\test_example_run_step_typescript.py:673: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for typescript (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4125\test_a_passing_silent_self_che0\silent\chunks.json
+____ test_a_passing_program_that_prints_is_published_with_its_output_bytes ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_passing_program_that_pr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000270859F5780>
+
+    def test_a_passing_program_that_prints_is_published_with_its_output_bytes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ts = _TypeScriptPipeline(monkeypatch, tmp_path)
+        ts.stdout = "ok\n"
+        out = ts.build(tmp_path, "printing")
+        text = _example_texts(out)["Check the size"]
+>       assert "Verification-Level: ran-produced-output\n" in text
+E       assert 'Verification-Level: ran-produced-output\n' in 'FQN: Example: Check the size\nKind: verified_example\nVerification-Level: type-checked\nVerified-With: v24.13.1 (test...g.size !== 1) throw new Error("self-check: expected size 1");\nSource-Commit: 7777777777777777777777777777777777777777'
+
+tests\indexing\test_example_run_step_typescript.py:687: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for typescript (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4125\test_a_passing_program_that_pr0\printing\chunks.json
+_______ test_a_timeout_is_not_published_and_is_not_written_to_the_cache _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_timeout_is_not_publishe0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027085502D60>
+
+    def test_a_timeout_is_not_published_and_is_not_written_to_the_cache(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ts = _TypeScriptPipeline(monkeypatch, tmp_path)
+        ts.exit_code, ts.stderr = 124, "[foss-mcp] TIMEOUT: run exceeded 60s and was stopped"
+        cache_out = tmp_path / "cache.json"
+        out = ts.build(tmp_path, "timeout", ["--verification-cache-out", str(cache_out)])
+>       assert "Check the size" not in _example_texts(out)
+E       assert 'Check the size' not in {'Check the size': 'FQN: Example: Check the size\nKind: verified_example\nVerification-Level: type-checked\nVerified-W....size !== 1) throw new Error("self-check: expected size 1");\nSource-Commit: 7777777777777777777777777777777777777777'}
+E        +  where {'Check the size': 'FQN: Example: Check the size\nKind: verified_example\nVerification-Level: type-checked\nVerified-W....size !== 1) throw new Error("self-check: expected size 1");\nSource-Commit: 7777777777777777777777777777777777777777'} = _example_texts(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_a_timeout_is_not_publishe0/timeout'))
+
+tests\indexing\test_example_run_step_typescript.py:698: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for typescript (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples (0 from cache)
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4125\test_a_timeout_is_not_publishe0\timeout\chunks.json
+__ test_the_recorded_run_is_cached_and_a_hit_serves_it_without_running_again __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4125/test_the_recorded_run_is_cache0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027085503380>
+
+    def test_the_recorded_run_is_cached_and_a_hit_serves_it_without_running_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        ts = _TypeScriptPipeline(monkeypatch, tmp_path)
+        cache = tmp_path / "cache.json"
+        first = ts.build(tmp_path, "first", ["--verification-cache-out", str(cache)])
+        (entry,) = json.loads(cache.read_text(encoding="utf-8"))["entries"]
+>       assert entry["platform"] == "typescript" and entry["ran"] is True and entry["exit_code"] == 0
+                                                     ^^^^^^^^^^^^
+E       KeyError: 'ran'
+
+tests\indexing\test_example_run_step_typescript.py:711: KeyError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for typescript (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples (0 from cache)
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4125\test_the_recorded_run_is_cache0\first\chunks.json
+_ test_the_real_typescript_verifier_is_registered_as_runnable_in_the_production_entrypoint _
+
+    def test_the_real_typescript_verifier_is_registered_as_runnable_in_the_production_entrypoint() -> None:
+>       assert "typescript" in ev.RUNNABLE_PLATFORMS
+E       AssertionError: assert 'typescript' in frozenset({'dotnet', 'go', 'java', 'rust'})
+E        +  where frozenset({'dotnet', 'go', 'java', 'rust'}) = ev.RUNNABLE_PLATFORMS
+
+tests\indexing\test_example_run_step_typescript.py:740: AssertionError
+__ test_the_verifier_reaches_the_typescript_run_builders_in_example_runtime ___
+
+    def test_the_verifier_reaches_the_typescript_run_builders_in_example_runtime() -> None:
+        source = VERIFIER_SOURCE.read_text(encoding="utf-8")
+        assert "from foss_mcp.indexing.example_runtime import" in source
+        called = {
+            node.func.id
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+>       assert {
+            "typescript_run_command",
+            "build_typescript_run_files",
+            "remove_emitted_files",
+            "ensure_output_directories",
+        } <= called
+E       AssertionError: assert {'build_types..._run_command'} <= {'ExampleEnvi...ueError', ...}
+E         
+E         Extra items in the left set:
+E         'remove_emitted_files'
+E         'build_typescript_run_files'
+E         'ensure_output_directories'
+E         'typescript_run_command'
+
+tests\indexing\test_example_run_step_typescript.py:761: AssertionError
+____ test_the_run_step_cannot_be_reached_from_a_platform_it_does_not_know _____
+
+    def test_the_run_step_cannot_be_reached_from_a_platform_it_does_not_know() -> None:
+>       assert ev.RUNNABLE_PLATFORMS == frozenset({"java", "dotnet", "go", "rust", "typescript"})
+E       AssertionError: assert frozenset({'d...ava', 'rust'}) == frozenset({'d...'typescript'})
+E         
+E         Extra items in the right set:
+E         'typescript'
+E         Use -v to get more diff
+
+tests\indexing\test_round3_example_runtime_truth.py:708: AssertionError
+_ test_the_runnable_verifiers_are_the_real_java_dotnet_go_rust_and_typescript_verifiers _
+
+    def test_the_runnable_verifiers_are_the_real_java_dotnet_go_rust_and_typescript_verifiers() -> None:
+>       assert build_chunks._RUNNABLE_VERIFIERS == {
+            "java": ev.verify_java_example,
+            "dotnet": ev.verify_dotnet_example,
+            "go": ev.verify_go_example,
+            "rust": ev.verify_rust_example,
+            "typescript": ev.verify_typescript_example,
+        }
+E       AssertionError: assert {'java': <fun...027085A1A200>} == {'java': <fun...5A1A200>, ...}
+E         
+E         Omitting 4 identical items, use -vv to show
+E         Right contains 1 more item:
+E         {'typescript': <function verify_typescript_example at 0x0000027085A1B740>}
+E         Use -v to get more diff
+
+tests\indexing\test_round3_example_runtime_truth.py:728: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_failing_self_check_is_a_failed_run_and_does_not_count_as_verified
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_thrown_error_lands_in_the_recorded_error
+FAILED tests/indexing/test_example_run_step_typescript.py::test_an_uncaught_rejection_is_a_failed_run
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_error_line_is_node_s_message_not_the_source_line_printed_above_it
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_node_error_line_is_used_for_typescript_only
+FAILED tests/indexing/test_example_run_step_typescript.py::test_an_explicit_exit_one_with_no_message_is_a_failed_run
+FAILED tests/indexing/test_example_run_step_typescript.py::test_exit_zero_with_output_is_recorded_as_ran_with_the_bytes_printed
+FAILED tests/indexing/test_example_run_step_typescript.py::test_exit_zero_with_no_output_is_recorded_as_ran_exit0_and_not_demoted
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_no_output_demotion_stays_java_and_dotnets_and_counts_as_verified_is_untouched
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_timeout_is_a_failed_run_that_is_environmental_and_never_cached
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_candidate_that_emitted_nothing_is_the_machines_failure_and_nothing_is_run
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_tsc_exit_code_alone_is_not_a_verdict_the_entry_file_is
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_runner_that_cannot_start_node_is_environmental
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_project_with_no_tsconfig_cannot_be_emitted
+FAILED tests/indexing/test_example_run_step_typescript.py::test_legacy_typescript_entry_levels_are_read_from_the_run_facts
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_package_import_is_emitted_as_esm_into_the_project_and_started_in_a_sandbox
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_package_is_linked_into_the_emit_directory_by_the_verifiers_existing_link
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_relative_import_is_emitted_in_place_in_the_library_and_cleaned_up_after_the_run
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_in_place_config_extends_the_librarys_tsconfig_and_emits_next_to_the_sources
+FAILED tests/indexing/test_example_run_step_typescript.py::test_an_esm_library_is_emitted_as_esm_in_place
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_failed_in_place_emit_leaves_nothing_behind
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_in_place_files_are_removed_even_when_the_run_raises
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_runtime_command_matches_the_layout_the_code_asks_for
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_sandbox_has_the_directory_an_example_saves_into
+FAILED tests/indexing/test_example_run_step_typescript.py::test_only_a_plain_relative_file_literal_makes_a_directory
+FAILED tests/indexing/test_example_run_step_typescript.py::test_other_platforms_get_no_extra_directories
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_run_writes_into_the_sandbox_directory_not_the_project
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_error_helpers_name_the_tsc_failure_and_read_only_inside_the_library
+FAILED tests/indexing/test_example_run_step_typescript.py::test_remove_emitted_files_tolerates_a_file_that_is_already_gone
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_failing_self_check_is_not_published_as_a_verified_example
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_package_name_reaches_the_run_step_from_the_command_line
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_passing_silent_self_check_is_published_with_the_ran_exit0_level
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_passing_program_that_prints_is_published_with_its_output_bytes
+FAILED tests/indexing/test_example_run_step_typescript.py::test_a_timeout_is_not_published_and_is_not_written_to_the_cache
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_recorded_run_is_cached_and_a_hit_serves_it_without_running_again
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_real_typescript_verifier_is_registered_as_runnable_in_the_production_entrypoint
+FAILED tests/indexing/test_example_run_step_typescript.py::test_the_verifier_reaches_the_typescript_run_builders_in_example_runtime
+FAILED tests/indexing/test_round3_example_runtime_truth.py::test_the_run_step_cannot_be_reached_from_a_platform_it_does_not_know
+FAILED tests/indexing/test_round3_example_runtime_truth.py::test_the_runnable_verifiers_are_the_real_java_dotnet_go_rust_and_typescript_verifiers
+
+--- stderr ---
+
