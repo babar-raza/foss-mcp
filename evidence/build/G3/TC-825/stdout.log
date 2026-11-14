@@ -1,0 +1,104 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ou0twwcu\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+.........................................                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ou0twwcu\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 69%]
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ou0twwcu\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+.........................................                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ou0twwcu\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 69%]
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/slides_python/authored_examples.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ou0twwcu\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+...............................................................FFFF..... [ 84%]
+.........................................                                [100%]
+================================== FAILURES ===================================
+_____________ test_exactly_one_example_fills_layout_placeholders ______________
+
+    def test_exactly_one_example_fills_layout_placeholders() -> None:
+        found = _placeholder_examples()
+>       assert len(found) == 1, [example["title"] for example in found]
+E       AssertionError: []
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_slides_python.py:256: AssertionError
+_ test_the_placeholder_example_title_names_placeholder_and_layout_in_twelve_words_or_fewer _
+
+    def test_the_placeholder_example_title_names_placeholder_and_layout_in_twelve_words_or_fewer() -> None:
+>       title = _placeholder_examples()[0]["title"]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:261: IndexError
+_______ test_the_placeholder_example_code_enumerates_fills_and_reloads ________
+
+    def test_the_placeholder_example_code_enumerates_fills_and_reloads() -> None:
+>       code = _placeholder_examples()[0]["code"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:269: IndexError
+_ test_the_four_kept_examples_remain_and_the_document_properties_example_is_gone _
+
+    def test_the_four_kept_examples_remain_and_the_document_properties_example_is_gone() -> None:
+        titles = [example["title"] for example in _document()["examples"]]
+        for topic, title in KEPT_TITLE_WORDS.items():
+            assert title in titles, topic
+        assert len(titles) == EXPECTED_EXAMPLES
+        for example in _document()["examples"]:
+>           assert "document properties" not in example["title"].lower(), example["title"]
+E           AssertionError: Set Core and Custom Document Properties and Delete One
+E           assert 'document properties' not in 'set core an...d delete one'
+E             
+E             'document properties' is contained here:
+E               set core and custom document properties and delete one
+E             ?                     +++++++++++++++++++
+
+tests\indexing\test_authored_examples_slides_python.py:293: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_exactly_one_example_fills_layout_placeholders
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_placeholder_example_title_names_placeholder_and_layout_in_twelve_words_or_fewer
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_placeholder_example_code_enumerates_fills_and_reloads
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_four_kept_examples_remain_and_the_document_properties_example_is_gone
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ou0twwcu\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 69%]
+................................                                         [100%]
+
+--- stderr ---
+
