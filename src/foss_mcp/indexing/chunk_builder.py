@@ -734,6 +734,37 @@ def _syntax_error_files(fixture: Mapping[str, object]) -> set[str]:
     return files
 
 
+# TC-820 (RD2-066): the entry kinds the extractors give a package-level constant or variable (Go
+# ``const``/``var`` blocks, TypeScript and Python module-level constants). ``summarize_symbols``
+# folds them into ``symbol_counts.types`` with the real types; the coverage line names them apart.
+CONSTANT_KINDS = frozenset({"constant", "variable"})
+_CONSTANTS_CLAUSE_NAME = "constants/variables"
+
+
+def _constants_total(fixture: Mapping[str, object], identities_aware: bool) -> int:
+    """How many non-test entries of *fixture* are package-level constants or variables, counted
+    exactly the way ``run_extraction.summarize_symbols`` counted them into ``symbol_counts.types``
+    (alias groups once when *identities_aware*). ``0`` for a fixture without an entry list."""
+    raw = fixture.get("types")
+    if not isinstance(raw, list) or not any(
+        isinstance(entry, Mapping) and entry.get("kind") in CONSTANT_KINDS for entry in raw
+    ):
+        return 0
+    identities = None
+    if identities_aware:
+        from foss_mcp.indexing.symbol_identity import compute_canonical_identities
+
+        identities = compute_canonical_identities(raw)
+    return sum(
+        1
+        for index, entry in enumerate(raw)
+        if isinstance(entry, Mapping)
+        and entry.get("kind") in CONSTANT_KINDS
+        and not _is_test_source(entry.get("file"))
+        and (identities is None or identities[index].is_definition)
+    )
+
+
 def _coverage_line(
     fixture: Mapping[str, object],
     entries: Sequence[Mapping[str, object]],
@@ -744,7 +775,17 @@ def _coverage_line(
     Legacy rendering (``{kept} of {type_count} types``) when the fixture has none of
     ``symbol_counts``, ``parse_failures`` and a ``:syntax-error:`` entry. Otherwise one line of
     clauses joined by "; ", the types clause first: kept types of the types the library has, kept
-    functions of its functions, and how many source files could not be parsed.
+    package-level constants/variables of the ones it has, kept functions of its functions, and how
+    many source files could not be parsed.
+
+    TC-820 (RD2-066): every count names exactly what it counts. ``symbol_counts.types`` folds a
+    Go/TypeScript/Python library's package-level constants and variables in with its real types, so
+    when the fixture has any the line splits them out - ``N of N types; M of M constants/variables;
+    K of K functions`` - and the types clause counts only the types. A zero part is omitted: a
+    fixture with no constants/variables renders exactly as before, and a library with only
+    constants/variables (types total zero) states no types clause rather than ``0 of 0 types``.
+    A split is rendered only when the entry list agrees with ``symbol_counts`` (the constants/
+    variables are no more than ``symbol_counts.types``); otherwise the line is unchanged.
 
     TC-614 (I2, REQ-G3-012): *identities* is I1's canonical-identity model
     (``symbol_identity.compute_canonical_identities(entries)``), one entry per *entries* position.
@@ -769,6 +810,11 @@ def _coverage_line(
     if counts is None and failures is None and not syntax_files:
         return legacy
     kept_functions = sum(1 for entry in entries if entry.get("kind") == "function")
+    kept_constants = sum(
+        1
+        for index, entry in enumerate(entries)
+        if entry.get("kind") in CONSTANT_KINDS and (identities is None or identities[index].is_definition)
+    )
     if identities is None:
         kept_types = len(entries) - kept_functions
     else:
@@ -778,8 +824,21 @@ def _coverage_line(
             if entry.get("kind") != "function" and identities[index].is_definition
         )
     clauses: list[str] = []
-    if isinstance(counts, Mapping) and _is_count(counts.get("types")):
-        clauses.append(f"{kept_types} of {counts['types']} types")
+    types_total = counts.get("types") if isinstance(counts, Mapping) else None
+    constants_total = 0
+    if _is_count(types_total):
+        constants_total = _constants_total(fixture, identities is not None)
+        if constants_total > cast(int, types_total):
+            constants_total = 0  # the entry list disagrees with symbol_counts: do not guess a split
+        if constants_total:
+            kept_types -= kept_constants
+            types_total = cast(int, types_total) - constants_total
+        else:
+            kept_constants = 0
+        if types_total or not constants_total:
+            clauses.append(f"{kept_types} of {types_total} types")
+        if constants_total:
+            clauses.append(f"{kept_constants} of {constants_total} {_CONSTANTS_CLAUSE_NAME}")
     elif legacy is not None:
         clauses.append(legacy)
     else:

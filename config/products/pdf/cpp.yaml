@@ -23,3 +23,22 @@ schedule:
   cron: "0 16 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-820: a project-verified count definition closing round-2 finding RD2-178. The upstream
+# README says "exposes 244 public types across 5 modules" (the served developer_guide text repeats
+# it) while every symbol chunk's API-Coverage line says "263 of 263 types"; both are right under
+# different definitions and nothing served said so. Re-verified 2026-11-14 against the indexed
+# commit 4b83c9f: the README's five module tables list 244 distinct names; the extractor finds 263
+# class/struct/enum declarations (187 classes, 4 structs, 72 enums), 20 of whose names no README
+# table row carries. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      How the two type counts for this library differ (indexed commit 4b83c9f). The upstream README
+      and the developer_guide say the library "exposes 244 public types across 5 modules" - that is
+      the number of types listed in the README's own module tables (Core API, Annotations, Drawing,
+      Facades, Forms). This index's API-Coverage line counts every class, struct and enum
+      declaration it extracts from the library's headers - 263 (187 classes, 4 structs and 72
+      enums) - which includes declarations the README tables do not list. The 19 free functions
+      are counted separately ("19 of 19 functions") and are not types. Neither number is wrong;
+      they count different things, so do not read the difference as missing or invented symbols.
+    verified_at: "2026-11-14"

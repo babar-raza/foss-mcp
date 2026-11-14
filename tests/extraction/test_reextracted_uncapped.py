@@ -281,8 +281,13 @@ OVERSIZE_CHUNK_CEILING = dict.fromkeys(PILOTS, 0)
 OVERSIZE_CHUNK_CEILING["pdf_java"] = 1
 
 _HEX40 = re.compile(r"^[0-9a-f]{40}$")
+# TC-820: a regenerated line names package-level constants/variables apart from types
+# ("N of N types; M of M constants/variables; K of K functions"); a line without that clause counts them
+# in its types clause. ``_parse_coverage`` folds the two (types + constants/variables) so it compares with
+# ``symbol_counts.types`` either way.
 _COVERAGE = re.compile(
-    r"^API-Coverage: (\d+) of (\d+) types(; (\d+) of (\d+) functions)?(; (\d+) of (\d+) source files could not be parsed)?$"
+    r"^API-Coverage: (\d+) of (\d+) types(; (\d+) of (\d+) constants/variables)?"
+    r"(; (\d+) of (\d+) functions)?(; (\d+) of (\d+) source files could not be parsed)?$"
 )
 _OLD_TYPESCRIPT_COMMIT = "c672b3918318ccd0c13bc9dc619620cac2674c9e"
 
@@ -310,8 +315,14 @@ def _parse_coverage(line: str) -> tuple[int, int, int | None, int | None] | None
     match = _COVERAGE.match(line)
     if match is None:
         return None
-    functions = (int(match.group(4)), int(match.group(5))) if match.group(3) else (None, None)
-    return int(match.group(1)), int(match.group(2)), functions[0], functions[1]
+    functions = (int(match.group(7)), int(match.group(8))) if match.group(6) else (None, None)
+    constants = (int(match.group(4)), int(match.group(5))) if match.group(3) else (0, 0)
+    return (
+        int(match.group(1)) + constants[0],
+        int(match.group(2)) + constants[1],
+        functions[0],
+        functions[1],
+    )
 
 
 def _coverage_is_complete(line: str) -> bool:
@@ -611,6 +622,17 @@ def test_coverage_line_parser_accepts_a_complete_line_with_a_functions_clause() 
     line = "API-Coverage: 259 of 259 types; 98 of 98 functions"
     assert _parse_coverage(line) == (259, 259, 98, 98)
     assert _coverage_is_complete(line)
+
+
+def test_coverage_line_parser_folds_the_constants_clause_into_the_types_count() -> None:
+    line = "API-Coverage: 14 of 14 types; 20 of 20 constants/variables; 15 of 15 functions"
+    assert _parse_coverage(line) == (34, 34, 15, 15)
+    assert _coverage_is_complete(line)
+    partial = "API-Coverage: 226 of 259 types; 19 of 26 constants/variables; 55 of 98 functions"
+    assert _parse_coverage(partial) == (245, 285, 55, 98)
+    assert not _coverage_is_complete(partial)
+    # complete types but partial constants/variables is still incomplete
+    assert not _coverage_is_complete("API-Coverage: 5 of 5 types; 0 of 8 constants/variables")
 
 
 def test_coverage_line_parser_accepts_the_parse_failure_clause() -> None:

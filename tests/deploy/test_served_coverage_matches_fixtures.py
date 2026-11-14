@@ -60,10 +60,16 @@ _ID_SEP = "::"
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _DEFINED_IN_LINE = re.compile(r"^Defined-In:\s", re.MULTILINE)
 _COVERAGE_LINE = re.compile(r"^API-Coverage:.*$", re.MULTILINE)
+# TC-820 (RD2-066): ``symbol_counts.types`` folds a library's package-level constants and variables in
+# with its types, so a regenerated line names them apart - ``N of N types; M of M constants/variables;
+# K of K functions``. A line baked before that has no constants/variables clause and counts them in its
+# types clause; both grammars are valid until the coordinated regeneration, and every check below
+# compares the SUM of the types and the constants/variables clauses with the fixture's types count.
 _COVERAGE_VALUE = re.compile(
-    r"^API-Coverage: (\d+) of (\d+) types"
-    r"(?:; (\d+) of (\d+) functions)?"
-    r"(?:; (?:(\d+) of (\d+) source files could not be parsed|at least (\d+) source files could not be parsed))?$"
+    r"^API-Coverage: (?P<ti>\d+) of (?P<tt>\d+) types"
+    r"(?:; (?P<ci>\d+) of (?P<ct>\d+) constants/variables)?"
+    r"(?:; (?P<fi>\d+) of (?P<ft>\d+) functions)?"
+    r"(?:; (?:(?P<pf>\d+) of (?P<pt>\d+) source files could not be parsed|at least (?P<pa>\d+) source files could not be parsed))?$"
 )
 # infra.build_chunks._sanitize_chunk_text's own truncation marker line, verbatim. A chunk that carries
 # this line already discloses its own cut; one real pilot (pdf/java's `...xfa.model.template.Proto`,
@@ -78,6 +84,17 @@ class Coverage(NamedTuple):
     types_total: int
     functions_indexed: int | None
     functions_total: int | None
+    constants_indexed: int | None = None
+    constants_total: int | None = None
+
+    @property
+    def all_indexed(self) -> int:
+        """Types plus constants/variables: what a line baked before TC-820 states as its types clause."""
+        return self.types_indexed + (self.constants_indexed or 0)
+
+    @property
+    def all_total(self) -> int:
+        return self.types_total + (self.constants_total or 0)
 
 
 Pair = tuple[str, str]  # (served or expected FQN, entry kind)
@@ -264,12 +281,15 @@ def parse_coverage(line: str) -> Coverage | None:
     match = _COVERAGE_VALUE.match(line)
     if match is None:
         return None
-    nf, mf = match.group(3), match.group(4)
+    nf, mf = match.group("fi"), match.group("ft")
+    nc, mc = match.group("ci"), match.group("ct")
     return Coverage(
-        int(match.group(1)),
-        int(match.group(2)),
+        int(match.group("ti")),
+        int(match.group("tt")),
         None if nf is None else int(nf),
         None if mf is None else int(mf),
+        None if nc is None else int(nc),
+        None if mc is None else int(mc),
     )
 
 
@@ -312,10 +332,10 @@ def coverage_problems(fixture: Mapping[str, Any], texts: Sequence[str]) -> list[
         # definition) - compare it against the full (non-thin) chunk count, not the raw ``types``
         # (which includes real Python re-export shells and is never equal to N when any exist).
         full_types = full_type_chunks_served(texts)
-        if (line.types_indexed, line.types_total) != (full_types, want_types):
+        if (line.all_indexed, line.all_total) != (full_types, want_types):
             problems.append(
-                f"the line says {line.types_indexed} of {line.types_total} types; served {full_types} full "
-                f"(non-thin) type chunks (of {types} total), fixture {want_types}"
+                f"the line says {line.all_indexed} of {line.all_total} types (constants/variables included); "
+                f"served {full_types} full (non-thin) type chunks (of {types} total), fixture {want_types}"
             )
         if want_functions > 0:
             if line.functions_indexed is None:
@@ -340,6 +360,10 @@ def coverage_problems(fixture: Mapping[str, Any], texts: Sequence[str]) -> list[
             )
     if line.types_indexed != line.types_total:
         problems.append(f"partial index: {line.types_indexed} of {line.types_total} types")
+    if line.constants_indexed is not None and line.constants_indexed != line.constants_total:
+        problems.append(
+            f"partial index: {line.constants_indexed} of {line.constants_total} constants/variables"
+        )
     if line.functions_indexed is not None and line.functions_indexed != line.functions_total:
         problems.append(f"partial index: {line.functions_indexed} of {line.functions_total} functions")
     return problems
@@ -352,13 +376,13 @@ def stale_coverage_problems(texts: Sequence[str]) -> list[str]:
         return problems or ["the generation has no symbol chunk"]
     types, functions = served_counts(texts)
     if line.functions_indexed is None:
-        if line.types_indexed != types + functions:
+        if line.all_indexed != types + functions:
             problems.append(
-                f"the line says {line.types_indexed} types, the generation serves {types + functions} symbol chunks"
+                f"the line says {line.all_indexed} types, the generation serves {types + functions} symbol chunks"
             )
     else:
-        if line.types_indexed != types:
-            problems.append(f"the line says {line.types_indexed} types, the generation serves {types}")
+        if line.all_indexed != types:
+            problems.append(f"the line says {line.all_indexed} types, the generation serves {types}")
         if line.functions_indexed != functions:
             problems.append(
                 f"the line says {line.functions_indexed} functions, the generation serves {functions}"
@@ -709,3 +733,43 @@ def test_the_completeness_check_flags_a_truncated_fixture_a_test_entry_and_a_cou
     counted = {**good, "symbol_counts": {"types": 1, "functions": 1}}
     assert fixture_completeness_problems(counted)  # the entries are two types, not one type and one function
     assert fixture_completeness_problems({**good, "symbol_counts": {"types": 2, "functions": 0}}) == []
+
+
+# -- TC-820: the line names constants/variables apart from types ------------------------------------------------------------------
+
+
+def test_the_line_parser_reads_the_constants_clause() -> None:
+    assert parse_coverage(
+        "API-Coverage: 14 of 14 types; 20 of 20 constants/variables; 15 of 15 functions"
+    ) == Coverage(14, 14, 15, 15, 20, 20)
+    parsed = parse_coverage("API-Coverage: 14 of 14 types; 20 of 20 constants/variables")
+    assert parsed is not None and (parsed.all_indexed, parsed.all_total) == (34, 34)
+    assert parse_coverage("API-Coverage: 14 of 14 types; 20 of 20 widgets") is None
+
+
+def test_coverage_problems_is_clean_on_a_fresh_generation_of_every_pilot_with_constants() -> None:
+    """A REAL generation built right now (uncapped) from each fixture that has package-level constants or variables
+    states the split line and carries zero coverage problems; the types clause alone is NOT the fixture's folded
+    `symbol_counts.types`, the types and constants/variables clauses together are."""
+    for key in ("cells_go", "cells_python", "pdf_go", "pdf_typescript"):
+        fixture = load_fixture(key)
+        texts = [c.text for c in build_chunks_from_api_surface(fixture, title=key, max_types=100_000)]
+        line, problems = shared_coverage(symbol_texts(texts))
+        assert problems == [], (key, problems)
+        assert line is not None and line.constants_total, key
+        assert line.types_total + line.constants_total == fixture["symbol_counts"]["types"], key
+        assert coverage_problems(fixture, texts) == [], key
+
+
+def test_the_coverage_check_flags_a_wrong_constants_number() -> None:
+    fixture = {"type_count": 6, "truncated": False, "symbol_counts": {"types": 5, "functions": 1}}
+    good = _generation(5, 1, "2 of 2 types; 3 of 3 constants/variables; 1 of 1 functions")
+    assert coverage_problems(fixture, good) == []
+    assert coverage_problems(
+        fixture, _generation(5, 1, "2 of 2 types; 3 of 4 constants/variables; 1 of 1 functions")
+    )
+    assert coverage_problems(
+        fixture, _generation(5, 1, "2 of 2 types; 2 of 2 constants/variables; 1 of 1 functions")
+    )
+    # a line baked before the split (everything in the types clause) is still honest about the same counts
+    assert coverage_problems(fixture, _generation(5, 1, "5 of 5 types; 1 of 1 functions")) == []
