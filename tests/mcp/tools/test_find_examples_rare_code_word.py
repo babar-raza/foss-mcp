@@ -180,7 +180,14 @@ def test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word
 
     result = find_examples(store, scope, "formula")
     assert isinstance(result, list), result
-    assert _titles(result) == ["Additional Examples"]
+    # TC-810: the authored-example campaign grew cells/java from 3 to 8 examples; a second one now
+    # legitimately names the concept (its code reads ``total.getFormula()`` four times and says so in its
+    # own output), so the answer is those TWO titles - the original "Additional Examples" (setFormula1/2)
+    # plus the named-range example - both labelled as the loose rare-code-word match they are.
+    assert sorted(_titles(result)) == [
+        "Additional Examples",
+        "Define a named range scoped to the file, with a comment, and confirm it after a reload",
+    ]
     assert _bases(result) == {MATCH_BASIS_RARE_CODE_WORD}
 
 
@@ -290,3 +297,65 @@ def test_match_basis_rare_code_word_is_a_new_distinct_string() -> None:
         MATCH_BASIS_RARE_CODE_WORD,
     }
     assert len(bases) == 6
+
+
+# --- TC-810: the scope-size cap is 12 (was 6), and one mention is enough for a term UNIQUE in the scope
+
+
+def _padding_examples(count: int) -> list[str]:
+    """*count* unrelated examples whose titles and code share no word with the queries below."""
+    return [
+        _example(f"Pad Topic {index}", f"pad{index} = Pad{index}()\npad{index}.run()")
+        for index in range(count)
+    ]
+
+
+def test_the_scope_cap_is_twelve_examples_and_twelve_is_a_cliff(tmp_path: Path) -> None:
+    unique_once = _example("Mount a Bracket", "bracket = Bracket()\nbracket.flange()\nbracket.run()")
+    # 12 examples (the unique one + 11 pads): inside the cap, a one-time mention of a unique term answers.
+    inside = _publish(tmp_path / "inside", [SYMBOL_CHUNK, unique_once, *_padding_examples(11)])
+    result = find_examples(inside, SCOPE, "flange")
+    assert _titles(result) == ["Mount a Bracket"]
+    assert _bases(result) == {MATCH_BASIS_RARE_CODE_WORD}
+    # 13 examples: past the cap the identical query is an honest miss again (the cliff slides/net and
+    # slides/java sit behind: 13 and 16 examples).
+    beyond = _publish(tmp_path / "beyond", [SYMBOL_CHUNK, unique_once, *_padding_examples(12)])
+    assert isinstance(find_examples(beyond, SCOPE, "flange"), NoExampleFound)
+
+
+def test_a_term_in_two_examples_must_still_recur_twice_in_the_one_that_answers(tmp_path: Path) -> None:
+    once_a = _example("Mount a Bracket", "bracket = Bracket()\nbracket.flange()\nbracket.run()")
+    once_b = _example("Mount a Rail", "rail = Rail()\nrail.flange()\nrail.run()")
+    store = _publish(tmp_path / "m", [SYMBOL_CHUNK, once_a, once_b, *_padding_examples(6)])
+    # "flange" is in the code of two examples, each mentions it once: not unique, not recurring - a miss.
+    assert isinstance(find_examples(store, SCOPE, "flange"), NoExampleFound)
+    twice = _example("Mount a Rail", "rail = Rail()\nrail.flange()\nrail.flange()\nrail.run()")
+    store = _publish(tmp_path / "n", [SYMBOL_CHUNK, once_a, twice, *_padding_examples(6)])
+    assert _titles(find_examples(store, SCOPE, "flange")) == ["Mount a Rail"]
+
+
+def test_a_loose_rare_code_word_match_is_served_after_a_title_anchored_one(tmp_path: Path) -> None:
+    # The code-only example names the word six times (a strong bm25 score); the title-anchored example
+    # only in its title. The loose, body-only mention must not outrank the example the query names.
+    loud = _example("Mount a Bracket", "\n".join("bracket.flange()" for _ in range(6)))
+    titled = _example("Weld a Flange Joint", "joint = Joint()\njoint.run()")
+    store = _publish(tmp_path / "m", [SYMBOL_CHUNK, loud, titled, *_padding_examples(5)])
+    result = find_examples(store, SCOPE, "flange")
+    assert _titles(result) == ["Weld a Flange Joint", "Mount a Bracket"]
+    assert [match.match_basis for match in result] == [  # type: ignore[union-attr]
+        MATCH_BASIS_TITLE_WORD,
+        MATCH_BASIS_RARE_CODE_WORD,
+    ]
+
+
+def test_the_real_cells_java_scope_sits_in_the_widened_band(tmp_path: Path) -> None:
+    # cells/java has 8 examples (cap 6 excluded it). Its "formula" test above is the pinned case; this
+    # pins that the scope really is in the widened band, so the widening - not a data change - did it.
+    store = _real_store(tmp_path)
+    scope = Scope(family="cells", platform="java")
+    key = scope_key(scope, "self_extracted")
+    generation_id = store.read_active(key)
+    assert generation_id is not None
+    documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+    count = sum(1 for d in documents.values() if (d.get("text") or "").startswith("FQN: Example: "))
+    assert 6 < count <= find_examples_module._RARE_CODE_WORD_MAX_SCOPE_EXAMPLES

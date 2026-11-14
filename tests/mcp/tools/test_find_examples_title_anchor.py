@@ -34,6 +34,7 @@ from foss_mcp.mcp.tools.relevance import (
     distinctive_terms,
     title_anchored,
 )
+from foss_mcp.mcp.tools.search_symbols import scope_key
 from foss_mcp.mcp.tools.vector_guard import _set_guard
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
@@ -499,3 +500,50 @@ def test_set_password_returns_only_examples_with_a_title_word(stores: _Stores) -
     for pilot, match in _answers(stores, "set password"):
         title = match.fqn[len(EXAMPLE_PREFIX) :].lower()
         assert re.search(r"\b(set|passwords?)\b", title), (pilot, match.fqn)
+
+
+# --- TC-810: a generic verb standing in as a SYNONYM must not title-anchor a multi-term query -----------
+
+
+def test_a_generic_save_in_the_title_does_not_anchor_a_multi_term_export_query_through_the_synonym() -> None:
+    """The slides/cpp regression's cause, in isolation: "export" is a synonym of "save", so the two new
+    slides/cpp examples titled "... Save and Reload" / "... Then Save" anchored "export the deck to
+    pptx" - on the very boilerplate word every example ends with. The synonym alone no longer anchors a
+    query of more than one distinctive term; a literal word, or a one-word query, is unchanged."""
+    query = "export the deck to pptx"
+    for title in ("Document Properties Round Trip Through Save and Reload", "Add Three Shapes, Then Save"):
+        assert title_anchored(query, "slides", title) is False, title
+    # A literal title word still anchors, whatever else the title holds.
+    assert title_anchored(query, "slides", "Export a Deck as a Presentation") is True
+    assert title_anchored(query, "slides", "Build a Deck With Two Slides") is True  # "deck", literal
+    assert title_anchored("export deck", "slides", "Save the Deck") is True  # "deck" is literal
+    # TC-543's single-word rule is untouched: one term, anchored by the synonym as before.
+    assert title_anchored("export", "slides", "Then Save") is True
+    assert title_anchored("save", "slides", "Then Save") is True
+    # A non-generic synonym still anchors a multi-term query ("colour"/"color").
+    assert title_anchored("slide colour fill", "slides", "Set the Slide Color") is True
+    # ...but a multi-term query anchored only by the generic synonym is not.
+    assert title_anchored("export workbook", "cells", "Then Save") is False
+
+
+def test_the_real_slides_cpp_deck_export_query_is_an_honest_miss_with_its_seven_examples(
+    stores: _Stores,
+) -> None:
+    directory = _directory_of("slides/cpp")
+    scope = _scope_of(directory)
+    store = stores.of(directory)
+    key = scope_key(scope, "self_extracted")
+    generation_id = store.read_active(key)
+    assert generation_id is not None
+    documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+    titles = {
+        (document.get("text") or "").splitlines()[0][len("FQN: Example: ") :]
+        for document in documents.values()
+        if (document.get("text") or "").startswith("FQN: Example: ")
+    }
+    # The scope grew from 2 to 7 examples; two new titles carry the word "Save".
+    assert len(titles) >= 7
+    assert any(title.endswith("Then Save") for title in titles)
+    for query in ("export the deck to pptx", "export the deck to pptx format"):
+        result = find_examples(stores.of(directory), scope, query)
+        assert isinstance(result, NoExampleFound), (query, result)

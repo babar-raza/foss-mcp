@@ -400,7 +400,16 @@ _RARE_CODE_WORD_EXCLUDED_TERMS = frozenset(
 # most under 9) with a handful of larger ones (8, 9, 11, 14) - cells/java (this card's own primary,
 # measured-correct target, 3 example documents) sits with real margin below this ceiling, and every
 # real false match this worker measured this session sits at or above it (slides/net's 8).
-_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES = 6
+#
+# TC-810 raised this from 6 to 12 after the authored-example campaign grew 22 of 32 pilots past 6
+# (pdf/python 19, slides/java 16, cells/java 8): rare terms ("formula" on cells/java, "save"/"hello
+# world" on pdf/net, most body-word queries on email/net) stopped matching at all. Measured over
+# the 316 (pilot, query) pairs of the round-2 issues (``round2_find_examples_recall.json``) and the 729
+# round-3 corpus cases: cap 6 = 108 hits / 41 wrong-confident; cap 12 = 124 hits / 41 wrong; cap 20 = 44
+# wrong, which BREAKS the 43-case floor (slides/java, slides/net). 12 is a CLIFF, not a tuned optimum:
+# slides/net (13 examples) and slides/java (16) stay excluded only because the cap sits just below
+# them, so raising it past 12 must be re-measured against ``WRONG_MAX_EXAMPLES`` before it is trusted.
+_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES = 12
 
 
 def is_verified_example_text(text: str) -> bool:
@@ -964,8 +973,14 @@ def find_examples(
                 # is a real, measured additional bar this card's own worker report states in full,
                 # with the real wrong_conf numbers before and after.
                 rare_hits = rare_code_required & code_tokens
+                # TC-810: "recurs twice" is waived for a term UNIQUE in the scope (present in the code of
+                # exactly one example): nothing else in this scope's examples could be the answer to a
+                # query for it, so one mention is enough (measured: 124 -> 132 hits, wrong-confident
+                # unchanged at 41; a term in two or more examples still has to recur twice).
                 if rare_hits and any(
-                    example_code_token_counts[doc_id].get(_term, 0) >= 2 for _term in rare_hits
+                    example_code_token_counts[doc_id].get(_term, 0)
+                    >= (1 if code_example_frequency.get(_term, 0) == 1 else 2)
+                    for _term in rare_hits
                 ):
                     code_basis = "rare"
         code_only = code_basis != ""
@@ -973,7 +988,19 @@ def find_examples(
             scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id, code_basis))
     # TC-565: an example whose run failed or produced nothing is served after every other one, and one
     # example held by several chunks is answered once, by its highest-scoring chunk.
-    scored.sort(key=lambda item: (_runtime_rank(documents[item[2]]["text"]), -item[0], -item[1], item[2]))
+    # TC-810: a match admitted ONLY through the rare-code-word path (loose) is served after every match
+    # that is title-, prefix- or identifier-anchored - widening that path to larger scopes must never let
+    # a loose body mention outrank the example the query actually names (measured: pdf/net "extract",
+    # email/net "attachment", 3d/python "STL" each had their confident title answer pushed down).
+    scored.sort(
+        key=lambda item: (
+            _runtime_rank(documents[item[2]]["text"]),
+            item[3] == "rare",
+            -item[0],
+            -item[1],
+            item[2],
+        )
+    )
     hits: list[tuple[str, float, str]] = []
     seen_fqns: set[str] = set()
     for doc_coverage, _score, doc_id, code_basis in scored:

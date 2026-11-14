@@ -847,6 +847,28 @@ TITLE_ANCHOR_MAX_TERMS = 2
 TITLE_ANCHOR_GRADUATED_MAX_TERMS = 2 * TITLE_ANCHOR_MAX_TERMS
 
 
+# TC-810: the eight generic verbs/nouns TC-543 measured as boilerplate of nearly every example's CODE
+# (``save``, ``open``, ``create``, ``page``, ``add``, ``text``, ``document``, ``load``), as stems.
+TITLE_ANCHOR_GENERIC_STEMS: frozenset[str] = frozenset(
+    stem_token(word) for word in ("save", "open", "create", "page", "add", "text", "document", "load")
+)
+
+
+def _synonym_only_generic_anchor(term: str, stemmed_title: set[str]) -> bool:
+    """TC-810: True when *term* is present in a title ONLY because a generic verb of
+    ``TITLE_ANCHOR_GENERIC_STEMS`` stands in for it as a synonym - the term itself is not a word of the
+    title, and every synonym that is one is generic. "export" is a synonym of "save", so the 3-term query
+    "export the deck to pptx" was "title-anchored" by examples titled "... Save and Reload" / "... Then
+    Save": the very boilerplate word (every slides/cpp example ends in ``.save(..., SaveFormat::PPTX)``)
+    TC-543/TC-586 exist to keep from anchoring a query. A literal title word, or a non-generic synonym,
+    still anchors, and a one-term query is never judged by this (TC-543's single-word rule is unchanged).
+    """
+    if term in stemmed_title:
+        return False
+    standing_in = _SYNONYMS_OF.get(term, frozenset()) & stemmed_title
+    return bool(standing_in) and standing_in <= TITLE_ANCHOR_GENERIC_STEMS
+
+
 def title_anchored(query: str, family: str, title: str) -> bool:
     """Whether an example titled *title* may answer *query* (TC-543, graduated by TC-586).
 
@@ -862,7 +884,14 @@ def title_anchored(query: str, family: str, title: str) -> bool:
     terms = distinctive_terms(query, family)
     if len(terms) > TITLE_ANCHOR_GRADUATED_MAX_TERMS:
         return True
-    return bool(present_terms(terms, tokenize(title)))
+    title_tokens = list(tokenize(title))
+    present = present_terms(terms, title_tokens)
+    if len(terms) > 1:
+        # TC-810: a query of SEVERAL terms is not anchored by a title that holds only a generic verb
+        # standing in, as a synonym, for one of them (see ``_synonym_only_generic_anchor``).
+        stemmed_title = {stem_token(token) for token in title_tokens}
+        present = frozenset(term for term in present if not _synonym_only_generic_anchor(term, stemmed_title))
+    return bool(present)
 
 
 def code_anchored(required: frozenset[str], code_tokens: Iterable[str]) -> bool:

@@ -182,13 +182,26 @@ def test_find_examples_returns_the_real_pilots_watermark_example_for_the_dotted_
     byte-identical to before, per the finding above: SAME result, not a regression)."""
     result = find_examples(_store(), PDF_NET, DOTTED_MENTION_QUERY)
 
-    assert isinstance(result, list) and len(result) == 1
+    # TC-810 re-pin: this used to pin EXACTLY ONE result. The authored-example campaign since added the
+    # pdf/net example "Add an AcroForm text box field, fill it, and confirm the value after a reload";
+    # its title holds the generic word "add", which title-anchors this 3-term query (add, using,
+    # watermark), and it clears the 0.6 coverage floor at 0.67 on "add" and "using" alone - it has no
+    # "watermark" in it. That is the long-standing TC-543/TC-586 design (a title word plus the coverage
+    # floor), not a change to the dotted-mention handling under test, and it is served honestly as a
+    # LOOSE, lower-coverage second answer. Tightening the title anchor for generic-only anchors was
+    # measured and rejected: it removed six correct answers elsewhere (e.g. "add a text box" ->
+    # "Text and formatting", "add a new page to a document"). What this test is about is unchanged: the
+    # watermark example is still FIRST, at full coverage, with the identical basis.
+    assert isinstance(result, list) and result
     match = result[0]
     assert isinstance(match, ExampleMatch)
     assert match.fqn == WATERMARK_FQN
     assert match.source == "lexical"
     assert match.coverage == pytest.approx(1.0)
     assert match.match_basis == MATCH_BASIS_QUERY_TERMS
+    for other in result[1:]:
+        assert other.coverage < match.coverage
+        assert other.confidence == "loose"
 
 
 def test_find_examples_result_is_unchanged_whether_or_not_the_query_is_pre_normalized() -> None:
