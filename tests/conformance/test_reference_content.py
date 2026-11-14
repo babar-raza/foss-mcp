@@ -16,13 +16,12 @@ Measures, against all 32 real baked pilots, three already-confirmed defects in
    genuinely has none" from "not extracted" - ``NotAvailable`` carries only a free-text ``reason``
    string, never a structured field, so EVERY ``NotAvailable`` answer counts here by construction.
 
-IMPORTANT, already confirmed by this module's own measurement, not merely cited: all 32 baked
-product-reference sidecars (``infra/demo-manifests/product_reference_<family>_<platform>.json``)
-predate G3/TC-561 - none carries a ``readme_document`` or ``manifest_path`` key at all (checked
-directly below, in ``test_real_sidecars_lack_readme_document_and_manifest_path_tc561_staleness``).
-This means the README-fallback code path those two fields feed is CURRENTLY DEAD in every shipped
-sidecar; the "formats"/"limitations" NotAvailable reasons measured here are real, not a fluke of
-one stale pilot.
+HISTORY, superseded (G3/TC-809): this module was written when all 32 baked product-reference
+sidecars (``infra/demo-manifests/product_reference_<family>_<platform>.json``) predated G3/TC-561 and
+carried no ``readme_document`` or ``manifest_path`` key, so the README-fallback path those fields feed
+was dead. G3/TC-786/787/788 regenerated all 32 sidecars and every one now carries both keys (checked
+directly below, in ``test_real_sidecars_carry_readme_document_and_manifest_path``); the README-fallback
+path is live and most "formats"/"limitations" answers that used to be NotAvailable now return content.
 
 Call shape (mirrors the production call site exactly - ``_live_get_product_reference`` in
 src/foss_mcp/mcp/server.py): ``ProductReferenceInputs`` comes from
@@ -194,19 +193,45 @@ def _patch_cap_functions(
 
 
 def _collect_answers(
-    corpus: ConformanceCorpus, cap_calls: list[_CapCall], current: dict[str, str]
+    corpus: ConformanceCorpus,
+    cap_calls: list[_CapCall],
+    current: dict[str, str],
+    setup_failures: list[dict[str, str]],
 ) -> tuple[_SectionAnswer, ...]:
     """Every (pilot, section) answer for all 32 real pilots, calling the real
-    ``get_product_reference`` exactly as production's ``_live_get_product_reference`` does."""
+    ``get_product_reference`` exactly as production's ``_live_get_product_reference`` does.
+
+    A pilot whose sidecar is missing or unloadable is recorded as a soft failure in
+    *setup_failures* (``sidecar-missing:<pilot>`` / ``sidecar-unloadable:<pilot>``) and skipped,
+    never asserted here: this runs inside the module-scoped ``measured`` fixture, ahead of
+    ``assert_no_new_failures``, so a bare assert would ERROR every dependent test instead of
+    letting the baseline comparison see it (G3/TC-809, the shape G3/TC-773/774/775 fixed in the
+    sibling conformance modules)."""
     answers: list[_SectionAnswer] = []
     for pilot_name in sorted(corpus.pilots):
         pilot = corpus.pilots[pilot_name]
         sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
             pilot.scope.family, pilot.scope.platform
         )
-        assert sidecar_path.is_file(), f"no sidecar for real baked pilot {pilot_name}: {sidecar_path}"
+        if not sidecar_path.is_file():
+            setup_failures.append(
+                {
+                    "pilot": pilot_name,
+                    "case_id": f"sidecar-missing:{pilot_name}",
+                    "reason": f"no sidecar for real baked pilot {pilot_name}: {sidecar_path}",
+                }
+            )
+            continue
         inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
-        assert inputs is not None, f"load_manifest_sidecar returned None for {sidecar_path}"
+        if inputs is None:
+            setup_failures.append(
+                {
+                    "pilot": pilot_name,
+                    "case_id": f"sidecar-unloadable:{pilot_name}",
+                    "reason": f"load_manifest_sidecar returned None for {sidecar_path}",
+                }
+            )
+            continue
         for section in SECTIONS:
             current["pilot"], current["section"] = pilot_name, section
             readme = read_readme_sections(corpus.store, pilot.scope) if section in _README_SECTIONS else None
@@ -284,8 +309,14 @@ def _measure(corpus: ConformanceCorpus, monkeypatch: pytest.MonkeyPatch) -> Meas
     cap_calls: list[_CapCall] = []
     current: dict[str, str] = {"pilot": "", "section": ""}
     _patch_cap_functions(monkeypatch, cap_calls, current)
-    answers = _collect_answers(corpus, cap_calls, current)
-    failures = _build_failures(answers, tuple(cap_calls))
+    setup_failures: list[dict[str, str]] = []
+    answers = _collect_answers(corpus, cap_calls, current, setup_failures)
+    failures = tuple(
+        sorted(
+            (*_build_failures(answers, tuple(cap_calls)), *setup_failures),
+            key=lambda entry: (entry["pilot"], entry["case_id"]),
+        )
+    )
     return Measurement(answers=answers, cap_calls=tuple(cap_calls), failures=failures)
 
 
@@ -308,28 +339,23 @@ def test_every_real_pilot_has_a_product_reference_sidecar() -> None:
     assert len(sidecars) == EXPECTED_PILOT_COUNT, sidecars
 
 
-def test_real_sidecars_lack_readme_document_and_manifest_path_tc561_staleness() -> None:
-    """Direct confirmation, from the committed sidecar JSON itself (not citing the plan's prior
-    claim), that TC-561's ``readme_document``/``manifest_path`` fields are absent. The card requires
-    checking at least 3 real pilots; this checks all 32 and reports exactly how many lack both,
-    because the real number is the honest baseline this card exists to pin, not an assumption."""
+def test_real_sidecars_carry_readme_document_and_manifest_path() -> None:
+    """Direct confirmation, from the committed sidecar JSON itself, that TC-561's
+    ``readme_document``/``manifest_path`` fields are present in every real sidecar. (G3/TC-809:
+    this test formerly asserted every sidecar LACKED them - true before G3/TC-786/787/788
+    regenerated all 32 sidecars, false today, so that pin was stale.) A sidecar that loses either
+    field again fails here, naming it."""
     sidecars = sorted(DEMO_MANIFESTS.glob("product_reference_*.json"))
     assert len(sidecars) >= 3
-    missing_both = [
+    missing = [
         path.name
         for path in sidecars
         if "readme_document" not in (payload := json.loads(path.read_text(encoding="utf-8")))
-        and "manifest_path" not in payload
+        or "manifest_path" not in payload
     ]
-    assert len(missing_both) >= 3, (
-        f"expected at least 3 real pilot sidecars to lack readme_document/manifest_path; "
-        f"only found {missing_both}"
-    )
-    # Measured reality: today it is not merely "at least 3" - it is every single one of the 32.
-    assert missing_both == [path.name for path in sidecars], (
-        f"expected ALL {len(sidecars)} real sidecars to lack both fields (TC-561 staleness); "
-        f"{len(sidecars) - len(missing_both)} already carry one or both - the README-fallback path "
-        "may no longer be dead and this card's empty-with-no-reason numbers may need re-measuring"
+    assert missing == [], (
+        f"expected ALL {len(sidecars)} real sidecars to carry readme_document and manifest_path "
+        f"(regenerated by G3/TC-786/787/788); these lack one or both: {missing}"
     )
 
 
@@ -458,11 +484,15 @@ def test_cpp_multi_recipe_install_answer_discloses_the_real_route_count(
     assert int(match.group(1)) == oracle_count, (pilot_name, match.group(1), oracle_count)
 
 
-def test_cpp_single_recipe_install_answer_gets_no_added_disclosure(corpus: ConformanceCorpus) -> None:
-    """``cells__cpp`` - a real cpp pilot measured to carry exactly 1 fenced install-recipe block,
-    the already-correct, single-route case - must get NO added multi-route disclosure sentence:
-    this card closes a real undisclosed-multiplicity gap, it must not add noise to a pilot that
-    never had that gap."""
+def test_cpp_install_answer_discloses_its_route_count_whenever_it_exceeds_one(
+    corpus: ConformanceCorpus,
+) -> None:
+    """``cells__cpp``'s install answer. (G3/TC-809: this test formerly pinned ``cells__cpp`` to
+    exactly 1 fenced install-recipe block and no disclosure - stale, its install answer now yields 3
+    blocks.) The invariant is the one the disclosure exists for: whenever the count exceeds 1 the
+    notice MUST carry the TC-698 "combines N distinct install routes" sentence with the right N;
+    only a genuinely single-route answer gets no added disclosure. A missing disclosure at a count
+    above 1 still fails this test."""
     pilot_name = "cells__cpp"
     pilot = corpus.pilots[pilot_name]
     sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
@@ -477,6 +507,16 @@ def test_cpp_single_recipe_install_answer_gets_no_added_disclosure(corpus: Confo
     assert result.notice is not None, (pilot_name, result)
 
     oracle_count = _install_recipe_block_count(result.text)
-    assert oracle_count == 1, (pilot_name, oracle_count, "expected a real single-recipe cpp pilot")
-    assert gpr._count_install_recipe_blocks(result.text) == 1, pilot_name
-    assert _DISCLOSED_ROUTE_COUNT_RE.search(result.notice) is None, result.notice
+    assert oracle_count >= 1, (pilot_name, oracle_count, "an install answer with no recipe block at all")
+    assert gpr._count_install_recipe_blocks(result.text) == oracle_count, pilot_name
+    match = _DISCLOSED_ROUTE_COUNT_RE.search(result.notice)
+    if oracle_count > 1:
+        assert match is not None, (
+            pilot_name,
+            oracle_count,
+            "multi-recipe answer lacks the disclosure",
+            result.notice,
+        )
+        assert int(match.group(1)) == oracle_count, (pilot_name, match.group(1), oracle_count)
+    else:
+        assert match is None, result.notice
