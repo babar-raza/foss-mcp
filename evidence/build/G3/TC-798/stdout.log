@@ -1,0 +1,577 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_formats_projection.py tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kb2hnez2\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 60%]
+........................................................................ [ 75%]
+........................................................................ [ 90%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_formats_projection.py tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kb2hnez2\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 60%]
+........................................................................ [ 75%]
+........................................................................ [ 90%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, M src/foss_mcp/mcp/tools/readme_sections.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_formats_projection.py tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kb2hnez2\.junit-0.xml"
+--- stdout ---
+FFF..FFFF..FFFFFF...FFFFFF......F..F..FFFF.....F........................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 60%]
+........................................................................ [ 75%]
+........................................................................ [ 90%]
+...............................................                          [100%]
+================================== FAILURES ===================================
+______________ test_a_hard_wrapped_bullet_is_one_whole_statement ______________
+
+    def test_a_hard_wrapped_bullet_is_one_whole_statement() -> None:
+        text = (
+            "- Read glTF 2.0 and Wavefront OBJ scenes, and write STL (ASCII and binary),\n"
+            "  FBX (ASCII) and COLLADA through scene.open() and scene.save().\n"
+            "- Fast and small."
+        )
+    
+>       assert _lines(text) == [
+            "- Read glTF 2.0 and Wavefront OBJ scenes, and write STL (ASCII and binary), "
+            "FBX (ASCII) and COLLADA through scene.open() and scene.save()."
+        ]
+E       AssertionError: assert ['- Read glTF...cene.save().'] == ['- Read glTF...cene.save().']
+E         
+E         At index 0 diff: '- Read glTF 2.0 and Wavefront OBJ scenes, and write STL (ASCII and binary),' != '- Read glTF 2.0 and Wavefront OBJ scenes, and write STL (ASCII and binary), FBX (ASCII) and COLLADA through scene.open() and scene.save().'
+E         Left contains one more item: '- FBX (ASCII) and COLLADA through scene.open() and scene.save().'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:69: AssertionError
+____ test_a_wrapped_sentence_that_continues_without_indentation_is_joined _____
+
+    def test_a_wrapped_sentence_that_continues_without_indentation_is_joined() -> None:
+        text = "The library reads DOCX and writes PDF, and it also\nexports Markdown for diffing."
+    
+>       assert _lines(text) == [
+            "- The library reads DOCX and writes PDF, and it also exports Markdown for diffing."
+        ]
+E       AssertionError: assert ['- The libra...for diffing.'] == ['- The libra...for diffing.']
+E         
+E         At index 0 diff: '- The library reads DOCX and writes PDF, and it also' != '- The library reads DOCX and writes PDF, and it also exports Markdown for diffing.'
+E         Left contains one more item: '- exports Markdown for diffing.'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:78: AssertionError
+__ test_the_keyword_test_runs_on_the_whole_bullet_not_on_each_physical_line ___
+
+    def test_the_keyword_test_runs_on_the_whole_bullet_not_on_each_physical_line() -> None:
+        # Neither physical line alone names a format AND a verb; the joined bullet does.
+        text = "- Saves the workbook through a streaming\n  writer to XLSX."
+    
+>       assert _lines(text) == ["- Saves the workbook through a streaming writer to XLSX."]
+               ^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+capabilities = '- Saves the workbook through a streaming\n  writer to XLSX.'
+limitations = ''
+
+    def _lines(capabilities: str = "", limitations: str = "") -> list[str]:
+        """The served statement lines (without the heading) for synthetic section texts."""
+        readme = ReadmeSections(
+            capabilities=_section("Key Capabilities", capabilities) if capabilities else None,
+            limitations=_section("Scope and Limitations", limitations) if limitations else None,
+        )
+        result = get_product_reference(ProductReferenceInputs(), "formats", readme=readme)
+>       assert isinstance(result, ReferenceContent), result
+E       AssertionError: NotAvailable(section='formats', reason='no file-format statement was found in the indexed README sections; ask lookup or search_docs')
+E       assert False
+E        +  where False = isinstance(NotAvailable(section='formats', reason='no file-format statement was found in the indexed README sections; ask lookup or search_docs'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:53: AssertionError
+________________ test_an_abbreviation_does_not_end_a_sentence _________________
+
+    def test_an_abbreviation_does_not_end_a_sentence() -> None:
+        text = "- Writes several formats, e.g. PDF and SVG. It is fast."
+    
+>       assert _lines(text) == ["- Writes several formats, e.g. PDF and SVG"]
+               ^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+capabilities = '- Writes several formats, e.g. PDF and SVG. It is fast.'
+limitations = ''
+
+    def _lines(capabilities: str = "", limitations: str = "") -> list[str]:
+        """The served statement lines (without the heading) for synthetic section texts."""
+        readme = ReadmeSections(
+            capabilities=_section("Key Capabilities", capabilities) if capabilities else None,
+            limitations=_section("Scope and Limitations", limitations) if limitations else None,
+        )
+        result = get_product_reference(ProductReferenceInputs(), "formats", readme=readme)
+>       assert isinstance(result, ReferenceContent), result
+E       AssertionError: NotAvailable(section='formats', reason='no file-format statement was found in the indexed README sections; ask lookup or search_docs')
+E       assert False
+E        +  where False = isinstance(NotAvailable(section='formats', reason='no file-format statement was found in the indexed README sections; ask lookup or search_docs'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:53: AssertionError
+_____ test_code_fences_tables_and_headings_are_not_joined_into_statements _____
+
+    def test_code_fences_tables_and_headings_are_not_joined_into_statements() -> None:
+        text = "\n".join(
+            [
+                "- Writes PDF",
+                "| `PdfSaveOptions` | Saves PDF |",
+                "```python",
+                "doc.save('a.pdf')  # saves PDF",
+                "```",
+                "#### Exports SVG",
+                "- Loads CSV.",
+            ]
+        )
+    
+>       assert _lines(text) == ["- Writes PDF", "- Loads CSV."]
+E       AssertionError: assert ['- Writes PD...- Loads CSV.'] == ['- Writes PD...- Loads CSV.']
+E         
+E         At index 1 diff: '- #### Exports SVG' != '- Loads CSV.'
+E         Left contains one more item: '- Loads CSV.'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:121: AssertionError
+____________ test_an_api_signature_line_is_not_a_format_statement _____________
+
+    def test_an_api_signature_line_is_not_a_format_statement() -> None:
+        text = "\n".join(
+            [
+                "- `LdmPdfWriter.write(doc, output_path) -> None`",
+                "- `LdmDocxWriter.write(doc, output_path) -> None` / `write_to_bytes(doc) -> bytes`",
+                "- Reads DOCX and writes PDF.",
+            ]
+        )
+    
+>       assert _lines(text) == ["- Reads DOCX and writes PDF."]
+E       AssertionError: assert ['- `LdmPdfWr... writes PDF.'] == ['- Reads DOC... writes PDF.']
+E         
+E         At index 0 diff: '- `LdmPdfWriter.write(doc, output_path) -> None`' != '- Reads DOCX and writes PDF.'
+E         Left contains 2 more items, first extra item: '- `LdmDocxWriter.write(doc, output_path) -> None` / `write_to_bytes(doc) -> bytes`'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:133: AssertionError
+_____ test_an_over_long_statement_is_cut_at_a_clause_boundary_and_marked ______
+
+    def test_an_over_long_statement_is_cut_at_a_clause_boundary_and_marked() -> None:
+        statement = _long_statement()
+        assert len(statement) > CAP
+    
+        (line,) = _lines("- " + statement)
+    
+        body = line[2:]
+>       assert len(body) <= CAP and body.endswith(ELLIPSIS)
+E       AssertionError: assert (300 <= 300 and False)
+E        +  where 300 = len('Read glTF 2.0 (JSON and binary GLB) and Wavefront OBJ scenes, and write STL (ASCII and binary), FBX (ASCII), COLLADA ...() and scene.save() — OBJ export and binary GLB export both carry real, current defects; see Scope and Limitations bef')
+E        +  and   False = <built-in method endswith of str object at 0x0000017254B63810>('…')
+E        +    where <built-in method endswith of str object at 0x0000017254B63810> = 'Read glTF 2.0 (JSON and binary GLB) and Wavefront OBJ scenes, and write STL (ASCII and binary), FBX (ASCII), COLLADA ...() and scene.save() — OBJ export and binary GLB export both carry real, current defects; see Scope and Limitations bef'.endswith
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:155: AssertionError
+___________ test_a_statement_that_fits_the_cap_is_served_unchanged ____________
+
+    def test_a_statement_that_fits_the_cap_is_served_unchanged() -> None:
+        statement = "Reads DOCX. " + "x" * 10
+        exact = "Writes PDF " + "y" * (CAP - len("Writes PDF "))
+        assert len(exact) == CAP
+    
+        assert _lines("- " + exact) == ["- " + exact]
+>       assert _lines("- " + statement) == ["- " + statement]
+E       AssertionError: assert ['- Reads DOCX'] == ['- Reads DOCX. xxxxxxxxxx']
+E         
+E         At index 0 diff: '- Reads DOCX' != '- Reads DOCX. xxxxxxxxxx'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:190: AssertionError
+_____ test_when_only_a_later_clause_names_a_format_that_clause_is_served ______
+
+    def test_when_only_a_later_clause_names_a_format_that_clause_is_served() -> None:
+        statement = (
+            "**Not in the public API**: charts, SmartArt, OLE objects, and mathematical text (no add_chart "
+            "or equivalent for the rest); animations and slide transitions (no timeline, no transition "
+            "type); group shapes (no add_group_shape, no way for one shape to hold child shapes); video and "
+            "audio (not modelled); and export to non-PPTX formats (PDF, HTML, SVG)."
+        )
+        assert len(statement) > CAP
+    
+        (line,) = _lines("- " + statement)
+    
+>       assert line == "- " + ELLIPSIS + "and export to non-PPTX formats (PDF, HTML, SVG)."
+E       AssertionError: assert '- **Not in t...ot modelled);' == '- …and expor..., HTML, SVG).'
+E         
+E         - - …and export to non-PPTX formats (PDF, HTML, SVG).
+E         + - **Not in the public API**: charts, SmartArt, OLE objects, and mathematical text (no add_chart or equivalent for the rest); animations and slide transitions (no timeline, no transition type); group shapes (no add_group_shape, no way for one shape to hold child shapes); video and audio (not modelled);
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:204: AssertionError
+_________________ test_the_enterprise_edition_tail_is_dropped _________________
+
+    def test_the_enterprise_edition_tail_is_dropped() -> None:
+        limitations = (
+            "- Rendering is not implemented, so nothing exports to PDF.\n"
+            "\n"
+            "These limitations don't apply to\n"
+            "[Aspose.3D — Enterprise Edition](https://products.aspose.com/3d/), which adds rendering,\n"
+            "and can export PDF and FBX files.\n"
+        )
+    
+>       assert _lines(limitations=limitations) == ["- Rendering is not implemented, so nothing exports to PDF."]
+E       AssertionError: assert ['- Rendering...d FBX files.'] == ['- Rendering...orts to PDF.']
+E         
+E         Left contains one more item: '- and can export PDF and FBX files.'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:219: AssertionError
+________________ test_a_commercial_edition_sentence_is_dropped ________________
+
+    def test_a_commercial_edition_sentence_is_dropped() -> None:
+        text = "- Reads DOCX.\n- The commercial edition also writes PDF."
+    
+>       assert _lines(text) == ["- Reads DOCX."]
+E       AssertionError: assert ['- Reads DOC... writes PDF.'] == ['- Reads DOCX.']
+E         
+E         Left contains one more item: '- The commercial edition also writes PDF.'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:225: AssertionError
+____________ test_a_format_enumeration_row_backs_up_a_thin_answer _____________
+
+    def test_a_format_enumeration_row_backs_up_a_thin_answer() -> None:
+        text = (
+            "- Writes pages through `PdfDevice`, or `SvgDevice` for SVG output.\n"
+            "\n"
+            "| Enumeration | Description |\n"
+            "| `OutputFormat` | Supported output formats: DVI, PDF, SVG. |\n"
+            "| `TeXOptions` | Configuration for a job. |\n"
+        )
+    
+>       assert _lines(text) == [
+            "- Writes pages through `PdfDevice`, or `SvgDevice` for SVG output.",
+            "- `OutputFormat` - Supported output formats: DVI, PDF, SVG.",
+        ]
+E       AssertionError: assert ['- Writes pa... SVG output.'] == ['- Writes pa...I, PDF, SVG.']
+E         
+E         Right contains one more item: '- `OutputFormat` - Supported output formats: DVI, PDF, SVG.'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:240: AssertionError
+______________ test_a_table_headed_format_backs_up_a_thin_answer ______________
+
+    def test_a_table_headed_format_backs_up_a_thin_answer() -> None:
+        text = "- Loads DOCX.\n\n| Format | Load | Save |\n|---|---|---|\n| DOCX | yes | yes |\n| Markdown | yes | no |\n"
+    
+>       assert _lines(text) == ["- Loads DOCX.", "- DOCX - yes - yes", "- Markdown - yes - no"]
+E       AssertionError: assert ['- Loads DOCX.'] == ['- Loads DOC...n - yes - no']
+E         
+E         Right contains 2 more items, first extra item: '- DOCX - yes - yes'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:249: AssertionError
+_ test_an_imperative_example_heading_is_not_the_formats_section[Convert Every Input Format to PDF] _
+
+heading = 'Convert Every Input Format to PDF'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "Convert Every Input Format to PDF",
+            "Convert Image-Containing Documents to Every Output Format",
+            "Handle an Unrecognized 3D File Format",
+            "Detect the Input Format of a Stream",
+            "Save a Workbook in Any Output Format",
+            "Load Each Supported Format Through One Call",
+        ],
+    )
+    def test_an_imperative_example_heading_is_not_the_formats_section(heading: str) -> None:
+        markdown = f"## {heading}\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       assert ReadmeSection(title='Convert Every Input Format to PDF', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Convert Every Input Format to PDF', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = _formats_of("## Convert Every Input Format to PDF\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n")
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:293: AssertionError
+_ test_an_imperative_example_heading_is_not_the_formats_section[Convert Image-Containing Documents to Every Output Format] _
+
+heading = 'Convert Image-Containing Documents to Every Output Format'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "Convert Every Input Format to PDF",
+            "Convert Image-Containing Documents to Every Output Format",
+            "Handle an Unrecognized 3D File Format",
+            "Detect the Input Format of a Stream",
+            "Save a Workbook in Any Output Format",
+            "Load Each Supported Format Through One Call",
+        ],
+    )
+    def test_an_imperative_example_heading_is_not_the_formats_section(heading: str) -> None:
+        markdown = f"## {heading}\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       assert ReadmeSection(title='Convert Image-Containing Documents to Every Output Format', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Convert Image-Containing Documents to Every Output Format', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = _formats_of("## Convert Image-Containing Documents to Every Output Format\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n")
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:293: AssertionError
+_ test_an_imperative_example_heading_is_not_the_formats_section[Handle an Unrecognized 3D File Format] _
+
+heading = 'Handle an Unrecognized 3D File Format'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "Convert Every Input Format to PDF",
+            "Convert Image-Containing Documents to Every Output Format",
+            "Handle an Unrecognized 3D File Format",
+            "Detect the Input Format of a Stream",
+            "Save a Workbook in Any Output Format",
+            "Load Each Supported Format Through One Call",
+        ],
+    )
+    def test_an_imperative_example_heading_is_not_the_formats_section(heading: str) -> None:
+        markdown = f"## {heading}\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       assert ReadmeSection(title='Handle an Unrecognized 3D File Format', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Handle an Unrecognized 3D File Format', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = _formats_of("## Handle an Unrecognized 3D File Format\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n")
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:293: AssertionError
+_ test_an_imperative_example_heading_is_not_the_formats_section[Detect the Input Format of a Stream] _
+
+heading = 'Detect the Input Format of a Stream'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "Convert Every Input Format to PDF",
+            "Convert Image-Containing Documents to Every Output Format",
+            "Handle an Unrecognized 3D File Format",
+            "Detect the Input Format of a Stream",
+            "Save a Workbook in Any Output Format",
+            "Load Each Supported Format Through One Call",
+        ],
+    )
+    def test_an_imperative_example_heading_is_not_the_formats_section(heading: str) -> None:
+        markdown = f"## {heading}\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       assert ReadmeSection(title='Detect the Input Format of a Stream', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Detect the Input Format of a Stream', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = _formats_of("## Detect the Input Format of a Stream\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n")
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:293: AssertionError
+_ test_an_imperative_example_heading_is_not_the_formats_section[Save a Workbook in Any Output Format] _
+
+heading = 'Save a Workbook in Any Output Format'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "Convert Every Input Format to PDF",
+            "Convert Image-Containing Documents to Every Output Format",
+            "Handle an Unrecognized 3D File Format",
+            "Detect the Input Format of a Stream",
+            "Save a Workbook in Any Output Format",
+            "Load Each Supported Format Through One Call",
+        ],
+    )
+    def test_an_imperative_example_heading_is_not_the_formats_section(heading: str) -> None:
+        markdown = f"## {heading}\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       assert ReadmeSection(title='Save a Workbook in Any Output Format', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Save a Workbook in Any Output Format', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = _formats_of("## Save a Workbook in Any Output Format\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n")
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:293: AssertionError
+_ test_an_imperative_example_heading_is_not_the_formats_section[Load Each Supported Format Through One Call] _
+
+heading = 'Load Each Supported Format Through One Call'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "Convert Every Input Format to PDF",
+            "Convert Image-Containing Documents to Every Output Format",
+            "Handle an Unrecognized 3D File Format",
+            "Detect the Input Format of a Stream",
+            "Save a Workbook in Any Output Format",
+            "Load Each Supported Format Through One Call",
+        ],
+    )
+    def test_an_imperative_example_heading_is_not_the_formats_section(heading: str) -> None:
+        markdown = f"## {heading}\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       assert ReadmeSection(title='Load Each Supported Format Through One Call', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Load Each Supported Format Through One Call', text="Some prose about it.\n\n```python\ndoc.save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = _formats_of("## Load Each Supported Format Through One Call\n\nSome prose about it.\n\n```python\ndoc.save('a.pdf')\n```\n")
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:293: AssertionError
+_________ test_a_formats_heading_whose_body_is_only_code_is_rejected __________
+
+    def test_a_formats_heading_whose_body_is_only_code_is_rejected() -> None:
+        markdown = "## Supported formats\n\n```python\nfor path in paths:\n    doc.save(path)\n```\n"
+    
+>       assert _formats_of(markdown) is None
+E       AssertionError: assert ReadmeSection(title='Supported formats', text='```python\nfor path in paths:\n    doc.save(path)\n```', commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Supported formats', text='```python\nfor path in paths:\n    doc.save(path)\n```', commit=None, ordered=True, parts=1, all_faq=False) = _formats_of('## Supported formats\n\n```python\nfor path in paths:\n    doc.save(path)\n```\n')
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:316: AssertionError
+_______ test_an_example_heading_never_reaches_the_served_formats_answer _______
+
+    def test_an_example_heading_never_reaches_the_served_formats_answer() -> None:
+        markdown = (
+            "## Convert Every Input Format to PDF\n\n```python\nDocument('a.docx').save('a.pdf')\n```\n\n"
+            "## Key Capabilities\n\n- Reads DOCX and writes PDF.\n- Saves Markdown.\n- Exports HTML.\n"
+        )
+        sections = sections_from_markdown(markdown)
+    
+>       assert sections.formats is None
+E       assert ReadmeSection(title='Convert Every Input Format to PDF', text="```python\nDocument('a.docx').save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) is None
+E        +  where ReadmeSection(title='Convert Every Input Format to PDF', text="```python\nDocument('a.docx').save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False) = ReadmeSections(limitations=None, install=None, capabilities=ReadmeSection(title='Key Capabilities', text='- Reads DOCX...ython\nDocument('a.docx').save('a.pdf')\n```", commit=None, ordered=True, parts=1, all_faq=False), import_warning=None).formats
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:342: AssertionError
+_______________ test_no_pilot_answers_with_a_code_only_example ________________
+
+answers = {'3d__java': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x000001720C4B7E00>, '3d...typescript': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x0000017206469CD0>, ...}
+
+    def test_no_pilot_answers_with_a_code_only_example(answers: dict[str, _Answer]) -> None:
+        code_only = []
+        for name, answer in answers.items():
+            if not isinstance(answer.result, ReferenceContent):
+                continue
+            text = answer.result.text
+            prose = [
+                line for line in re.sub(r"```.*?```", "", text, flags=re.DOTALL).splitlines() if line.strip()
+            ]
+            is_statement_answer = text.startswith(HEADING)
+            if (
+                text.lstrip().startswith("```")
+                or not prose
+                or not (is_statement_answer or name in SECTION_ANSWERS)
+            ):
+                code_only.append(name)
+    
+>       assert code_only == []
+E       AssertionError: assert ['3d__net', 'words__python'] == []
+E         
+E         Left contains 2 more items, first extra item: '3d__net'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:484: AssertionError
+_______ test_the_two_example_heading_pilots_now_serve_format_statements _______
+
+answers = {'3d__java': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x000001720C4B7E00>, '3d...typescript': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x0000017206469CD0>, ...}
+
+    def test_the_two_example_heading_pilots_now_serve_format_statements(answers: dict[str, _Answer]) -> None:
+        for name in ("words__python", "3d__net"):
+            text = answers[name].result.text  # type: ignore[union-attr]
+>           assert text.startswith(HEADING), name
+E           AssertionError: words__python
+E           assert False
+E            +  where False = <built-in method startswith of str object at 0x000001720DEE2590>('File-format statements quoted from the README (selected by keyword, not an exhaustive list):')
+E            +    where <built-in method startswith of str object at 0x000001720DEE2590> = '```python\nimport aspose.words_foss as aw\n\nfor path in ("report.docx", "legacy.doc", "notes.rtf"):\n    doc = aw.Do...pdf", aw.SaveFormat.PDF)        # rendered via ShapeRenderer\n    doc.save(f"{filename}.txt", aw.SaveFormat.TEXT)\n```'.startswith
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:490: AssertionError
+__________ test_no_pilot_serves_an_unterminated_or_mid_sentence_line __________
+
+answers = {'3d__java': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x000001720C4B7E00>, '3d...typescript': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x0000017206469CD0>, ...}
+
+    def test_no_pilot_serves_an_unterminated_or_mid_sentence_line(answers: dict[str, _Answer]) -> None:
+        offenders: list[str] = []
+        for name, answer in answers.items():
+            if name in SECTION_ANSWERS or not isinstance(answer.result, ReferenceContent):
+                continue
+            for line in answer.lines:
+                if not _is_whole(line, answer.sources):
+                    offenders.append(f"{name}: {line[-110:]}")
+    
+>       assert offenders == []
+E       AssertionError: assert ['3d__java: -...ThreeD;', ...] == []
+E         
+E         Left contains 124 more items, first extra item: '3d__java: - `StlLoadOptions` / `StlSaveOptions` — `FileContentType` (binary or ASCII) controls STL import'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:504: AssertionError
+_______ test_every_statement_line_is_within_the_cap_and_marked_when_cut _______
+
+answers = {'3d__java': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x000001720C4B7E00>, '3d...typescript': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x0000017206469CD0>, ...}
+
+    def test_every_statement_line_is_within_the_cap_and_marked_when_cut(answers: dict[str, _Answer]) -> None:
+        for name, answer in answers.items():
+            if name in SECTION_ANSWERS or not isinstance(answer.result, ReferenceContent):
+                continue
+>           assert 1 <= len(answer.lines) <= 8, name
+E           AssertionError: 3d__net
+E           assert 16 <= 8
+E            +  where 16 = len(['', '```csharp', 'using Aspose.ThreeD;', '', 'var scene = new Scene();', 'try', ...])
+E            +    where ['', '```csharp', 'using Aspose.ThreeD;', '', 'var scene = new Scene();', 'try', ...] = <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x000001720CD13C50>.lines
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:511: AssertionError
+__________ test_the_already_clean_pilots_are_still_clean[pdf__java] ___________
+
+answers = {'3d__java': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x000001720C4B7E00>, '3d...typescript': <tests.mcp.tools.test_get_product_reference_formats_projection._Answer object at 0x0000017206469CD0>, ...}
+pilot = 'pdf__java'
+
+    @pytest.mark.parametrize("pilot", CLEAN_BEFORE)
+    def test_the_already_clean_pilots_are_still_clean(answers: dict[str, _Answer], pilot: str) -> None:
+        answer = answers[pilot]
+        assert isinstance(answer.result, ReferenceContent)
+    
+        assert len(answer.lines) >= 3
+        assert all(_is_whole(line, answer.sources) for line in answer.lines), answer.lines
+        assert not any(ELLIPSIS in line for line in answer.lines), "a clean pilot must not need an ellipsis cut"
+>       assert "commercial edition" not in answer.result.text.lower()
+E       AssertionError: assert 'commercial edition' not in 'file-format...ise support.'
+E         
+E         'commercial edition' is contained here:
+E           ties; the commercial edition extends these features with additional processing options, advanced rendering, and enterprise support.
+E         ?           ++++++++++++++++++
+
+tests\mcp\tools\test_get_product_reference_formats_projection.py:535: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_hard_wrapped_bullet_is_one_whole_statement
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_wrapped_sentence_that_continues_without_indentation_is_joined
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_the_keyword_test_runs_on_the_whole_bullet_not_on_each_physical_line
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_abbreviation_does_not_end_a_sentence
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_code_fences_tables_and_headings_are_not_joined_into_statements
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_api_signature_line_is_not_a_format_statement
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_over_long_statement_is_cut_at_a_clause_boundary_and_marked
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_statement_that_fits_the_cap_is_served_unchanged
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_when_only_a_later_clause_names_a_format_that_clause_is_served
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_the_enterprise_edition_tail_is_dropped
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_commercial_edition_sentence_is_dropped
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_format_enumeration_row_backs_up_a_thin_answer
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_table_headed_format_backs_up_a_thin_answer
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_imperative_example_heading_is_not_the_formats_section[Convert Every Input Format to PDF]
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_imperative_example_heading_is_not_the_formats_section[Convert Image-Containing Documents to Every Output Format]
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_imperative_example_heading_is_not_the_formats_section[Handle an Unrecognized 3D File Format]
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_imperative_example_heading_is_not_the_formats_section[Detect the Input Format of a Stream]
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_imperative_example_heading_is_not_the_formats_section[Save a Workbook in Any Output Format]
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_imperative_example_heading_is_not_the_formats_section[Load Each Supported Format Through One Call]
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_a_formats_heading_whose_body_is_only_code_is_rejected
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_an_example_heading_never_reaches_the_served_formats_answer
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_no_pilot_answers_with_a_code_only_example
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_the_two_example_heading_pilots_now_serve_format_statements
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_no_pilot_serves_an_unterminated_or_mid_sentence_line
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_every_statement_line_is_within_the_cap_and_marked_when_cut
+FAILED tests/mcp/tools/test_get_product_reference_formats_projection.py::test_the_already_clean_pilots_are_still_clean[pdf__java]
+
+--- stderr ---
+
