@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-816",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:19:36Z",
+  "base_rev": "9942cda38b4e615cde70f95da937cf50c44351b4",
+  "head_rev": "338617a1da463707e9c8e66e66ee18352155920b",
+  "card_sha256": "2cb08f7d5fa12ef2522842ba4d6142d4067d3b88bcbe3a08215dab7910bf772d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/mcp/tools/test_product_reference_install_pin.py",
+      "tests/mcp/tools/test_registry_drift_notice_round2.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_registry_drift_notice_round2.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_round3_drift.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py tests/mcp/tools/test_compatibility_drift_notice.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 20.525,
+          "stdout_sha256": "25525f9469683de7db2fabf850195c5a6597d2bdbd3326a4e9aad5c308bfb012",
+          "tests": 462,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_registry_drift_notice_round2.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_round3_drift.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py tests/mcp/tools/test_compatibility_drift_notice.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 18.765,
+          "stdout_sha256": "25525f9469683de7db2fabf850195c5a6597d2bdbd3326a4e9aad5c308bfb012",
+          "tests": 462,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/mcp/tools/report_index_freshness.py', 'src/foss_mcp/mcp/tools/get_product_reference.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "bbdd1e593f5dbde306d0154f9d797b8ffb0f3ca279eba05e40b764ea7951a50d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_product_reference.py",
+      "M src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
