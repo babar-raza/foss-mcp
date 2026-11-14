@@ -175,53 +175,62 @@ examples:
         }
     }
   code_sha256: 9b580eb0fa05e37dfa151c575a59229bfc1b3d57e8c1e4dd9d6e93daae24adf5
-- title: Build a two-column row and confirm its text survives a reload
-  description: Adds a Table to a page with one Row holding two cells, saves the document to memory, reloads it and uses TextAbsorber to confirm both cell values are present in the reloaded page's extracted text.
+- title: Create a radio button form field and verify its selection after reload
+  description: Creates a RadioButtonField group with two options on a page, adds it to the document's AcroForm, selects one option by value, saves the document to memory, reloads it and reads the group's selected value and option count back by name through the reloaded document's Form.
   symbols:
   - Document
-  - Page.getParagraphs
-  - Page.accept
-  - Table
-  - Table.getRows
-  - Row
-  - Row.getCells
-  - Rows.add
-  - Cells.add
-  - TextAbsorber
-  - TextAbsorber.getText
+  - Document.getForm
+  - Page
+  - Rectangle
+  - RadioButtonField
+  - RadioButtonField.addOption
+  - RadioButtonField.setValue
+  - RadioButtonField.getValue
+  - RadioButtonField.getOptions
+  - Field
+  - Field.setPartialName
+  - Form
+  - Form.add
+  - Form.get
   code: |
-    // Authored example: build a two-cell table row on a page and read the cell text back after a save and reload
+    // Authored example: create a radio button group in an AcroForm, select an option, then read the group and its options back after a save and reload
     import java.io.ByteArrayInputStream;
     import java.io.ByteArrayOutputStream;
     import org.aspose.pdf.Document;
     import org.aspose.pdf.Page;
-    import org.aspose.pdf.Table;
-    import org.aspose.pdf.Row;
-    import org.aspose.pdf.text.TextAbsorber;
+    import org.aspose.pdf.Rectangle;
+    import org.aspose.pdf.forms.Field;
+    import org.aspose.pdf.forms.Form;
+    import org.aspose.pdf.forms.RadioButtonField;
 
-    public class TableRoundtripExample {
+    public class RadioButtonFieldRoundtripExample {
         public static void main(String[] args) throws Exception {
             Document document = new Document();
             Page page = document.getPages().add();
 
-            Table table = new Table();
-            page.getParagraphs().add(table);
-            Row row = table.getRows().add();
-            row.getCells().add("Quarter");
-            row.getCells().add("Revenue");
+            RadioButtonField radio = new RadioButtonField(page);
+            radio.setPartialName("shippingMethod");
+            radio.addOption("Standard", new Rectangle(50, 700, 70, 720));
+            radio.addOption("Express", new Rectangle(50, 670, 70, 690));
+            document.getForm().add(radio, 1);
+            radio.setValue("Express");
 
             ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
             document.save(savedBytes);
 
             Document reloaded = new Document(new ByteArrayInputStream(savedBytes.toByteArray()));
-            TextAbsorber absorber = new TextAbsorber();
-            reloaded.getPages().get(1).accept(absorber);
-            String extracted = absorber.getText();
+            Form form = reloaded.getForm();
+            Field field = form.get("shippingMethod");
+            RadioButtonField reloadedRadio = (RadioButtonField) field;
 
-            System.out.println("extracted text: " + extracted);
-            if (!extracted.contains("Quarter") || !extracted.contains("Revenue")) {
-                throw new AssertionError("expected both cell values to be present in the extracted text");
+            System.out.println("selected value: " + reloadedRadio.getValue());
+            System.out.println("option count: " + reloadedRadio.getOptions().size());
+            if (!"Express".equals(reloadedRadio.getValue())) {
+                throw new AssertionError("expected the reloaded radio group to have Express selected");
+            }
+            if (reloadedRadio.getOptions().size() != 2) {
+                throw new AssertionError("expected the reloaded radio group to keep both options");
             }
         }
     }
-  code_sha256: bc186a8eea83e5e2268d7065c74c3496b67007bdc20e85cf4caebce9abc37718
+  code_sha256: 2f8d4ceca42a3cbe924b58b88d96e24a4b724e29a6b7912d5f06def4697aa5dd

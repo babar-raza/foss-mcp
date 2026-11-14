@@ -4,7 +4,11 @@
 against the real public API of ``org.aspose.pdf`` (Aspose.PDF FOSS for Java) at the pinned commit:
 a text-fragment round trip read back with ``TextAbsorber``, an AcroForm ``TextBoxField`` round
 trip, a page rendered to a PNG with ``PngDevice``, a ``DocumentInfo`` title/author round trip, and
-a ``Table`` row round trip read back with ``TextAbsorber`` again. Each is a complete, self-
+(TC-827, replacing the earlier ``Table`` row round trip, which only re-proved the ``TextAbsorber``
+read-back example 1 already covers) a ``RadioButtonField`` group round trip: two options, one
+selected by value, the group and its selection read back by name after a reload. The upstream
+README's own radio-button example omits the ``RadioButtonField`` import and cannot compile as
+published, so this one carries the correct ``org.aspose.pdf.forms`` imports. Each is a complete, self-
 contained Java program (its own ``public class`` with a ``main`` method and its own ``import``
 lines) rather than a bare statement block, so ``verify_java_example`` compiles and runs it exactly
 as written with no wrapper and no furnished-page imports added (``_JAVA_PUBLIC_CLASS_RE`` matches
@@ -230,3 +234,47 @@ def test_every_example_prints_the_output_it_asserts_on(number: int) -> None:
     code = _example(number)["code"]
     assert "System.out.println(" in code
     assert "throw new AssertionError(" in code
+
+
+def _radio_button_examples() -> list[dict]:
+    return [example for example in _document()["examples"] if "RadioButtonField" in example["symbols"]]
+
+
+def test_exactly_one_example_covers_a_radio_button_group_in_a_form() -> None:
+    # TC-827 (OWNER-07): the upstream README's "Create a Form with Radio Buttons" uses RadioButtonField
+    # without importing it and cannot compile as published, so the pilot serves its own verified
+    # example of the same subject. It must be present, and be exactly one example.
+    examples = _radio_button_examples()
+    assert len(examples) == 1
+    example = examples[0]
+    words = example["title"].lower().split()
+    # The title names the subject in specific words (a generic-word title collides with unrelated
+    # queries through title_anchored) and stays within the 12-word limit.
+    assert {"radio", "button", "form", "field"} <= set(words)
+    assert len(words) <= 12
+    candidate_titles = {candidate.title for candidate in _candidates()}
+    assert example["title"] in candidate_titles
+
+
+def test_the_radio_button_example_imports_the_class_the_readme_example_forgets() -> None:
+    code = _radio_button_examples()[0]["code"]
+    imports = {match.group(1).strip() for match in _IMPORT_LINE_RE.finditer(code)}
+    assert "org.aspose.pdf.forms.RadioButtonField" in imports
+    assert "org.aspose.pdf.forms.Form" in imports
+
+
+def test_the_radio_button_example_builds_a_group_then_checks_the_reloaded_selection() -> None:
+    code = _radio_button_examples()[0]["code"]
+    assert "new RadioButtonField(page)" in code
+    assert code.count(".addOption(") >= 2
+    assert ".setValue(" in code
+    assert "new Document(new ByteArrayInputStream(" in code
+    reload_index = code.index("new Document(new ByteArrayInputStream(")
+    after_reload = code[reload_index:]
+    # the group is looked up by name on the reloaded document and its selection and option count are
+    # asserted there, not on the in-memory object that was built before the save
+    assert 'form.get("shippingMethod")' in after_reload
+    assert "(RadioButtonField)" in after_reload
+    assert ".getValue()" in after_reload
+    assert ".getOptions().size()" in after_reload
+    assert after_reload.count("throw new AssertionError(") >= 2
