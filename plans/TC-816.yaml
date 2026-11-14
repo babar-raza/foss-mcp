@@ -1,0 +1,113 @@
+id: TC-816
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Registry-served version vs indexed version is silently ignored in three answers (2026-11-14
+  triage): RD2-091 (cells/python: report_index_freshness says stale/latest_release_version but
+  `drift` = 'unknown', `drift_message` None, and the install notice mentions only the manifest
+  version although the sidecar holds install_served_version 26.10.0), RD2-083 and RD2-084
+  (cells/python compatibility/formats/limitations carry no sentence that the registry serves
+  26.10.0 while the index is 26.7.0 and its requirements/formats may differ; the sidecar drift
+  record is `{'error': 'RateLimited'}` for cells/python, cells/rust and slides/java so TC-652's
+  drift caveat is absent) and RD2-170 (page/python: freshness is `fresh` via git ancestry, '5
+  commits ahead of 26.7.0', while PyPI serves 26.9.0 which has no git tag - nothing says the
+  registry is ahead of every tag). Fix in code, from local sidecar data only: (a) in
+  report_index_freshness (latest_release_version branch and the git-ancestry branch) and
+  `get_product_reference._drift_notice`, when `registry_served_version`/`install_served_version`
+  differs from the manifest/indexed version, state it: build `drift`/`drift_message` from the
+  registry value as TC-657/TC-712 did for the registry branch; when the registry version is newer
+  than every release tag, say 'registry serves X which has no tag and cannot be compared to the
+  indexed commit', never downgrading existing verdict logic or TC-657's major-version mismatch
+  guard; (b) append the same one-sentence notice to compatibility/formats/limitations when the
+  served registry version differs from the manifest version (existing install notice and L-089
+  stay). Verdict fields (`freshness_state`, `stale`) must not change except where stated; pilots
+  whose registry version equals the manifest version must be byte-identical before/after (measure
+  all 32).
+depends_on:
+  - TC-812
+  - TC-798
+  - TC-814
+  - TC-712
+  - TC-657
+  - TC-651
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/mcp/tools/test_registry_drift_notice_round2.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    Ledger rows are in docs/ROUND2_REVIEW.md (grep the RD2 id); registry ids must equal the ledger
+    issue id.
+  - >-
+    READ FIRST: report_index_freshness.py (the registry branch added by TC-657/TC-712 and
+    `_registry_version_drift`), get_product_reference.py `_drift_notice` and the
+    compatibility/formats/limitations builders, infra/demo-manifests/product_reference_<f>_<p>.json
+    (`install_served_version`, `drift`) and package_registry_<f>_<p>.json (`served_version`) for the
+    five pilots named, and the tests in the check.
+  - >-
+    REPRODUCE FIRST with real tool calls against the real committed data for cells/python,
+    page/python, cells/rust, slides/java and capture the current freshness +
+    install/compatibility/formats/limitations notices; then produce a before/after table over ALL 32
+    pilots (verdict fields and every notice) in your report: pilots with no registry/manifest
+    version difference must be unchanged byte for byte; only pilots with a real difference may gain
+    the new sentence.
+  - >-
+    Do not touch sidecars (the RateLimited drift records are data repaired by a later refresh card).
+    Do not change `freshness_state` semantics; never produce a confident fresh/stale claim from a
+    placeholder manifest version (keep TC-657's guard).
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ unless the card's write_paths name it - a single coordinated
+    regeneration of all pilots happens in a later card; this card changes code/config/tests only.
+    Tests must exercise the code path directly (synthetic or fixture inputs), never rely on the
+    committed generations having been regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Make the registry-served version vs indexed version difference visible in freshness drift fields
+    and in the compatibility/formats/limitations/install notices, without changing verdict logic.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_registry_drift_notice_round2.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_round3_drift.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py tests/mcp/tools/test_compatibility_drift_notice.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 459
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/report_index_freshness.py', 'src/foss_mcp/mcp/tools/get_product_reference.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-816/receipt.json
+closeout:
+  - >-
+    cells/python and page/python (and any pilot with a real registry-vs-index difference) state it
+    explicitly; all other pilots' answers are byte-identical.
+recovery: Re-run from a clean tree.
