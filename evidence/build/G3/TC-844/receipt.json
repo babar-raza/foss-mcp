@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-844",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T13:08:04Z",
+  "base_rev": "98f5c27d18c3c5cbd5662db0969ee4f9a9a98683",
+  "head_rev": "d4ef584098dcb52e28670a976119dbbe2f93c052",
+  "card_sha256": "4e7fcc86782a88bfb3b4affccd5c3c9a201733b81454161a3225d7150bbdad02",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/run_extraction.py",
+      "src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "tests/extraction/test_python_stub_interface_and_inheritance.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_python_stub_interface_and_inheritance.py tests/extraction/test_round3_stub_detection.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.13,
+          "stdout_sha256": "878337dcccc8329aa5eb899d273abb615131e9066b28e90028a4f0a36af2cc3c",
+          "tests": 263,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_python_stub_interface_and_inheritance.py tests/extraction/test_round3_stub_detection.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.28,
+          "stdout_sha256": "878337dcccc8329aa5eb899d273abb615131e9066b28e90028a4f0a36af2cc3c",
+          "tests": 263,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/python_surface.py', 'src/foss_mcp/extraction/run_extraction.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "9a9eda280cf49e578108288e924c5bf3b9da427c8aa8877033db9f81fbd36de2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/run_extraction.py",
+      "M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

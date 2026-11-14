@@ -1,0 +1,359 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_stub_interface_and_inheritance.py tests/extraction/test_round3_stub_detection.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4509a6mh\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 82%]
+...............................................                          [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_stub_interface_and_inheritance.py tests/extraction/test_round3_stub_detection.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4509a6mh\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 82%]
+...............................................                          [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_python_stub_interface_and_inheritance.py tests/extraction/test_round3_stub_detection.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4509a6mh\.junit-0.xml"
+--- stdout ---
+FF..FF.FFF...FFFFF...................................................... [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 82%]
+...............................................                          [100%]
+================================== FAILURES ===================================
+____ test_an_ellipsis_method_of_an_abc_interface_is_a_contract_not_a_stub _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3885/test_an_ellipsis_method_of_an_0')
+
+    def test_an_ellipsis_method_of_an_abc_interface_is_a_contract_not_a_stub(tmp_path: Path) -> None:
+        entries = _entries(
+            tmp_path,
+            "from abc import ABC\n"
+            "class IShape(ABC):\n"
+            "    def area(self) -> float: ...\n"
+            "    def name(self, unit):\n"
+            '        """Documented."""\n'
+            "        ...\n"
+            "    @property\n"
+            "    def width(self) -> int: ...\n",
+        )
+>       assert _stubs(entries["IShape"]) == {"area": False, "name": False, "width": False}
+E       AssertionError: assert {'area': True...'width': True} == {'area': Fals...width': False}
+E         
+E         Differing items:
+E         {'name': True} != {'name': False}
+E         {'width': True} != {'width': False}
+E         {'area': True} != {'area': False}
+E         Use -v to get more diff
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:63: AssertionError
+__ test_the_dotted_abc_base_and_the_abcmeta_metaclass_make_an_interface_too ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3885/test_the_dotted_abc_base_and_t0')
+
+    def test_the_dotted_abc_base_and_the_abcmeta_metaclass_make_an_interface_too(tmp_path: Path) -> None:
+        entries = _entries(
+            tmp_path,
+            "import abc\n"
+            "from abc import ABCMeta\n"
+            "class IDotted(abc.ABC):\n"
+            "    def run(self): ...\n"
+            "class IMeta(metaclass=ABCMeta):\n"
+            "    def run(self): ...\n"
+            "class IDottedMeta(metaclass=abc.ABCMeta):\n"
+            "    def run(self): ...\n"
+            "class IMixed(object, abc.ABC):\n"
+            "    def run(self): ...\n",
+        )
+        for name in ("IDotted", "IMeta", "IDottedMeta", "IMixed"):
+>           assert _stubs(entries[name]) == {"run": False}, name
+E           AssertionError: IDotted
+E           assert {'run': True} == {'run': False}
+E             
+E             Differing items:
+E             {'run': True} != {'run': False}
+E             Use -v to get more diff
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:81: AssertionError
+___ test_a_concrete_subclass_of_an_abc_interface_is_not_itself_an_interface ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3885/test_a_concrete_subclass_of_an0')
+
+    def test_a_concrete_subclass_of_an_abc_interface_is_not_itself_an_interface(tmp_path: Path) -> None:
+        """Only a DIRECT ``ABC`` / ``Protocol`` base or ``metaclass=ABCMeta`` makes the contract: an
+        implementation that derives from an interface and leaves ``...`` in a method has not implemented it."""
+        entries = _entries(
+            tmp_path,
+            "from abc import ABC\n"
+            "class IShape(ABC):\n"
+            "    def area(self): ...\n"
+            "class Square(IShape):\n"
+            "    def area(self): ...\n"
+            "    def side(self): ...\n",
+        )
+>       assert _stubs(entries["IShape"]) == {"area": False}
+E       AssertionError: assert {'area': True} == {'area': False}
+E         
+E         Differing items:
+E         {'area': True} != {'area': False}
+E         Use -v to get more diff
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:126: AssertionError
+_______ test_pass_and_not_implemented_error_in_an_abc_class_stay_stubs ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3885/test_pass_and_not_implemented_0')
+
+    def test_pass_and_not_implemented_error_in_an_abc_class_stay_stubs(tmp_path: Path) -> None:
+        entries = _entries(
+            tmp_path,
+            "from abc import ABC\n"
+            "class Device(ABC):\n"
+            "    def flush(self):\n"
+            "        pass\n"
+            "    def open(self):\n"
+            "        raise NotImplementedError\n"
+            '    def close(self):\n        raise NotImplementedError("subclass")\n'
+            "    def ready(self): ...\n",
+        )
+>       assert _stubs(entries["Device"]) == {"flush": True, "open": True, "close": True, "ready": False}
+E       AssertionError: assert {'close': Tru...'ready': True} == {'flush': Tru...ready': False}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'ready': True} != {'ready': False}
+E         Use -v to get more diff
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:142: AssertionError
+______________ test_stub_reason_judges_the_owner_class_directly _______________
+
+    def test_stub_reason_judges_the_owner_class_directly() -> None:
+        def function(source: str) -> ast.FunctionDef:
+            node = ast.parse(source).body[0]
+            assert isinstance(node, ast.FunctionDef)
+            return node
+    
+        interface = ast.parse("class I(ABC):\n    pass\n").body[0]
+        concrete = ast.parse("class C(Base):\n    pass\n").body[0]
+        assert isinstance(interface, ast.ClassDef) and isinstance(concrete, ast.ClassDef)
+        method = function("def f(self): ...\n")
+>       assert python_surface.stub_reason(method, interface) == ""
+E       AssertionError: assert 'empty body (...)' == ''
+E         
+E         + empty body (...)
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:175: AssertionError
+_ test_an_interface_ellipsis_member_inherited_by_an_implementation_is_not_flagged _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3885/test_an_interface_ellipsis_mem0')
+
+    def test_an_interface_ellipsis_member_inherited_by_an_implementation_is_not_flagged(tmp_path: Path) -> None:
+        entries = _entries(
+            tmp_path,
+            "from abc import ABC\n"
+            "class IShape(ABC):\n"
+            "    def area(self): ...\n"
+            "class IGraphic(IShape, ABC):\n"
+            "    def paint(self): ...\n"
+            "class Square(IGraphic):\n"
+            "    def side(self):\n"
+            "        return 1\n",
+        )
+        flags = _stubs(entries["Square"])
+>       assert flags == {"area": False, "paint": False, "side": False}
+E       AssertionError: assert {'side': Fals... 'area': True} == {'area': Fals...'side': False}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'paint': True} != {'paint': False}
+E         {'area': True} != {'area': False}
+E         Use -v to get more diff
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:198: AssertionError
+_ test_a_concrete_implementation_reached_through_another_base_wins_over_an_interface_stub _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3885/test_a_concrete_implementation0')
+
+    def test_a_concrete_implementation_reached_through_another_base_wins_over_an_interface_stub(
+        tmp_path: Path,
+    ) -> None:
+        """``Chart``'s MRO is Chart, IChart, Graphic, Shape, IGraphic, IShape: ``IChart`` is a base before
+        ``Graphic``, so the members it flattened (``IShape.width``, ``IGraphic.paint``) used to reach ``Chart``
+        flagged although ``Shape.width`` and ``Graphic.paint`` are real."""
+        chart = _entries(tmp_path, _DIAMOND)["Chart"]
+        flags = _stubs(chart)
+>       assert flags["width"] is False  # Shape.width is real and precedes IShape in the MRO
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert True is False
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:238: AssertionError
+_ test_c3_linearization_matches_pythons_method_resolution_order[parents0-expected0] _
+
+parents = {'A': []}, expected = ['A']
+
+    @pytest.mark.parametrize(
+        ("parents", "expected"),
+        [
+            ({"A": []}, ["A"]),
+            ({"A": ["B"], "B": ["C"], "C": []}, ["A", "B", "C"]),
+            # the classic diamond: D(B, C), B(A), C(A) -> D B C A
+            ({"D": ["B", "C"], "B": ["A"], "C": ["A"], "A": []}, ["D", "B", "C", "A"]),
+            # Chart(IChart, Graphic) with Graphic(Shape, IGraphic) and IChart(IGraphic)
+            (
+                {
+                    "Chart": ["IChart", "Graphic"],
+                    "IChart": ["IGraphic"],
+                    "Graphic": ["Shape", "IGraphic"],
+                    "Shape": ["IShape"],
+                    "IGraphic": ["IShape"],
+                    "IShape": [],
+                },
+                ["Chart", "IChart", "Graphic", "Shape", "IGraphic", "IShape"],
+            ),
+        ],
+    )
+    def test_c3_linearization_matches_pythons_method_resolution_order(
+        parents: dict[str, list[str]], expected: list[str]
+    ) -> None:
+>       assert run_extraction._c3_linearization(expected[0], parents, {}) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.run_extraction' has no attribute '_c3_linearization'
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:331: AttributeError
+_ test_c3_linearization_matches_pythons_method_resolution_order[parents1-expected1] _
+
+parents = {'A': ['B'], 'B': ['C'], 'C': []}, expected = ['A', 'B', 'C']
+
+    @pytest.mark.parametrize(
+        ("parents", "expected"),
+        [
+            ({"A": []}, ["A"]),
+            ({"A": ["B"], "B": ["C"], "C": []}, ["A", "B", "C"]),
+            # the classic diamond: D(B, C), B(A), C(A) -> D B C A
+            ({"D": ["B", "C"], "B": ["A"], "C": ["A"], "A": []}, ["D", "B", "C", "A"]),
+            # Chart(IChart, Graphic) with Graphic(Shape, IGraphic) and IChart(IGraphic)
+            (
+                {
+                    "Chart": ["IChart", "Graphic"],
+                    "IChart": ["IGraphic"],
+                    "Graphic": ["Shape", "IGraphic"],
+                    "Shape": ["IShape"],
+                    "IGraphic": ["IShape"],
+                    "IShape": [],
+                },
+                ["Chart", "IChart", "Graphic", "Shape", "IGraphic", "IShape"],
+            ),
+        ],
+    )
+    def test_c3_linearization_matches_pythons_method_resolution_order(
+        parents: dict[str, list[str]], expected: list[str]
+    ) -> None:
+>       assert run_extraction._c3_linearization(expected[0], parents, {}) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.run_extraction' has no attribute '_c3_linearization'
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:331: AttributeError
+_ test_c3_linearization_matches_pythons_method_resolution_order[parents2-expected2] _
+
+parents = {'D': ['B', 'C'], 'B': ['A'], 'C': ['A'], 'A': []}
+expected = ['D', 'B', 'C', 'A']
+
+    @pytest.mark.parametrize(
+        ("parents", "expected"),
+        [
+            ({"A": []}, ["A"]),
+            ({"A": ["B"], "B": ["C"], "C": []}, ["A", "B", "C"]),
+            # the classic diamond: D(B, C), B(A), C(A) -> D B C A
+            ({"D": ["B", "C"], "B": ["A"], "C": ["A"], "A": []}, ["D", "B", "C", "A"]),
+            # Chart(IChart, Graphic) with Graphic(Shape, IGraphic) and IChart(IGraphic)
+            (
+                {
+                    "Chart": ["IChart", "Graphic"],
+                    "IChart": ["IGraphic"],
+                    "Graphic": ["Shape", "IGraphic"],
+                    "Shape": ["IShape"],
+                    "IGraphic": ["IShape"],
+                    "IShape": [],
+                },
+                ["Chart", "IChart", "Graphic", "Shape", "IGraphic", "IShape"],
+            ),
+        ],
+    )
+    def test_c3_linearization_matches_pythons_method_resolution_order(
+        parents: dict[str, list[str]], expected: list[str]
+    ) -> None:
+>       assert run_extraction._c3_linearization(expected[0], parents, {}) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.run_extraction' has no attribute '_c3_linearization'
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:331: AttributeError
+_ test_c3_linearization_matches_pythons_method_resolution_order[parents3-expected3] _
+
+parents = {'Chart': ['IChart', 'Graphic'], 'IChart': ['IGraphic'], 'Graphic': ['Shape', 'IGraphic'], 'Shape': ['IShape'], ...}
+expected = ['Chart', 'IChart', 'Graphic', 'Shape', 'IGraphic', 'IShape']
+
+    @pytest.mark.parametrize(
+        ("parents", "expected"),
+        [
+            ({"A": []}, ["A"]),
+            ({"A": ["B"], "B": ["C"], "C": []}, ["A", "B", "C"]),
+            # the classic diamond: D(B, C), B(A), C(A) -> D B C A
+            ({"D": ["B", "C"], "B": ["A"], "C": ["A"], "A": []}, ["D", "B", "C", "A"]),
+            # Chart(IChart, Graphic) with Graphic(Shape, IGraphic) and IChart(IGraphic)
+            (
+                {
+                    "Chart": ["IChart", "Graphic"],
+                    "IChart": ["IGraphic"],
+                    "Graphic": ["Shape", "IGraphic"],
+                    "Shape": ["IShape"],
+                    "IGraphic": ["IShape"],
+                    "IShape": [],
+                },
+                ["Chart", "IChart", "Graphic", "Shape", "IGraphic", "IShape"],
+            ),
+        ],
+    )
+    def test_c3_linearization_matches_pythons_method_resolution_order(
+        parents: dict[str, list[str]], expected: list[str]
+    ) -> None:
+>       assert run_extraction._c3_linearization(expected[0], parents, {}) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.run_extraction' has no attribute '_c3_linearization'
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:331: AttributeError
+____ test_c3_linearization_terminates_on_a_cycle_and_an_inconsistent_order ____
+
+    def test_c3_linearization_terminates_on_a_cycle_and_an_inconsistent_order() -> None:
+        cycle = {"A": ["B"], "B": ["A"]}
+>       assert set(run_extraction._c3_linearization("A", cycle, {})) == {"A", "B"}
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.run_extraction' has no attribute '_c3_linearization'
+
+tests\extraction\test_python_stub_interface_and_inheritance.py:336: AttributeError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_an_ellipsis_method_of_an_abc_interface_is_a_contract_not_a_stub
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_the_dotted_abc_base_and_the_abcmeta_metaclass_make_an_interface_too
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_a_concrete_subclass_of_an_abc_interface_is_not_itself_an_interface
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_pass_and_not_implemented_error_in_an_abc_class_stay_stubs
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_stub_reason_judges_the_owner_class_directly
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_an_interface_ellipsis_member_inherited_by_an_implementation_is_not_flagged
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_a_concrete_implementation_reached_through_another_base_wins_over_an_interface_stub
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_c3_linearization_matches_pythons_method_resolution_order[parents0-expected0]
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_c3_linearization_matches_pythons_method_resolution_order[parents1-expected1]
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_c3_linearization_matches_pythons_method_resolution_order[parents2-expected2]
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_c3_linearization_matches_pythons_method_resolution_order[parents3-expected3]
+FAILED tests/extraction/test_python_stub_interface_and_inheritance.py::test_c3_linearization_terminates_on_a_cycle_and_an_inconsistent_order
+
+--- stderr ---
+
