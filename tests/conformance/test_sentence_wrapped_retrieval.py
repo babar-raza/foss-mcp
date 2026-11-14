@@ -384,9 +384,21 @@ def test_sentence_wrapped_retrieval_default_sample(corpus: ConformanceCorpus) ->
         frame_name, frame_template = FRAMES[frame_index]
         sentence = _render(frame_template, title_chunk.title, family, platform)
         word_count = len(sentence.split())
-        assert 12 <= word_count <= 35, (
-            f"{pilot_name}:{frame_name} rendered a {word_count}-word sentence (want 12-35): {sentence!r}"
-        )
+        if not 12 <= word_count <= 35:
+            # A soft, baseline-tracked failure (the G3/TC-775 pattern), never a bare assert: an assert
+            # here aborts the whole sweep before ``assert_no_new_failures`` below is reached and masks
+            # every other measurement. G3/TC-813 bounds authored-example titles at 12 words so no
+            # authored title can reach this branch.
+            observed_failures.append(
+                {
+                    "pilot": pilot_name,
+                    "case_id": f"sentence-wrapped-wordcount:{pilot_name}:{frame_index}:{title_chunk.title}",
+                    "reason": (
+                        f"frame={frame_name!r} rendered a {word_count}-word sentence (want 12-35): "
+                        f"{sentence!r}"
+                    ),
+                }
+            )
         result = lookup(corpus.store, pilot.scope, sentence)
         if not _case_passes(result, title_chunk.chunk_id, title_chunk.fqn):
             observed_failures.append(

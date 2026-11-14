@@ -65,6 +65,9 @@ _TOP_LEVEL_KEYS = frozenset(
 _EXAMPLE_KEYS = frozenset({"title", "description", "symbols", "code", "code_sha256"})
 _MAX_EXAMPLES = 5
 _MAX_TITLE_CHARS = 120
+# A title is wrapped in conversational sentence frames by tests/conformance/test_sentence_wrapped_retrieval.py;
+# the tightest frame leaves room for 12 title words before the rendered sentence exceeds its 35-word bound.
+_MAX_TITLE_WORDS = 12
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _AUTHORED_HEADER_WORDS = "Authored example"
@@ -201,6 +204,10 @@ def _structure_problems(document: Any) -> list[str]:
             title = example["title"]
             if not (_non_blank(title) and len(title) <= _MAX_TITLE_CHARS):
                 problems.append(f"{label}: title must be 1 to {_MAX_TITLE_CHARS} characters")
+            elif len(title.split()) > _MAX_TITLE_WORDS:
+                problems.append(
+                    f"{label}: title has {len(title.split())} words; at most {_MAX_TITLE_WORDS} are allowed"
+                )
             elif title in titles_seen:
                 problems.append(f"{label}: title {title!r} is not unique within the file")
             else:
