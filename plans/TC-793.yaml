@@ -1,0 +1,116 @@
+id: TC-793
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P7 hermetic regeneration, piece H8 (REQ-G3-017): remove three real sources of run-to-run
+  non-determinism that a read-only 2026-11-14 release-engineering audit confirmed are still live,
+  so that anything regenerated from committed inputs is byte-reproducible and the served image
+  answers identically on every start.
+  (1) `src/foss_mcp/mcp/tools/search_symbols.py`'s `_safe_extra_generic` ranks a `frozenset` of
+  candidate stems with `sorted(candidates, key=lambda stem: -family_generic_fraction(...))` - the
+  key is the fraction ONLY, so two stems with an equal fraction keep frozenset iteration order,
+  which depends on `PYTHONHASHSEED`; the greedy selection that follows (`chosen`) then depends on
+  that order, so the same query can resolve differently between two process starts. Not observed on
+  the 729-case retrieval corpus (identical under 7 seeds) - a latent tie, not a measured failure.
+  (2) `src/foss_mcp/indexing/generation_manifest.py`'s document writer opens its temp file with
+  `os.fdopen(fd, "w", encoding="utf-8")`, so on Windows every `"\n"` it writes becomes `"\r\n"` and
+  the same manifest has different bytes on Windows and Linux (the `.gitattributes`/Git normalisation
+  hides it in the working tree, not in a hash of the bytes written).
+  (3) `Dockerfile.serving` sets no `PYTHONHASHSEED`, so every container start gets a fresh random
+  hash seed - leaving (1)-style hash-order effects live in production.
+  Scope is exactly these three one-line root causes plus tests; no behaviour is intentionally
+  changed (the retrieval ratchets must be byte-for-byte unaffected).
+depends_on:
+  - TC-675
+  - TC-686
+  - TC-703
+  - TC-510
+  - TC-529
+  - TC-564
+  - TC-350
+  - TC-472
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - src/foss_mcp/indexing/generation_manifest.py
+  - Dockerfile.serving
+  - tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py
+  - tests/indexing/test_generation_manifest_lf_newlines.py
+  - tests/test_serving_hashseed_pin.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — Operator decisions on the open owner items; the remaining-work programme is started (operator directive)
+    sha256: ef8f559590ce42e207cfea5c53210b993ea417d86afa3c40b65bc2c3f11c1510
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/search_symbols.py` `_safe_extra_generic` (def near line 784, the
+    `ranked = sorted(...)` line near 839); `src/foss_mcp/indexing/generation_manifest.py` (the
+    atomic JSON document writer using `os.fdopen(fd, "w", encoding="utf-8")` near line 414 - NOT the
+    publish-lock writer near line 449); `Dockerfile.serving` (the `runtime` stage, `ENV PYTHONPATH=/app/src`
+    near line 37; the `demo` stage derives from `runtime`); `tests/test_container_build.py` (how
+    Dockerfile text is asserted).
+  - >-
+    REPRODUCE FIRST (each of the three, yourself). (1) Build a tie scenario for `_safe_extra_generic`
+    (monkeypatch `family_generic_fraction` in the module to return one constant for every stem, so every
+    candidate ties, and choose a query/words/family with at least two strong stems and several
+    candidates) and run it in SEVERAL subprocesses with different `PYTHONHASHSEED` values (0..7);
+    show the unfixed function returns different frozensets for different seeds on your scenario. If you
+    cannot construct any scenario where the result differs across seeds, STOP and report - do not invent
+    a vacuous test. (2) Show the unfixed writer emits `\r\n` on this Windows host (read the bytes back).
+    (3) Show `Dockerfile.serving` has no `PYTHONHASHSEED`.
+  - >-
+    FIX, using exactly these literal shapes (the supervisor's negative controls are anchored on them):
+    (1) in search_symbols.py replace the ranking line with
+    `ranked = sorted(candidates, key=lambda stem: (-family_generic_fraction(stem, lexical_payload), stem))`.
+    (2) in generation_manifest.py change ONLY the JSON-document writer to
+    `with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:` (keep `json.dump(doc, fh, indent=2, sort_keys=True)`).
+    (3) in Dockerfile.serving add a line `ENV PYTHONHASHSEED=0` directly after `ENV PYTHONPATH=/app/src` in the
+    `runtime` stage (the `demo` stage inherits it).
+  - >-
+    TESTS (new files, unique to this card): `tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py` -
+    subprocess runs over several seeds asserting identical output on your tie scenario, plus a direct
+    assertion that equal-fraction stems come back in stem order; `tests/indexing/test_generation_manifest_lf_newlines.py` -
+    publish/write a small manifest through the real store into `tmp_path` and assert the written bytes
+    contain no `b"\r\n"` while still ending with a single `b"\n"` and parsing as the same JSON;
+    `tests/test_serving_hashseed_pin.py` - assert Dockerfile.serving's runtime stage sets
+    `ENV PYTHONHASHSEED=0` (regex, MULTILINE). Keep all existing tests unchanged.
+  - >-
+    Behaviour must not change: also run `tests/mcp/tools/test_search_symbols_forgiveness.py`,
+    `tests/mcp/tools/test_search_symbols_prefix_tier.py`, `tests/indexing/test_generation_manifest.py`
+    and `tests/test_serving_dependency_lock.py` - all must stay green. Do not touch any retrieval
+    ratchet or baseline.
+  - >-
+    Before committing: `ruff format` and `ruff check` on changed Python files; run the card's check
+    command twice and report real results.
+actions:
+  - >-
+    Make stem ranking tie-break deterministic, write generation manifests with LF newlines on every
+    platform, and pin PYTHONHASHSEED=0 in the serving image, each with a test that fails without it.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py tests/indexing/test_generation_manifest_lf_newlines.py tests/test_serving_hashseed_pin.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/indexing/test_generation_manifest.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 64
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = '(-family_generic_fraction(stem, lexical_payload), stem)'; assert s.count(old) == 1, 'the mandated tie-break key was not found exactly once - the card has not made this fix yet'; s2 = s.replace(old, '-family_generic_fraction(stem, lexical_payload)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts the ranking key to fraction-only, re-opening the hash-order tie; the new multi-seed
+    subprocess test (and the equal-fraction stem-order assertion) must fail. A pure literal-text
+    mutation on this card's own mandated new code.
+evidence:
+  - evidence/build/G3/TC-793/receipt.json
+closeout:
+  - >-
+    Stem ranking, manifest bytes and the serving image's hash seed are deterministic; the retrieval
+    ratchets are unchanged. Note: Dockerfile.serving is an image input, so the pushed image is
+    (already) stale and is rebuilt by the release program, not here.
+recovery: Re-run from a clean tree.
