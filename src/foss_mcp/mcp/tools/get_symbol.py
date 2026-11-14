@@ -97,6 +97,13 @@ class SymbolSignature:
     # type's FQN for a resolved member - see ResolvedSignature below), in registry file order. Empty when
     # no defect data is recorded for this pilot yet (KD6-KD9's job), or none of it matches this symbol.
     known_defects: tuple[str, ...] = ()
+    # TC-794 (G3/REQ-G3-012, RD2-254, additive): set only when the exact FQN asked for is a Python
+    # re-export shell whose definition is indexed in the same generation. ``fqn`` is then still the name
+    # asked for (the exact-match contract is unchanged) and this is the real definition's FQN, whose
+    # ``bases`` / ``methods`` / ``properties`` / ``members`` / ``limitations`` the answer carries and
+    # whose ``doc_id`` / ``chunk_id`` it cites. ``None`` for every other symbol (the pattern
+    # ``ResolvedSignature`` uses for the name a resolved answer came from).
+    canonical_fqn: str | None = None
 
 
 @dataclass(frozen=True)
@@ -378,6 +385,72 @@ def _signature_of(
     )
 
 
+_SHELL_HOP_LIMIT = 8
+
+
+def _canonical_chunk(documents: Mapping[str, Mapping[str, str]], shell_text: str) -> _SymbolChunk | None:
+    """TC-794: the definition chunk a re-export shell's ``Defined-In:`` line points at, in the same
+    generation - the first chunk whose own FQN equals it - or ``None`` when there is none (a shell
+    whose definition was never indexed, which keeps answering from its own text). A pointer that
+    itself points on is followed, at most ``_SHELL_HOP_LIMIT`` hops and never in a cycle."""
+    seen: set[str] = set()
+    target = extract_defined_in(shell_text)
+    for _hop in range(_SHELL_HOP_LIMIT):
+        if target is None or target in seen:
+            return None
+        seen.add(target)
+        found: _SymbolChunk | None = None
+        for doc_id, document in documents.items():
+            if extract_fqn(document["text"]) == target:
+                found = _SymbolChunk(doc_id, document["chunk_id"], target, document["text"])
+                break
+        if found is None:
+            return None
+        if not found.is_reexport_shell:
+            return found
+        target = found.defined_in
+    return None
+
+
+def _canonical_signature(
+    scope: Scope,
+    generation_id: str,
+    requested: str,
+    shell_text: str,
+    definition: _SymbolChunk,
+    *,
+    include_raw_text: bool,
+) -> SymbolSignature:
+    base = _parse_signature(
+        scope,
+        generation_id,
+        definition.doc_id,
+        definition.chunk_id,
+        definition.text,
+        include_raw_text=include_raw_text,
+    )
+    # A known-defect entry may name the shell (the public import path) or the definition; report both,
+    # in registry order of first appearance, never twice.
+    known_defects = known_defect_lines(scope, requested, shell_text)
+    known_defects += tuple(line for line in base.known_defects if line not in known_defects)
+    return SymbolSignature(
+        scope=base.scope,
+        generation_id=base.generation_id,
+        doc_id=base.doc_id,
+        chunk_id=base.chunk_id,
+        fqn=requested,
+        kind=base.kind,
+        bases=base.bases,
+        methods=base.methods,
+        properties=base.properties,
+        members=base.members,
+        raw_text=base.raw_text,
+        limitations=base.limitations,
+        known_defects=known_defects,
+        canonical_fqn=definition.fqn,
+    )
+
+
 def _async_twin(name: str) -> str:
     folded = name.casefold()
     if folded.endswith(_ASYNC_SUFFIX):
@@ -488,6 +561,11 @@ def get_symbol(
 ) -> SymbolSignature | ResolvedSignature | NotFound:
     """The exact signature published for *fqn* in ``scope``'s currently active generation.
 
+    TC-794: when *fqn* is a Python re-export shell (a chunk with a ``Defined-In:`` line) whose
+    definition is in the same generation, the answer carries the definition's members, properties,
+    bases and limitations under ``fqn`` = the name asked for, plus ``canonical_fqn``. A shell with no
+    indexed definition is answered from its own text, as before (``canonical_fqn`` stays ``None``).
+
     Matching is EXACT string equality against each chunk's own ``FQN:`` line - never a
     substring, never a ranked search, never a fallback to a similarly-named symbol. Example and
     documentation chunks (``Example: ...`` / ``Doc: ...`` pseudo-FQNs) are not symbols: they
@@ -516,6 +594,19 @@ def get_symbol(
         if document_fqn is None or document_fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
             continue
         if document_fqn == fqn:
+            # TC-794 (RD2-254): a re-export shell is only a pointer since TC-686 - answer it with its
+            # definition's real signature (still under the requested fqn, naming the canonical one).
+            if extract_defined_in(document["text"]) is not None:
+                definition = _canonical_chunk(documents, document["text"])
+                if definition is not None:
+                    return _canonical_signature(
+                        scope,
+                        active_generation_id,
+                        fqn,
+                        document["text"],
+                        definition,
+                        include_raw_text=include_raw_text,
+                    )
             return _parse_signature(
                 scope,
                 active_generation_id,

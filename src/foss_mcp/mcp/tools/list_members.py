@@ -24,6 +24,10 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     ``get_symbol`` would. Base types are NOT included here - a base type is not a child of *fqn*,
     it stays exposed only through ``get_symbol``'s own ``bases`` field.
 
+    TC-794 (RD2-254): a Python re-export shell FQN is answered with its definition's members -
+    ``get_symbol`` resolves the shell to its definition before this
+    function reads ``methods``/``properties``/``members`` off it, so both tools agree.
+
     TC-639 (KD2, G3/REQ-G3-015): this tool's return shape is a flat ``tuple[str, ...]`` - it has no
     field to add a ``known_defects`` list to without breaking its existing, simple contract. Its
     established precedent (TC-559's own type-level ``Limitation:`` line, below) is to PREPEND any

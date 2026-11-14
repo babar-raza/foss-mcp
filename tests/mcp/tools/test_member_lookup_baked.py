@@ -204,27 +204,45 @@ def test_the_member_with_the_most_overloads_returns_all_its_lines_in_both_forms(
 
 
 def test_a_python_reexport_shell_and_its_definition_resolve_by_short_name(baked: _Baked) -> None:
+    """Since TC-686 a re-export shell is a thin pointer (``Defined-In:`` and no members), so the case
+    is built from a shell that points at a definition, in the same generation, that DOES declare
+    members; the shell itself declares none. Counted as one type (TC-686) the short name resolves to
+    the DEFINITION's fqn and lines, and (TC-794) the shell's own exact FQN answers with that same
+    definition's signature under the requested name, naming the definition in ``canonical_fqn``."""
     cases: list[tuple[str, _Type, _Type]] = []
     for pilot in PILOTS:
         if not pilot.endswith("__python__self_extracted"):
             continue
         types = baked.types(pilot)
         for shell in types:
-            if not shell.defined_in or not shell.members:
+            if not shell.defined_in:
                 continue
             carriers = [
                 kind for kind in types if kind.fqn == shell.short or kind.fqn.endswith((f".{shell.short}",))
             ]
             definition = next((kind for kind in carriers if kind.fqn == shell.defined_in), None)
-            if definition is not None and len(carriers) == 2 and definition.members == shell.members:
+            if definition is not None and len(carriers) == 2 and definition.members:
+                assert not shell.members, (pilot, shell.fqn)  # a shell is a pointer, never a copy
                 cases.append((pilot, shell, definition))
-    assert cases, "no baked Python pilot carries a re-export shell next to its definition"
+    assert cases, "no baked Python pilot carries a re-export shell next to a definition that declares members"
     for pilot, shell, definition in cases[:: max(1, len(cases) // 20)]:
-        member = next(iter(shell.members))
+        member = next(iter(definition.members))
         answer = baked.call(pilot, "get_symbol", f"{shell.short}.{member}")
         assert _is_resolved(answer), (pilot, shell.fqn, member, answer)
         assert answer["fqn"] == definition.fqn  # counted as one type, answered with the definition
         assert answer["member_lines"] == definition.members[member]
+        # TC-794: the shell's own exact FQN is no longer an empty class - it carries the definition's members.
+        exact = baked.call(pilot, "get_symbol", shell.fqn)
+        assert exact["fqn"] == shell.fqn and exact["canonical_fqn"] == definition.fqn, (pilot, shell.fqn)
+        declared = [*exact["methods"], *exact["properties"], *exact["members"]]
+        assert member in {_NAME_END.split(line, maxsplit=1)[0] for line in declared}, (
+            pilot,
+            shell.fqn,
+            member,
+        )
+        assert baked.call(pilot, "list_members", shell.fqn) == baked.call(
+            pilot, "list_members", definition.fqn
+        )
 
 
 @pytest.mark.parametrize("pilot", PILOTS)
