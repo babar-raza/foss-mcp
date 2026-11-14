@@ -61,11 +61,22 @@ from foss_mcp.normalization.citation import (
 )
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance, ValidationResult
 
+# Short names accepted by --embedding-provider in addition to 'module.path:ClassName'.
+# 'cached-gateway' (REQ-G3-017/TC-830) is the cache-then-gateway provider with write-back used
+# by a regeneration; every other value is resolved exactly as before.
+_EMBEDDING_PROVIDER_ALIASES = {
+    "cached-gateway": "foss_mcp.indexing.cached_embedding_provider:FallbackEmbeddingProvider",
+}
+
 
 def _load_embedding_provider(spec: str) -> EmbeddingProvider:
+    spec = _EMBEDDING_PROVIDER_ALIASES.get(spec, spec)
     module_name, _, class_name = spec.partition(":")
     if not module_name or not class_name:
-        raise ValueError(f"--embedding-provider must be 'module.path:ClassName', got {spec!r}")
+        raise ValueError(
+            f"--embedding-provider must be 'module.path:ClassName' or one of "
+            f"{sorted(_EMBEDDING_PROVIDER_ALIASES)}, got {spec!r}"
+        )
     module = importlib.import_module(module_name)
     return getattr(module, class_name)()
 
@@ -298,7 +309,14 @@ def main() -> None:
     parser.add_argument("--source-kind", required=True)
     parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
     parser.add_argument("--manifest-store", type=Path, required=True)
-    parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+    parser.add_argument(
+        "--embedding-provider",
+        required=True,
+        help=(
+            "module.path:ClassName, or 'cached-gateway' for the cache-then-gateway provider with "
+            "write-back (foss_mcp.indexing.cached_embedding_provider:FallbackEmbeddingProvider)"
+        ),
+    )
     parser.add_argument("--held-by", default="ingestion")
     parser.add_argument(
         "--api-surface",
@@ -474,6 +492,9 @@ def main() -> None:
         policy=policy,
     )
     print(f"published {generation_id}")
+    summary_line = getattr(embedding_provider, "summary_line", None)
+    if callable(summary_line):
+        print(summary_line())
 
 
 if __name__ == "__main__":
