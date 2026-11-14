@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-830",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:47:01Z",
+  "base_rev": "983d6e3760ccb9008baf17ddb316ed5ea2f86e3f",
+  "head_rev": "01090fe896998bfeb0c5fbc52a8d3f6dc932b88a",
+  "card_sha256": "0350a74c662aaf76e252efb2adb53a34a1d4a6d54a8ff4da83841b9429e4eb52",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/ingest.py",
+      "src/foss_mcp/indexing/cached_embedding_provider.py",
+      "tests/indexing/test_cached_embedding_provider.py",
+      "tests/indexing/test_fallback_embedding_provider.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_fallback_embedding_provider.py tests/indexing/test_cached_embedding_provider.py tests/indexing/test_gateway_embedding_provider.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.84,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_fallback_embedding_provider.py tests/indexing/test_cached_embedding_provider.py tests/indexing/test_gateway_embedding_provider.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.086,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/cached_embedding_provider.py', 'infra/ingest.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "7549886d65f6f6a0b72120319f87127212a79f0681a3a4ec578184df62d74bc4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M infra/ingest.py",
+      "M src/foss_mcp/indexing/cached_embedding_provider.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
