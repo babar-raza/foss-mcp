@@ -584,7 +584,9 @@ def test_cells_go_live_limitations_answer_discloses_the_hazard_via_the_real_serv
     assert KNOWN_HAZARD_LEAD in result.text
     assert "goroutine" in result.text.lower()
     assert "workbook" in result.text.lower()
-    assert result.untrusted_upstream_content is False
+    # G3/TC-824: the README limitations text heads this answer, so it is still untrusted upstream content;
+    # only a hazard-only answer is False.
+    assert result.untrusted_upstream_content is True
 
 
 def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> None:

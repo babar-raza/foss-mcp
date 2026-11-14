@@ -13,7 +13,7 @@ field); ``known_hazards_from_manifest`` parses it and ``get_product_reference`` 
 
 These tests prove: (1) cells/go's LIVE answer (the real baked sidecar, the real README, the real
 config/products/cells/go.yaml) discloses the hazard, distinctly framed, never marked
-``untrusted_upstream_content``. (2) Every one of the other 15 real pilot manifests - every pilot
+``untrusted_upstream_content``. (2) Every one of the other 14 real pilot manifests - every pilot
 EXCEPT cells/go, the 5 more G3/TC-650 later added (3d/net, html/python, pdf/java, slides/java,
 slides/python), the 1 more G3/TC-653 later added (words/net), the 6 more G3/TC-784 confirmed
 already carried by later, already-accepted disclosure work (3d/typescript, cells/python,
@@ -61,7 +61,7 @@ KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
 # disclosure work (3d/typescript, cells/python, cells/rust, email/cpp, page/python, slides/cpp);
 # G3/TC-796 adds 2 more (cells/cpp, cells/typescript); G3/TC-815 adds 2 more (words/python,
 # 3d/python) - this is the full set of every pilot manifest that does, today, and
-# OTHER_PILOT_MANIFEST_PATHS below excludes all 17 of them, not only cells/go.
+# OTHER_PILOT_MANIFEST_PATHS below excludes all 18 of them, not only cells/go.
 PILOTS_WITH_KNOWN_HAZARDS = frozenset(
     {
         ("cells", "go"),
@@ -81,6 +81,7 @@ PILOTS_WITH_KNOWN_HAZARDS = frozenset(
         ("cells", "typescript"),
         ("words", "python"),
         ("3d", "python"),
+        ("pdf", "cpp"),
     }
 )
 
@@ -90,15 +91,15 @@ OTHER_PILOT_MANIFEST_PATHS = [
     for path in ALL_PRODUCT_MANIFEST_PATHS
     if (path.parent.name, path.stem) not in PILOTS_WITH_KNOWN_HAZARDS
 ]
-# 32 is every real pilot manifest under config/products/; 15 is that count minus the 17 pilots that
+# 32 is every real pilot manifest under config/products/; 14 is that count minus the 18 pilots that
 # carry a real known_hazards entry today (cells/go, the 5 G3/TC-650 added: 3d/net, html/python,
 # pdf/java, slides/java, slides/python; the 1 G3/TC-653 added: words/net; the 6 G3/TC-784
 # confirmed: 3d/typescript, cells/python, cells/rust, email/cpp, page/python, slides/cpp; and the 2
-# G3/TC-796 added: cells/cpp, cells/typescript; and the 2 G3/TC-815 added: words/python, 3d/python).
+# G3/TC-796 added: cells/cpp, cells/typescript; and the 2 G3/TC-815 added: words/python, 3d/python; and the 1 G3/TC-820 added: pdf/cpp).
 # If a pilot is ever added or removed, or another known_hazards entry is added, re-pin both counts
 # here to match the new total.
 assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS
-assert len(OTHER_PILOT_MANIFEST_PATHS) == 15, OTHER_PILOT_MANIFEST_PATHS
+assert len(OTHER_PILOT_MANIFEST_PATHS) == 14, OTHER_PILOT_MANIFEST_PATHS
 
 
 def _real_manifest(family: str, platform: str) -> dict[str, Any]:
@@ -146,8 +147,10 @@ def test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard(t
     assert "goroutine" in result.text.lower()
     assert "fatal error" in result.text.lower() or "unrecoverable" in result.text.lower()
     assert "workbook" in result.text.lower()
-    # Never a claim about what the upstream repository's own documentation says.
-    assert result.untrusted_upstream_content is False
+    # G3/TC-824: the README limitations text heads this answer, so it is still untrusted upstream content; the
+    # appended hazard paragraph itself is project-authored (the notice says so, scoped to those paragraphs).
+    assert result.untrusted_upstream_content is True
+    assert result.notice is not None and "Disclosed by this project itself" in result.notice
     # The README-sourced limitations text is still there too - never replaced, only added alongside.
     assert "CalculateFormula" in result.text
     # Hazard paragraph is a distinct block, not merged into the README prose.

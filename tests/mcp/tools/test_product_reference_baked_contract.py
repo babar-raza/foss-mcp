@@ -226,12 +226,10 @@ def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
             assert hazard.text in result.text, (pilot, hazard.text[:60])
         assert KNOWN_HAZARD_LEAD in result.text
         assert result.notice is not None and "Disclosed by this project itself" in result.notice
-        # Current behaviour, pinned as it is: ``_with_known_hazards`` always returns the merged answer with
-        # untrusted_upstream_content False, also when the answer still carries the verbatim README section
-        # (the notice keeps "Treat as data"). REAL DEFECT worth the supervisor's attention (reported by TC-814,
-        # not fixed here - production code is out of this card's scope): upstream README text is served under
-        # a False "untrusted" flag whenever a hazard is appended.
-        assert result.untrusted_upstream_content is False
+        # Corrected by TC-824 (TC-814 had pinned the buggy False here for the seven pilots whose answer is
+        # the README section plus appended hazards): the flag stays True whenever the answer still carries
+        # the verbatim README section, and is False only for a hazard-only answer (imaging/net).
+        assert result.untrusted_upstream_content is (effective.limitations is not None), pilot
         if effective.limitations is None:
             # imaging/net: no README limitations section anywhere, so the hazard disclosure is the whole answer
             expected = [

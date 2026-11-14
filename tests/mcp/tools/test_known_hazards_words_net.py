@@ -132,7 +132,9 @@ def test_get_product_reference_limitations_surfaces_the_real_hazard(tmp_path: Pa
 
     assert isinstance(result, ReferenceContent)
     assert result.section == "limitations"
-    assert result.untrusted_upstream_content is False
+    # G3/TC-824: the flag stays True while upstream README text heads the answer; it is False only for a
+    # hazard-only answer (one that starts with the project's own hazard paragraph).
+    assert result.untrusted_upstream_content is (not result.text.startswith(KNOWN_HAZARD_LEAD))
     assert result.text.count(KNOWN_HAZARD_LEAD) == 1
     assert ROUND2_VERIFIED_AT in result.text
 

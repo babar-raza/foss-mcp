@@ -480,7 +480,9 @@ def test_the_real_limitations_answer_carries_the_hazard_distinctly_framed(
 
     assert isinstance(after, ReferenceContent)
     assert after.section == "limitations"
-    assert after.untrusted_upstream_content is False
+    # G3/TC-824: the flag stays True while upstream README text heads the answer; it is False only for a
+    # hazard-only answer (one that starts with the project's own hazard paragraph).
+    assert after.untrusted_upstream_content is (not after.text.startswith(KNOWN_HAZARD_LEAD))
     assert after.text.count(KNOWN_HAZARD_LEAD) >= 1
     assert hazards[0].text.split()[0] in after.text
     assert VERIFIED_DATE in after.text

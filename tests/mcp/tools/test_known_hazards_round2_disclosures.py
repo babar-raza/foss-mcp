@@ -381,7 +381,9 @@ def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pil
 
     assert isinstance(result, ReferenceContent)
     assert result.section == "limitations"
-    assert result.untrusted_upstream_content is False
+    # G3/TC-824: the flag stays True while upstream README text heads the answer; it is False only for a
+    # hazard-only answer (one that starts with the project's own hazard paragraph).
+    assert result.untrusted_upstream_content is (not result.text.startswith(KNOWN_HAZARD_LEAD))
     # get_product_reference merges a pilot's library-level (package/commit-kind) known_defects
     # registry entries into "limitations" through the SAME paragraph mechanism and lead as
     # known_hazards (G3/TC-641), so the real expected lead count is this pilot's hazards PLUS
@@ -563,7 +565,9 @@ def test_get_product_reference_limitations_for_cells_go_surfaces_both_hazards(tm
     result = get_product_reference(inputs, "limitations", readme=readme)
 
     assert isinstance(result, ReferenceContent)
-    assert result.untrusted_upstream_content is False
+    # G3/TC-824: the flag stays True while upstream README text heads the answer; it is False only for a
+    # hazard-only answer (one that starts with the project's own hazard paragraph).
+    assert result.untrusted_upstream_content is (not result.text.startswith(KNOWN_HAZARD_LEAD))
     assert result.text.count(KNOWN_HAZARD_LEAD) == 2 + _library_level_defect_count("cells", "go")
     assert "ImportFromCSV" in result.text
     assert "numFmtId 0" in result.text
