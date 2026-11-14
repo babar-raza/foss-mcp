@@ -1,0 +1,101 @@
+id: TC-820
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Coverage wording honesty (2026-11-14 triage): RD2-066 (cells/go: the `API-Coverage` line says 'N
+  of N types' but the counted items fold package-level constants and variables in with types, so a
+  reader cannot tell what 'types' covers) and RD2-178 (pdf/cpp: the served counts follow a
+  definition - header-only classes vs documented members - that nothing states; a short served
+  definition note on the developer_guide chunk is needed). Fix: split/rename the coverage clause
+  so each count names exactly what it counts ('N of N types; M of M constants/variables; K of K
+  functions', omitting zero parts; keep the oracle-backed 100% rules of TC-613/TC-626 intact and
+  never reintroduce a bare 'N of N (100%)' tautology), driven by the chunk builder / coverage_note
+  path that writes it (src/foss_mcp/indexing/chunk_builder.py,
+  src/foss_mcp/mcp/tools/coverage_note.py); and add the count-definition sentence for pdf/cpp via
+  the pilot's authored config (config/products/pdf/cpp.yaml or the furnished sidecar it already
+  uses - find the existing mechanism, do not invent one). Pinned tests that assert the old wording
+  are updated only where they pinned the old wording (say so); measure every pilot's coverage line
+  before/after and list each change. CODE/config/tests only: the served data picks it up in the
+  later coordinated regeneration.
+depends_on:
+  - TC-727
+  - TC-686
+  - TC-631
+  - TC-520
+  - TC-056
+  - TC-791
+  - TC-730
+  - TC-775
+write_paths:
+  - src/foss_mcp/indexing/chunk_builder.py
+  - src/foss_mcp/mcp/tools/coverage_note.py
+  - config/products/pdf/cpp.yaml
+  - tests/indexing/test_coverage_line_clause_split.py
+  - tests/indexing/test_chunk_builder_coverage_line.py
+  - tests/mcp/tools/test_coverage_note.py
+  - tests/deploy/test_served_coverage_matches_fixtures.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: where the `API-Coverage:` line is produced (grep `API-Coverage` in src/ and infra/),
+    tests/indexing/test_chunk_builder_coverage_line.py, tests/mcp/tools/test_coverage_note.py,
+    tests/conformance/test_index_honesty.py (strict invariants about counts and tautologies - must
+    stay green), and how an existing config/products/*.yaml carries authored developer_guide text.
+  - >-
+    REPRODUCE FIRST on the committed cells/go and pdf/cpp data; then implement; produce a
+    before/after table of the coverage line for all 32 pilots in the report.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ unless the card's write_paths name it - a single coordinated
+    regeneration of all pilots happens in a later card; this card changes code/config/tests only.
+    Tests must exercise the code path directly (synthetic or fixture inputs), never rely on the
+    committed generations having been regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    State exactly what each coverage count covers (types vs constants/variables vs functions) and
+    add the pdf/cpp count-definition note.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_coverage_line_clause_split.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/mcp/tools/test_miss_coverage_note.py tests/deploy/test_served_coverage_matches_fixtures.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 352
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/chunk_builder.py', 'src/foss_mcp/mcp/tools/coverage_note.py', 'config/products/pdf/cpp.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-820/receipt.json
+closeout:
+  - >-
+    Coverage lines name what they count and pdf/cpp states its count definition; honesty invariants
+    unchanged.
+recovery: Re-run from a clean tree.

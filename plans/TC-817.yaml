@@ -1,0 +1,96 @@
+id: TC-817
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Docs bucket misfiling (2026-11-14 triage): RD2-224 (pdf/typescript serves 0 getting_started and
+  0 troubleshooting doc chunks although its README has '## Installation', '## Quick Start' and a
+  Scope-and-Limitations section) and RD2-271 (words/net: the README section 'What's not included
+  (and where to get it)' is indexed as a developer_guide chunk titled 'Key Capabilities and API
+  Reference' - all 19 parts of one README share the parent title - so it never classifies as
+  troubleshooting). Mechanism UNCLEAR (not traced): the README -> furnished page -> doc chunk path
+  in infra/generate_furnished_page.py and src/foss_mcp/indexing/doc_candidates.py. Trace it, then
+  fix at the source so a README section keeps its own heading as its chunk title (or maps 'not
+  included/cannot do/limitations/installation/quick start' headings to the right bucket), without
+  changing any chunk whose current title/bucket is already right (measure all 32 pilots' README ->
+  chunk mapping before/after using the committed sidecar READMEs and committed furnished pages;
+  list every chunk whose title or content_type changes). CODE and tests only; the per-pilot
+  re-ingest that makes the live data pick it up is the later coordinated regeneration - say so in
+  the report.
+depends_on:
+  - TC-638
+  - TC-369
+  - TC-110
+  - TC-677
+write_paths:
+  - infra/generate_furnished_page.py
+  - src/foss_mcp/indexing/doc_candidates.py
+  - tests/infra/test_docs_bucket_readme_headings.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: infra/generate_furnished_page.py, src/foss_mcp/indexing/doc_candidates.py,
+    src/foss_mcp/mcp/tools/search_docs.py `classify_content_type` (how a title/heading maps to a
+    content_type) and the tests in the check. Live evidence: committed manifests
+    infra/demo-manifests (doc chunks per pilot) and tests/fixtures/furnished/<pilot>/pages/.
+  - >-
+    REPRODUCE FIRST: for pdf_typescript and words_net show which README sections become which doc
+    chunks (title, content_type) today and where the heading is lost; then implement the narrowest
+    fix. New tests/infra/test_docs_bucket_readme_headings.py uses synthetic READMEs plus the real
+    committed sidecar READMEs for those two pilots and asserts installation/quick start/limitations
+    headings keep distinct, correctly bucketed chunks and that a README whose headings were already
+    right produces identical output.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ unless the card's write_paths name it - a single coordinated
+    regeneration of all pilots happens in a later card; this card changes code/config/tests only.
+    Tests must exercise the code path directly (synthetic or fixture inputs), never rely on the
+    committed generations having been regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Preserve README section headings as doc-chunk titles/buckets so installation, quick start and
+    'not included' sections classify correctly, with a before/after measurement over all pilots.
+checks:
+  - command: '{python} -m pytest tests/infra/test_docs_bucket_readme_headings.py tests/infra/test_generate_furnished_page.py tests/indexing/test_doc_candidates.py tests/indexing/test_furnished_chunk_quality.py tests/indexing/test_furnished_chunk_survival.py tests/mcp/tools/test_search_docs_content_type_counts.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 114
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['infra/generate_furnished_page.py', 'src/foss_mcp/indexing/doc_candidates.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-817/receipt.json
+closeout:
+  - >-
+    README sections keep their own headings and buckets in the furnished-page/doc-chunk path;
+    unchanged pilots produce identical output.
+recovery: Re-run from a clean tree.

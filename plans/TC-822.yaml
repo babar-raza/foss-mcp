@@ -1,0 +1,79 @@
+id: TC-822
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  RD2-208 (pdf/net): .NET events and static/readonly fields are listed inside `properties`
+  carrying `[event]` / `[static, readonly]` tags, which looks like a properties list containing
+  non-properties and nothing explains the tag convention. Cheapest honest fix first: render the
+  tag convention where the data is read - get_symbol / list_members answers for a .NET type that
+  has tagged members gain one short factual `notes`-style line naming the convention ('[event] =
+  event, [static, readonly] = static readonly field; they are listed with properties'), emitted
+  only when the answer actually contains tagged members, in the existing answer shape (additive;
+  no key renamed or removed - TC-688's contract rules). Do not change extraction or chunk text.
+  Measure on all six .NET pilots which types gain the line; every other answer is byte-identical.
+depends_on:
+  - TC-795
+  - TC-794
+  - TC-688
+write_paths:
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/list_members.py
+  - tests/mcp/tools/test_net_member_tag_convention.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: get_symbol.py and list_members.py (answer dataclasses and how member lines with
+    `[event]`/`[static, readonly]` tags are produced), tests/mcp/tools/test_member_lookup.py,
+    test_symbol_tools.py, test_get_symbol_shell_resolution.py (from TC-794).
+  - >-
+    REPRODUCE FIRST with real tool calls on pdf/net (find a type with an event and a static readonly
+    field) and on one non-.NET pilot (no line expected). New test: synthetic .NET chunk with tagged
+    members -> line present; without tags -> absent; non-.NET -> absent; existing keys unchanged.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Explain the .NET `[event]`/`[static, readonly]` member tag convention in get_symbol/list_members
+    answers that contain such members.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_net_member_tag_convention.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_get_symbol_shell_resolution.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 89
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/get_symbol.py', 'src/foss_mcp/mcp/tools/list_members.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-822/receipt.json
+closeout:
+  - >-
+    .NET answers containing tagged members state the tag convention; all other answers unchanged.
+recovery: Re-run from a clean tree.

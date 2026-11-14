@@ -1,0 +1,122 @@
+id: TC-815
+gate: G3
+lane: verification
+purpose: >-
+  Disclosure wave B (2026-11-14 triage): RD2-034 (3d/python `FileFormat`: get_symbol lists ~45
+  class-level constants as `X = None (read-only)` beside 4 real static factory methods -
+  undisclosed), RD2-269 (words/net `Document.Save(HttpResponse, ...)` is listed with no TFM
+  qualifier although it exists only in the net462 build of the published package), and RD2-283
+  (words/python: the Paragraph(children=[Run(...)]) from-scratch idiom is a private wrap-validator
+  mechanism upstream calls 'intentionally not part of the public attribute surface'; nothing tells
+  an agent so). Same Decision-A rule as the rest of P5: disclose, never patch. Route:
+  symbol-scoped, user-reachable defects -> `config/known_defects/<family>__<platform>.yaml`
+  entries (kind class/method, `refs` = the real indexed FQNs, id = the ledger issue id of the row;
+  ids whose ledger category is not upstream-library-bug must be added to
+  `_ADDITIONAL_DISCLOSABLE_IDS` in tests/indexing/test_known_defects_completeness.py, exactly as
+  TC-706/707/711/728 did); capability/limitation statements -> a verified `known_hazards`
+  paragraph (TC-721/725 precedent). Every claim is re-verified against real upstream code or the
+  real installed/published package BEFORE it is written.
+depends_on:
+  - TC-796
+  - TC-811
+  - TC-771
+  - TC-660
+  - TC-711
+  - TC-150
+  - TC-234
+write_paths:
+  - config/known_defects/3d__python.yaml
+  - config/known_defects/words__net.yaml
+  - config/products/words/python.yaml
+  - config/products/3d/python.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/mcp/tools/test_product_reference_known_hazards.py
+  - tests/indexing/test_known_defects_data_wave_b.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    Ledger rows are in docs/ROUND2_REVIEW.md (grep the RD2 id); registry ids must equal the ledger
+    issue id.
+  - >-
+    READ FIRST: an existing registry file for the entry shape (config/known_defects/words__net.yaml
+    from TC-711, config/known_defects/3d__python.yaml), schemas/product/known_defects.schema.json,
+    tests/indexing/test_known_defects_completeness.py (the lock + `_ADDITIONAL_DISCLOSABLE_IDS`),
+    the known_hazards blocks in config/products/pdf/cpp.yaml and
+    tests/mcp/tools/test_product_reference_known_hazards.py (note its `PILOTS_WITH_KNOWN_HAZARDS`
+    allowlist - a stale-pin trap: add any pilot you give a first hazard, never loosen it).
+  - >-
+    VERIFY EACH CLAIM yourself: (034) `pip install aspose-3d-foss` (pinned version in the pilot
+    manifest) in a throwaway venv OUTSIDE the repo and show `FileFormat.<NAME>` class-level
+    constants are None while the static factories work, and how the served get_symbol renders them;
+    (269) in the real upstream source at the indexed commit (clone read-only via `gh repo clone ...
+    -- --depth 50` into a temp dir outside the repo) locate where `Save(HttpResponse` is guarded
+    (csproj TargetFrameworks / `#if`) and confirm it is net462-only; confirm against the published
+    NuGet `Aspose.Words.FOSS` (dotnet reflection over the net8.0/netstandard2.0 DLL as TC-711 did)
+    that the overload is absent there; (283) read upstream for the `children` mechanism and its own
+    comment. Never write a claim you could not reproduce; if one does not reproduce, say so in your
+    report instead.
+  - >-
+    WRITE: entries/hazards for the three rows (283 as a project-authored `known_hazards` paragraph
+    in config/products/words/python.yaml saying `children=` is a private wrap-validator idiom,
+    unsupported and unstable). Dated verified_at 2026-11-14. Factual and short; no marketing text.
+  - >-
+    TESTS: new tests/indexing/test_known_defects_data_wave_b.py (schema-valid, ids equal ledger ids,
+    refs resolve in the real corpus, user_action present; the hazard text appears in the real
+    get_product_reference limitations answer for words/python and 3d/python; every other pilot's
+    limitations answer unchanged) and the allowlist/lock updates.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ unless the card's write_paths name it - a single coordinated
+    regeneration of all pilots happens in a later card; this card changes code/config/tests only.
+    Tests must exercise the code path directly (synthetic or fixture inputs), never rely on the
+    committed generations having been regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Add verified disclosures for the 3d/python FileFormat None constants, the words/net net462-only
+    Save(HttpResponse) overload and the words/python private `children` idiom, each re-verified
+    against real upstream/package before writing.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_wave_b.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 71
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['config/known_defects/3d__python.yaml', 'config/known_defects/words__net.yaml', 'config/products/words/python.yaml', 'config/products/3d/python.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-815/receipt.json
+closeout:
+  - >-
+    RD2-034/269/283 are disclosed through the registry / known_hazards with verification; no other
+    pilot's answers changed.
+recovery: Re-run from a clean tree.

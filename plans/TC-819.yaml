@@ -1,0 +1,88 @@
+id: TC-819
+gate: G3
+lane: extraction
+purpose: >-
+  RD2-164 (note/python, still reproduces): the synthesized dataclass `__init__` exposes the
+  private field `_children` - `Page.__init__(_children: list[Node] = <factory>, Title=...)`, also
+  Outline and TableRow - as a public parameter. DECISION_LOG 2026-11-07 already traced it to
+  python_surface._init_fields/_synthesized_init and scoped the only safe fix to that path: drop
+  (or flag with a note) dataclass fields whose name starts with '_' from the synthesized
+  `__init__` parameter list. Do NOT touch the generic chunk_builder._param_text (3d/typescript has
+  83 legitimate underscore params). Verify the rule on every Python pilot's real pinned source or
+  committed extraction fixture: a before/after table of synthesized-__init__ signatures over all
+  11 Python pilots - only signatures that contained an underscore-prefixed dataclass field may
+  change, all others byte-identical. Fixtures are not regenerated here.
+depends_on:
+  - TC-818
+  - TC-700
+  - TC-559
+  - TC-674
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+  - tests/extraction/test_python_dataclass_private_init_field.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: python_surface.py `_init_fields`/`_synthesized_init`, the dataclass tests in
+    tests/extraction/test_python_fidelity.py and test_round3_python_fidelity.py, and the 2026-11-07
+    DECISION_LOG entry about note/python (grep `_children`).
+  - >-
+    REPRODUCE FIRST with a hand-authored dataclass micro-source and with the real note/python pinned
+    source; the new test covers: underscore field dropped from `__init__`, `field(init=False)` still
+    handled as before, `InitVar`, a public field with an underscore later in the name, inheritance,
+    and that non-dataclass classes are untouched.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ unless the card's write_paths name it - a single coordinated
+    regeneration of all pilots happens in a later card; this card changes code/config/tests only.
+    Tests must exercise the code path directly (synthetic or fixture inputs), never rely on the
+    committed generations having been regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Stop private (underscore-prefixed) dataclass fields from appearing as public
+    synthesized-__init__ parameters.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_python_dataclass_private_init_field.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_note_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 194
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/python_surface.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-819/receipt.json
+closeout:
+  - >-
+    Synthesized __init__ signatures no longer expose private dataclass fields; unrelated signatures
+    are unchanged on all Python pilots.
+recovery: Re-run from a clean tree.

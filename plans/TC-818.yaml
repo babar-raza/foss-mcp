@@ -1,0 +1,101 @@
+id: TC-818
+gate: G3
+lane: extraction
+purpose: >-
+  Python public import paths not indexed (2026-11-14 triage): RD2-276 (words/python: 11 of 11
+  probed names - CellMerge, HeightRule, Underline, Orientation, NumberStyle, SectionStart,
+  LineStyle, LineSpacingRule, ParagraphAlignment, CellVerticalAlignment, StyleType - under the
+  public package root `aspose.words_foss.<Name>` are NotFound; only the defining-module path
+  `aspose.words_foss.model.enums.<Name>` is indexed) and RD2-028 (3d/python: README imports
+  `aspose.threed.formats.collada.ColladaSaveOptions`, the index has
+  `aspose.threed.formats.ColladaSaveOptions`). slides/python already resolves its package-root
+  shells (e.g. `aspose.slides_foss.Presentation`; TC-674/TC-686/TC-794 made shells pointers that
+  resolve to the definition), so the mechanism exists: the Python extractor
+  (src/foss_mcp/extraction/tree_sitter_engine/python_surface.py `_module_symbols`/re-export
+  handling and run_extraction._python_types_from_surface) must emit a shell/alias symbol for every
+  PUBLIC re-export reachable from a package `__init__` (`from .x import Y`, `from .x import Y as
+  Z`, `__all__`, nested package `__init__` chains such as formats/collada/__init__.py) at EACH
+  public path through which it is importable, never for private names, never duplicating the
+  definition, and resolving the unique-name case only (ambiguous names stay disclosed as
+  unresolved, as today). Verify against the real pinned sources of words/python and 3d/python
+  (clone read-only outside the repo at the commit in the pilot's manifest) and every other Python
+  pilot: produce a before/after table of (pilot, shells added, names resolved) - existing symbols
+  and counts of the other pilots must not change. Extraction fidelity fixtures are NOT regenerated
+  here (later cohort card).
+depends_on:
+  - TC-700
+  - TC-674
+  - TC-559
+  - TC-620
+  - TC-561
+  - TC-794
+  - TC-729
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+  - src/foss_mcp/extraction/run_extraction.py
+  - tests/extraction/test_python_package_root_reexports.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: python_surface.py (`_module_symbols`, `_branch_import_nodes`,
+    star-import/unresolved-reexport handling, `last_definition`), run_extraction.py
+    (`_python_types_from_surface`, `_alias_groups`), src/foss_mcp/indexing/symbol_identity.py
+    (compute_canonical_identities: how shells/definitions pair) and the tests in the check.
+  - >-
+    REPRODUCE FIRST: run the extractor in-process over the real pinned source of words/python and
+    show the 11 names have no package-root symbol; same for the collada options in 3d/python.
+    Hand-author upstream-shaped micro-libraries in the new test (package with `__init__` re-exports,
+    `__all__`, aliased imports, nested package chain, a private re-export, an ambiguous short name)
+    and assert the exact symbol/alias set.
+  - >-
+    Do NOT edit fixtures under tests/fixtures/<pilot>/api_surface.json and do NOT touch
+    get_symbol/search_symbols (they already resolve shells). No other language path may change.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Extract package-root and module-path re-export aliases for Python public symbols so every public
+    import path resolves, with a before/after table over all Python pilots.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_python_package_root_reexports.py tests/extraction/test_python_fidelity.py tests/extraction/test_round3_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_alias_groups.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_central_classes_python.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 273
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/python_surface.py', 'src/foss_mcp/extraction/run_extraction.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-818/receipt.json
+closeout:
+  - >-
+    The Python extractor emits shells for all public re-export paths; the unique-name case resolves,
+    ambiguous names stay honestly unresolved.
+recovery: Re-run from a clean tree.

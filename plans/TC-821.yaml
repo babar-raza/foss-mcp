@@ -1,0 +1,85 @@
+id: TC-821
+gate: G3
+lane: extraction
+purpose: >-
+  RD2-220 (pdf/typescript): class/interface JSDoc is reduced to its first sentence, which for
+  several pdf/typescript classes is a title fragment and drops the sentence that says what the
+  class is for / its constraint; TypeScript method docs keep the paragraph, classes do not. In
+  src/foss_mcp/extraction/tree_sitter_engine/api_surface.py keep the full first paragraph (cap at
+  3 sentences / 400 chars at a sentence boundary) for class and interface docs, mirroring what
+  method docs do, without changing member docs, other languages, or any class whose first
+  paragraph is a single sentence (byte-identical). Verify on every TypeScript pilot's real
+  committed fixture/source (pdf, cells, 3d): before/after table of class docs that change.
+  Fixtures are not regenerated here.
+depends_on:
+  - TC-690
+  - TC-559
+  - TC-558
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  - tests/extraction/test_typescript_class_jsdoc_paragraph.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: api_surface.py TypeScript doc-comment handling (how method docs vs class docs are
+    summarised) and the TS extraction tests in the check.
+  - >-
+    REPRODUCE FIRST with the real pdf/typescript source at its pinned commit (clone read-only
+    outside the repo) and with a hand-authored class JSDoc micro-source; the new test covers
+    multi-sentence class docs, single-sentence docs (unchanged), `@param`/`@example` tag stripping,
+    and that member docs are untouched.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ unless the card's write_paths name it - a single coordinated
+    regeneration of all pilots happens in a later card; this card changes code/config/tests only.
+    Tests must exercise the code path directly (synthetic or fixture inputs), never rely on the
+    committed generations having been regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Keep the full first paragraph (bounded) of TypeScript class/interface JSDoc instead of only its
+    first sentence.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_typescript_class_jsdoc_paragraph.py tests/extraction/test_round3_typescript_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/extraction/test_ts_constructor_parameter_properties.py tests/extraction/test_pdf_typescript_extraction.py tests/extraction/test_cells_typescript_extraction.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 65
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/api_surface.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-821/receipt.json
+closeout:
+  - >-
+    TypeScript class/interface docs carry their first paragraph; single-sentence docs and members
+    are unchanged.
+recovery: Re-run from a clean tree.

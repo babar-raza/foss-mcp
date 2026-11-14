@@ -1,0 +1,98 @@
+id: TC-823
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Precision of exact labels (2026-11-14 triage): RD2-230 (slides/cpp) and RD2-278 (words/python):
+  a query naming a concept the library does not have still gets `match_quality: exact` when
+  satisfied by `bag_of_words`/`evidence_sentence` tiers, e.g. a CamelCase identifier query whose
+  candidate does not actually contain that identifier; and RD2-100 (cells/rust): search_docs
+  counts a query term that occurs only inside a tree-drawing/code-fence passage as a match
+  (incidental token), so an absent-feature query is answered with an unrelated page. Fix at the
+  source in src/foss_mcp/mcp/tools/lookup.py (the exact predicate / limitations_first / via_member
+  path TC-708 and TC-643 shaped) and src/foss_mcp/mcp/tools/search_docs.py (passage matching):
+  never grant `exact` on the bag_of_words/evidence_sentence tiers when the query contains a
+  CamelCase identifier (or any required term) that the candidate artifact does not contain
+  verbatim - degrade to a labelled partial/absent-with-nearest answer instead; and in search_docs
+  do not count a query term that matches only inside a fenced block or an ASCII directory-tree
+  passage unless that passage is the title match. All ratchets (hit@3 >= 0.85, wrong-confident <=
+  the committed ceilings, pdf/slides/examples precision floors, nonsense-miss, title-anchor
+  invariants) must stay green with zero floor changes; measure the 729-case corpus before/after
+  and report any case whose label changes.
+depends_on:
+  - TC-708
+  - TC-684
+  - TC-641
+  - TC-677
+  - TC-640
+  - TC-633
+  - TC-810
+  - TC-799
+  - TC-797
+write_paths:
+  - src/foss_mcp/mcp/tools/lookup.py
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/tools/test_exact_label_unsupported_concept.py
+  - tests/mcp/tools/test_search_docs_incidental_token.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: lookup.py (exact predicate, tiers), search_docs.py (passage matching,
+    `classify_content_type`, partial tier),
+    tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py, test_round3_retrieval_corpus.py,
+    tests/conformance/test_precision_and_size_budget.py.
+  - >-
+    REPRODUCE FIRST with the real queries from the three rows against the real committed generations
+    (slides/cpp, words/python, cells/rust), capture the current labels, then fix. New tests use
+    synthetic scopes AND those real repros; an honest nearest-answer with `match_quality`
+    partial/none is the expected result where the concept is absent.
+  - >-
+    Do not edit relevance.py, find_examples.py or search_symbols.py (other cards own them).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so. If a related test outside write_paths fails because of
+    your change, do not edit it: stop and report it with the exact failure.
+actions:
+  - >-
+    Stop granting `exact` to unsupported-concept queries on the bag_of_words/evidence tiers and stop
+    counting incidental tree/code-fence tokens in search_docs.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_exact_label_unsupported_concept.py tests/mcp/tools/test_search_docs_incidental_token.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 178
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/lookup.py', 'src/foss_mcp/mcp/tools/search_docs.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-823/receipt.json
+closeout:
+  - >-
+    Absent-concept queries no longer earn exact labels or unrelated confident pages; every ratchet
+    floor is unchanged.
+recovery: Re-run from a clean tree.
