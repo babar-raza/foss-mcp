@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "card": "TC-837",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T10:52:03Z",
+  "base_rev": "a4cf83e4970facf3cdb0723e6b4f95c26fc4c757",
+  "head_rev": "67cd21feb68fc4d3bcebd33796e6d0213c90af0b",
+  "card_sha256": "6dedd6b5287008f6d87f7b05d0282a13320109205595b5eba65b22023610cffc",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "schemas/product/authored-examples.schema.json",
+      "src/foss_mcp/indexing/authored_examples.py",
+      "tests/fixtures/furnished/pdf_java/authored_examples.yaml",
+      "tests/fixtures/furnished/slides_python/authored_examples.yaml",
+      "tests/indexing/test_authored_examples.py",
+      "tests/indexing/test_authored_examples_pdf_java.py",
+      "tests/indexing/test_authored_examples_slides_python.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_title_word_limit.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 17.913,
+          "stdout_sha256": "e5804b0300974ac3ce83ba262cbfd981bb628d578f9f67018f7112cedabe61da",
+          "tests": 382,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 141.489,
+          "stdout_sha256": "a9d6c55ed9d807b32d5bf39b92352c1be384488db2b8135a515cc9266b970a29",
+          "tests": 108,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_title_word_limit.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.969,
+          "stdout_sha256": "e5804b0300974ac3ce83ba262cbfd981bb628d578f9f67018f7112cedabe61da",
+          "tests": 382,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 150.191,
+          "stdout_sha256": "a9d6c55ed9d807b32d5bf39b92352c1be384488db2b8135a515cc9266b970a29",
+          "tests": 108,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/authored_examples.py', 'schemas/product/authored-examples.schema.json', 'tests/fixtures/furnished/slides_python/authored_examples.yaml', 'tests/fixtures/furnished/pdf_java/authored_examples.yaml', 'tests/fixtures/furnished/words_python/authored_examples.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "be03c13d15e638ef9b405a853fb82b506839ec675eb5d975d6454c779fa95797",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M schemas/product/authored-examples.schema.json",
+      "M src/foss_mcp/indexing/authored_examples.py",
+      "M tests/fixtures/furnished/pdf_java/authored_examples.yaml",
+      "M tests/fixtures/furnished/slides_python/authored_examples.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,592 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_title_word_limit.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-15kyazp1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 56%]
+........................................................................ [ 75%]
+........................................................................ [ 94%]
+......................                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-15kyazp1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 66%]
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_title_word_limit.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-15kyazp1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 56%]
+........................................................................ [ 75%]
+........................................................................ [ 94%]
+......................                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-15kyazp1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 66%]
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M schemas/product/authored-examples.schema.json, M src/foss_mcp/indexing/authored_examples.py, M tests/fixtures/furnished/pdf_java/authored_examples.yaml, M tests/fixtures/furnished/slides_python/authored_examples.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_words_python.py tests/indexing/test_authored_examples_title_word_limit.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-15kyazp1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 18%]
+..............FFF....................................................... [ 37%]
+....................FF........F.....F.....F.....F.....F.....F.....F..... [ 56%]
+F...FFFFFF.......F.....F.....F.....F.....F.....F.....F.....F.....F...FFF [ 75%]
+........................................................................ [ 94%]
+......................                                                   [100%]
+================================== FAILURES ===================================
+_________________________ test_the_example_cap_is_six _________________________
+
+    def test_the_example_cap_is_six() -> None:
+        # TC-837: raised from 5 to 6 so a pilot's examples are not dropped merely to make room.
+>       assert authored_examples._MAX_EXAMPLES == 6
+E       assert 5 == 6
+E        +  where 5 = authored_examples._MAX_EXAMPLES
+
+tests\indexing\test_authored_examples.py:503: AssertionError
+_____ test_the_schema_and_the_validator_agree_on_a_maximal_valid_document _____
+
+    def test_the_schema_and_the_validator_agree_on_a_maximal_valid_document() -> None:
+        document = _document(examples=_numbered_examples(6))
+>       assert _schema_errors(document) == []
+E       assert [<ValidationE...is too long">] == []
+E         
+E         Left contains one more item: <ValidationError: "[{'title': 'Example 0', 'description': 'Create a widget and spin it once.', 'symbols': ['Widget.Spi...\\nwidget.Spin()\\n', 'code_sha256': 'c209a1cee90837a5c2036386d6310fb239cf9d7652ea114f0bb44c14dc0f1f20'}] is too long">
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples.py:510: AssertionError
+_ test_six_examples_are_accepted_and_seven_are_rejected_by_the_schema_and_the_validator _
+
+    def test_six_examples_are_accepted_and_seven_are_rejected_by_the_schema_and_the_validator() -> None:
+        for count in (1, 5, 6):
+            document = _document(examples=_numbered_examples(count))
+>           assert _schema_errors(document) == [], count
+E           AssertionError: 6
+E           assert [<ValidationE...is too long">] == []
+E             
+E             Left contains one more item: <ValidationError: "[{'title': 'Example 0', 'description': 'Create a widget and spin it once.', 'symbols': ['Widget.Spi...\\nwidget.Spin()\\n', 'code_sha256': 'c209a1cee90837a5c2036386d6310fb239cf9d7652ea114f0bb44c14dc0f1f20'}] is too long">
+E             Use -v to get more diff
+
+tests\indexing\test_authored_examples.py:517: AssertionError
+______ test_the_sidecar_loads_and_yields_exactly_six_authored_candidates ______
+
+    def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
+        candidates = _candidates()
+>       assert len(candidates) == EXPECTED_EXAMPLES
+E       assert 5 == 6
+E        +  where 5 = len((CandidateExample(title='Create a Table, Merge Cells and Verify Round-Trip Persistence', description='Adapted from the...ion.advance_after_time == 4000\n    assert reloaded_transition.advance_after is True\n\nos.remove(path)\nprint("OK")')))
+
+tests\indexing\test_authored_examples_slides_python.py:101: AssertionError
+________________ test_the_sidecar_header_matches_the_chart_pin ________________
+
+    def test_the_sidecar_header_matches_the_chart_pin() -> None:
+        library = _pilot_library()
+        document = _document()
+        assert document["schema_version"] == 1
+        assert document["pilot"] == PILOT
+        assert document["library_repository"] == library["repository"]
+        assert document["library_commit"] == library["commit"]
+        assert document["language"] == LANGUAGE_BY_PLATFORM[library["platform"]]
+>       assert len(document["examples"]) == EXPECTED_EXAMPLES
+E       assert 5 == 6
+E        +  where 5 = len([{'title': 'Create a Table, Merge Cells and Verify Round-Trip Persistence', 'description': 'Adapted from the upstream ...ance_after_time == 4000\n    assert reloaded_transition.advance_after is True\n\nos.remove(path)\nprint("OK")\n', ...}])
+
+tests\indexing\test_authored_examples_slides_python.py:114: AssertionError
+________________________ test_the_code_hash_matches[5] ________________________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+>       example = _example(index)
+                  ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:156: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+____________ test_the_label_comment_is_the_first_non_blank_line[5] ____________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_the_label_comment_is_the_first_non_blank_line(index: int) -> None:
+>       code = _example(index)["code"]
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+_______ test_every_declared_symbol_resolves_and_appears_in_the_code[5] ________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_every_declared_symbol_resolves_and_appears_in_the_code(index: int) -> None:
+>       example = _example(index)
+                  ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+____________________ test_no_forbidden_pattern_matches[5] _____________________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_no_forbidden_pattern_matches(index: int) -> None:
+>       code = _example(index)["code"]
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+__________ test_every_example_imports_from_the_pilots_own_package[5] __________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_every_example_imports_from_the_pilots_own_package(index: int) -> None:
+>       code = _example(index)["code"]
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+_________ test_no_example_carries_unittest_or_sys_path_scaffolding[5] _________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_no_example_carries_unittest_or_sys_path_scaffolding(index: int) -> None:
+        # The upstream examples are adapted from pytest-based test methods (some using a tmp_pptx
+        # fixture); each authored example must be the extracted standalone logic, not the original
+        # test harness or its fixtures.
+>       code = _example(index)["code"]
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+__________ test_no_example_depends_on_a_file_that_does_not_exist[5] ___________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_no_example_depends_on_a_file_that_does_not_exist(index: int) -> None:
+>       code = _example(index)["code"]
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:218: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+____________ test_every_example_prints_and_asserts_real_output[5] _____________
+
+index = 5
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_every_example_prints_and_asserts_real_output(index: int) -> None:
+        # Every example must observe (print) and check (assert) real output, not merely construct an
+        # object and discard it.
+>       code = _example(index)["code"]
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_slides_python.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+index = 5
+
+    def _example(index: int) -> dict:
+>       return _document()["examples"][index]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:77: IndexError
+____ test_the_five_other_examples_remain_alongside_the_placeholder_example ____
+
+    def test_the_five_other_examples_remain_alongside_the_placeholder_example() -> None:
+        titles = [example["title"] for example in _document()["examples"]]
+        for topic, title in KEPT_TITLE_WORDS.items():
+>           assert title in titles, topic
+E           AssertionError: properties
+E           assert 'Set Core and Custom Document Properties and Delete One' in ['Create a Table, Merge Cells and Verify Round-Trip Persistence', "Add Comments From Two Authors and Filter a Slide's ...wo Rectangles and Lock the Group Against Ungrouping', 'Apply a Circle Slide Transition With a Timed Automatic Advance']
+
+tests\indexing\test_authored_examples_slides_python.py:293: AssertionError
+________ test_exactly_one_example_sets_and_deletes_document_properties ________
+
+    def test_exactly_one_example_sets_and_deletes_document_properties() -> None:
+        found = _document_properties_examples()
+>       assert len(found) == 1, [example["title"] for example in found]
+E       AssertionError: []
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_slides_python.py:320: AssertionError
+_____ test_the_document_properties_example_sets_removes_saves_and_reloads _____
+
+    def test_the_document_properties_example_sets_removes_saves_and_reloads() -> None:
+>       code = _document_properties_examples()[0]["code"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:331: IndexError
+________ test_the_document_properties_example_keeps_its_verified_hash _________
+
+    def test_the_document_properties_example_keeps_its_verified_hash() -> None:
+        # the example was verified when first authored (TC-750) and re-run for TC-837 against
+        # aspose-slides-foss at the pinned commit; an edit to the code changes this hash
+>       example = _document_properties_examples()[0]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_slides_python.py:352: IndexError
+______ test_the_sidecar_loads_and_yields_exactly_six_authored_candidates ______
+
+    def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
+        candidates = _candidates()
+>       assert len(candidates) == EXPECTED_EXAMPLES
+E       assert 5 == 6
+E        +  where 5 = len((CandidateExample(title='Confirm a Paragraph Survives a Save and Reload via TextAbsorber', description="Adds a TextFra...            throw new AssertionError("expected the reloaded radio group to keep both options");\n        }\n    }\n}')))
+
+tests\indexing\test_authored_examples_pdf_java.py:113: AssertionError
+________________ test_the_sidecar_header_matches_the_chart_pin ________________
+
+    def test_the_sidecar_header_matches_the_chart_pin() -> None:
+        library = _pilot_library()
+        document = _document()
+        assert document["schema_version"] == 1
+        assert document["pilot"] == PILOT
+        assert document["library_repository"] == library["repository"]
+        assert document["library_commit"] == library["commit"]
+        # TC-748: re-confirmed against config/products/pdf/java.yaml and the real cloned commit's own
+        # "release 26.9.0" tag at the time this card was authored.
+        assert document["library_commit"] == "736cedaa2922e4952f429364bdb9a4bbb1d97863"
+        assert document["language"] == LANGUAGE_BY_PLATFORM[library["platform"]]
+>       assert len(document["examples"]) == EXPECTED_EXAMPLES
+E       assert 5 == 6
+E        +  where 5 = len([{'title': 'Confirm a Paragraph Survives a Save and Reload via TextAbsorber', 'description': "Adds a TextFragment para...     throw new AssertionError("expected the reloaded radio group to keep both options");\n        }\n    }\n}\n', ...}])
+
+tests\indexing\test_authored_examples_pdf_java.py:129: AssertionError
+________________________ test_the_code_hash_matches[6] ________________________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_the_code_hash_matches(number: int) -> None:
+>       example = _example(number)
+                  ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+____________ test_the_label_comment_is_the_first_non_blank_line[6] ____________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_the_label_comment_is_the_first_non_blank_line(number: int) -> None:
+>       code = _example(number)["code"]
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:160: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+_______ test_every_declared_symbol_resolves_and_appears_in_the_code[6] ________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_every_declared_symbol_resolves_and_appears_in_the_code(number: int) -> None:
+>       example = _example(number)
+                  ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:168: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+____________________ test_no_forbidden_pattern_matches[6] _____________________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_no_forbidden_pattern_matches(number: int) -> None:
+>       code = _example(number)["code"]
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:180: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+_________ test_the_title_differs_from_every_readme_candidate_title[6] _________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_the_title_differs_from_every_readme_candidate_title(number: int) -> None:
+>       assert _example(number)["title"] not in _readme_titles()
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+____ test_every_example_is_a_complete_program_with_its_own_public_class[6] ____
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_every_example_is_a_complete_program_with_its_own_public_class(number: int) -> None:
+>       code = _example(number)["code"]
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:192: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+___ test_every_import_line_is_the_standard_library_or_the_pinned_package[6] ___
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_every_import_line_is_the_standard_library_or_the_pinned_package(number: int) -> None:
+>       code = _example(number)["code"]
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+__________ test_no_example_depends_on_a_file_that_does_not_exist[6] ___________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_no_example_depends_on_a_file_that_does_not_exist(number: int) -> None:
+>       code = _example(number)["code"]
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:218: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+____________ test_every_example_prints_the_output_it_asserts_on[6] ____________
+
+number = 6
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_every_example_prints_the_output_it_asserts_on(number: int) -> None:
+        # A compiled-but-silent program is not distinguishable from one that never ran; every example
+        # prints the real value(s) it then asserts against, so a verifier run leaves a human-readable
+        # trace of what actually happened, not just an exit code.
+>       code = _example(number)["code"]
+               ^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_pdf_java.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+number = 6
+
+    def _example(number: int) -> dict:
+>       return _document()["examples"][number - 1]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:89: IndexError
+________ test_exactly_one_example_builds_a_table_row_and_reads_it_back ________
+
+    def test_exactly_one_example_builds_a_table_row_and_reads_it_back() -> None:
+        examples = _table_examples()
+>       assert len(examples) == 1, [example["title"] for example in examples]
+E       AssertionError: []
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_pdf_java.py:293: AssertionError
+_ test_the_table_example_adds_two_cells_then_checks_both_in_the_reloaded_text _
+
+    def test_the_table_example_adds_two_cells_then_checks_both_in_the_reloaded_text() -> None:
+>       code = _table_examples()[0]["code"]
+               ^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:306: IndexError
+_______________ test_the_table_example_keeps_its_verified_hash ________________
+
+    def test_the_table_example_keeps_its_verified_hash() -> None:
+        # verified when first authored (TC-748) and re-run for TC-837 against org.aspose:aspose-pdf-foss at
+        # the pinned commit; an edit to the code changes this hash
+>       code_sha256 = _table_examples()[0]["code_sha256"]
+                      ^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\indexing\test_authored_examples_pdf_java.py:325: IndexError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples.py::test_the_example_cap_is_six
+FAILED tests/indexing/test_authored_examples.py::test_the_schema_and_the_validator_agree_on_a_maximal_valid_document
+FAILED tests/indexing/test_authored_examples.py::test_six_examples_are_accepted_and_seven_are_rejected_by_the_schema_and_the_validator
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_sidecar_loads_and_yields_exactly_six_authored_candidates
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_sidecar_header_matches_the_chart_pin
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_code_hash_matches[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_label_comment_is_the_first_non_blank_line[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_every_declared_symbol_resolves_and_appears_in_the_code[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_no_forbidden_pattern_matches[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_every_example_imports_from_the_pilots_own_package[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_no_example_carries_unittest_or_sys_path_scaffolding[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_no_example_depends_on_a_file_that_does_not_exist[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_every_example_prints_and_asserts_real_output[5]
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_five_other_examples_remain_alongside_the_placeholder_example
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_exactly_one_example_sets_and_deletes_document_properties
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_document_properties_example_sets_removes_saves_and_reloads
+FAILED tests/indexing/test_authored_examples_slides_python.py::test_the_document_properties_example_keeps_its_verified_hash
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_sidecar_loads_and_yields_exactly_six_authored_candidates
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_sidecar_header_matches_the_chart_pin
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_code_hash_matches[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_label_comment_is_the_first_non_blank_line[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_every_declared_symbol_resolves_and_appears_in_the_code[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_no_forbidden_pattern_matches[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_title_differs_from_every_readme_candidate_title[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_every_example_is_a_complete_program_with_its_own_public_class[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_every_import_line_is_the_standard_library_or_the_pinned_package[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_no_example_depends_on_a_file_that_does_not_exist[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_every_example_prints_the_output_it_asserts_on[6]
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_exactly_one_example_builds_a_table_row_and_reads_it_back
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_table_example_adds_two_cells_then_checks_both_in_the_reloaded_text
+FAILED tests/indexing/test_authored_examples_pdf_java.py::test_the_table_example_keeps_its_verified_hash
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_round2_recall_ratchet.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-15kyazp1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 66%]
+....................................                                     [100%]
+
+--- stderr ---
+
