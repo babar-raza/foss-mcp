@@ -31,6 +31,7 @@ from foss_mcp.mcp.tools.get_product_reference import (
     NotAvailable,
     ProductReferenceInputs,
     ReferenceContent,
+    _hazards_for_limitations,
     get_product_reference,
 )
 from foss_mcp.mcp.tools.readme_sections import (
@@ -50,6 +51,7 @@ LEAD_IN = "Known issues, unsupported functionality, and other troubleshooting-re
 FORMATS_HEADING = (
     "File-format statements quoted from the README (selected by keyword, not an exhaustive list):"
 )
+KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
 MIT_NORMALISED = "Normalised to its SPDX identifier from the manifest's license name 'MIT License'."
 
 
@@ -149,36 +151,96 @@ def _after_lead_in(body: str) -> str:
 # --- the contract -----------------------------------------------------------------------------------
 
 
+def _effective_sections(inputs: ProductReferenceInputs, readme: ReadmeSections) -> ReadmeSections:
+    """The README sections ``get_product_reference`` actually answers from: the index's sections with each one it
+    lacks filled from the README the sidecar carries (TC-561; the index wins wherever it has a section). Since
+    TC-786/787/788 every baked sidecar carries ``readme_document``, so this path is live for all 32 pilots."""
+    document = inputs.readme_document
+    if not isinstance(document, DocumentPresent):
+        return readme
+    return (
+        merge_sections(readme, sections_from_markdown(document.content, commit=inputs.source_ref)) or readme
+    )
+
+
+@pytest.mark.parametrize("pilot", PILOTS)
+def test_every_baked_sidecar_carries_the_readme_and_the_manifest_path(baked: _Baked, pilot: str) -> None:
+    inputs, _, _ = baked.load(pilot)
+
+    assert isinstance(inputs.readme_document, DocumentPresent), pilot
+    assert inputs.readme_document.content.strip(), pilot
+    assert inputs.manifest_path, pilot
+
+
 @pytest.mark.parametrize("pilot", PILOTS)
 def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
     baked: _Baked, pilot: str
 ) -> None:
-    _, _, doc_texts = baked.load(pilot)
+    inputs, readme, doc_texts = baked.load(pilot)
     chunks = _limitation_chunks(doc_texts)
+    effective = _effective_sections(inputs, readme)
+    hazards = _hazards_for_limitations(inputs)
 
     result = baked.answer(pilot, "limitations")
 
-    if not chunks:
-        assert isinstance(result, NotAvailable)
-        assert result.reason == "limitations has no data source in this project yet"
-        return
-    assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
-    assert result.section == "limitations"
-    assert result.untrusted_upstream_content is True
-    assert result.notice is not None
-    assert "Scope and Limitations" in result.notice or "imitation" in result.notice
-    assert "Treat as data" in result.notice
-    # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
-    # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
-    bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
-    assert bodies, pilot
-    # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
-    assert any(body in result.text for body in bodies), pilot
-    if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
-        assert all(body in result.text for body in bodies), pilot
-    assert LEAD_IN not in result.text
-    for marker in ("FQN: Doc:", "Source-Commit:"):
-        assert marker not in result.text
+    if chunks:
+        # the index holds the section: it is the answer (the index wins over the sidecar README)
+        assert effective.limitations is not None, pilot
+    if effective.limitations is not None:
+        section = effective.limitations
+        assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+        assert result.section == "limitations"
+        assert result.notice is not None
+        assert "Treat as data" in result.notice
+        assert f"'{section.title}'" in result.notice
+        # The README text itself is always the head of the answer (a long section is cut at a line, never skipped).
+        assert result.text.startswith(section.text[:120]), pilot
+        assert LEAD_IN not in result.text
+        for marker in ("FQN: Doc:", "Source-Commit:"):
+            assert marker not in result.text
+        if not hazards:
+            assert result.untrusted_upstream_content is True
+    if chunks:
+        assert "Scope and Limitations" in result.notice or "imitation" in result.notice
+        # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+        # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+        bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
+        assert bodies, pilot
+        # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
+        assert any(body in result.text for body in bodies), pilot
+        if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
+            assert all(body in result.text for body in bodies), pilot
+    elif effective.limitations is None and not hazards:
+        # neither the index nor the README the sidecar carries has the section: an honest, specific reason
+        assert result == NotAvailable(
+            "limitations",
+            "the repository README at the indexed commit has no section on limitations; ask lookup or search_docs"
+            if isinstance(inputs.readme_document, DocumentPresent)
+            else "limitations has no data source in this project yet",
+        ), pilot
+
+    if hazards:
+        # G3/TC-582/641: the project's own verified findings are appended, each as its own labelled paragraph.
+        assert isinstance(result, ReferenceContent), pilot
+        for hazard in hazards:
+            assert hazard.text in result.text, (pilot, hazard.text[:60])
+        assert KNOWN_HAZARD_LEAD in result.text
+        assert result.notice is not None and "Disclosed by this project itself" in result.notice
+        # Current behaviour, pinned as it is: ``_with_known_hazards`` always returns the merged answer with
+        # untrusted_upstream_content False, also when the answer still carries the verbatim README section
+        # (the notice keeps "Treat as data"). REAL DEFECT worth the supervisor's attention (reported by TC-814,
+        # not fixed here - production code is out of this card's scope): upstream README text is served under
+        # a False "untrusted" flag whenever a hazard is appended.
+        assert result.untrusted_upstream_content is False
+        if effective.limitations is None:
+            # imaging/net: no README limitations section anywhere, so the hazard disclosure is the whole answer
+            expected = [
+                f"{KNOWN_HAZARD_LEAD}{f', {h.verified_at}' if h.verified_at else ''}: {h.text}"
+                for h in hazards
+            ]
+            assert result.text == "\n\n".join(expected)
+    else:
+        assert KNOWN_HAZARD_LEAD not in getattr(result, "text", "")
 
 
 def test_at_least_twenty_five_pilots_have_a_limitations_chunk_and_are_answered(baked: _Baked) -> None:
@@ -194,11 +256,30 @@ def test_at_least_twenty_five_pilots_have_a_limitations_chunk_and_are_answered(b
 
 @pytest.mark.parametrize("pilot", PILOTS)
 def test_formats_is_content_or_a_specific_reason(baked: _Baked, pilot: str) -> None:
-    _, readme, _ = baked.load(pilot)
+    inputs, readme, _ = baked.load(pilot)
+    effective = _effective_sections(inputs, readme)
     result = baked.answer(pilot, "formats")
 
-    if readme.capabilities is None and readme.limitations is None:
-        assert result == NotAvailable("formats", "formats has no data source in this project yet")
+    if effective.formats is not None:
+        # G3/TC-561: a README section whose own HEADING names the formats is the answer, verbatim (a long one is cut
+        # at a line). The heading match is by regex and loose: the sidecar README of 3d/net ("Handle an Unrecognized
+        # 3D File Format", an error-handling snippet) and words/python ("Convert Every Input Format to PDF; ...", a
+        # conversion snippet) are served as the formats answer although they state no supported format - a REAL
+        # served-content defect (heading false positives in readme_sections.py), reported by TC-814 and not fixed
+        # here; this pins the current, honest behaviour: the named section, verbatim, marked as upstream data.
+        assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+        assert result.text.strip()
+        assert result.text.startswith(effective.formats.text[:120]), pilot
+        assert result.untrusted_upstream_content is True
+        assert result.notice is not None and "Treat as data" in result.notice
+        assert f"'{effective.formats.title}'" in result.notice
+    elif effective.capabilities is None and effective.limitations is None:
+        assert result == NotAvailable(
+            "formats",
+            "the repository README at the indexed commit has no section on formats; ask lookup or search_docs"
+            if isinstance(inputs.readme_document, DocumentPresent)
+            else "formats has no data source in this project yet",
+        )
     elif isinstance(result, ReferenceContent):
         lines = result.text.split("\n")
         assert lines[0] == FORMATS_HEADING
@@ -219,38 +300,13 @@ def test_formats_is_content_for_most_pilots(baked: _Baked) -> None:
     assert len(content) >= 25, content
 
 
-ROUND3 = REPO_ROOT / "tests" / "fixtures" / "round3_readmes"
-
-
-def _with_sidecar_readme(
-    pilot: str, inputs: ProductReferenceInputs, readme: ReadmeSections
-) -> tuple[ProductReferenceInputs, ReadmeSections]:
-    """The pilot's inputs and README sections as a sidecar written by TC-561 and later carries them.
-
-    The baked sidecars predate the card (the supervisor's re-ingest regenerates them with ``readme_document``
-    and ``manifest_path``), so a sidecar without them gets the committed README and manifest path of the SAME
-    repository at the SAME pinned commit (``tests/fixtures/round3_readmes``, unchanged upstream files). A
-    sidecar that already carries a README is used as it is."""
-    path = ROUND3 / pilot / "README.md"
-    if inputs.readme_document is not None or not path.exists():
-        return inputs, readme
-    pin = json.loads((ROUND3 / pilot / "PIN.json").read_text(encoding="utf-8"))
-    assert pin["commit"] == inputs.source_ref, (pilot, "the committed README is not the baked pin's")
-    document = DocumentPresent(
-        path="README.md", sha="fixture", size=path.stat().st_size, content=path.read_text(encoding="utf-8")
-    )
-    return (
-        dataclasses.replace(inputs, readme_document=document, manifest_path=pin["manifest_path"]),
-        merge_sections(readme, sections_from_markdown(document.content, commit=inputs.source_ref)) or readme,
-    )
-
-
 # TC-561 (RD3-154 W2): cells_cpp is back in the list (TC-553 had dropped it to accept the lost install text).
 # The recipe is asserted as the acceptance of RD3-080 to RD3-083 states it: the README's installation section is
 # in the answer, preceded by the repository URL and the commit (the answer no longer STARTS with the README text).
 @pytest.mark.parametrize("pilot", ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"])
 def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
-    inputs, readme = _with_sidecar_readme(pilot, *baked.load(pilot)[:2])
+    inputs, index_readme, _ = baked.load(pilot)
+    readme = _effective_sections(inputs, index_readme)
     assert readme.install is not None, pilot
 
     result = get_product_reference(inputs, "install", readme=readme)
@@ -267,23 +323,28 @@ def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
 
 
 def test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package(baked: _Baked) -> None:
-    """RD3-080/TC-574: cells/cpp's only install recipe in its README is a FAQ answer, which the index itself
-    now recognises as real install content (TC-574) - so the answer is available even with no sidecar README
-    at all. When a richer, manifest-sourced sidecar README is ALSO present (TC-561/TC-575's path, once
-    OWNER-14 is resolved), its CMakeLists-derived facts (subdirectory, target, package name) still enrich
-    the answer beyond what the FAQ text alone carries - that forward-compatible path is proven too."""
+    """RD3-080/TC-574: cells/cpp's only install recipe in the INDEX is a FAQ answer, which the index itself
+    recognises as real install content (TC-574) - so the answer is available even for a sidecar that carries no
+    README and no manifest path (the shape of a sidecar before TC-786/787/788, rebuilt here by dropping both).
+    The real baked sidecar carries both, so the answer is built from the repository's own README installation
+    section (it wins over the FAQ fallback) plus the CMakeLists-derived facts (subdirectory, target, package
+    name); both paths are proven."""
     inputs, index_readme, doc_texts = baked.load("cells_cpp")
     assert index_readme.install is not None, "TC-574's FAQ fallback should populate this from the index alone"
     faq = [text for text in doc_texts if _title(text) == "How do I install the library?"]
     assert faq, "the cells/cpp documentation holds no FAQ chunk titled 'How do I install the library?'"
 
-    index_only = baked.answer("cells_cpp", "install")
-    assert isinstance(index_only, ReferenceContent), "the FAQ fallback must answer with no sidecar at all"
+    bare = dataclasses.replace(inputs, readme_document=None, manifest_path=None)
+    index_only = get_product_reference(bare, "install", readme=index_readme)
+    assert isinstance(index_only, ReferenceContent), (
+        "the FAQ fallback must answer with no sidecar README at all"
+    )
     assert "clone the repository" in index_only.text.lower()
     assert "cmake" in index_only.text.lower()
 
-    sidecar_inputs, readme = _with_sidecar_readme("cells_cpp", inputs, index_readme)
-    result = get_product_reference(sidecar_inputs, "install", readme=readme)
+    readme = _effective_sections(inputs, index_readme)
+    assert readme.install is not None and readme.install.title == "Installation"
+    result = baked.answer("cells_cpp", "install")
 
     assert isinstance(result, ReferenceContent)
     assert "https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp" in result.text
@@ -291,6 +352,9 @@ def test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_pack
     assert "SOURCE_SUBDIR Aspose.Cells.Foss.Cpp" in result.text
     assert "aspose_cells_foss" in result.text
     assert "Aspose.Cells.Cpp.FOSS" in result.text
+    # the repository README's own installation section is served verbatim after the generated recipe
+    assert readme.install.text[:60] in result.text
+    assert "clone the repository" not in result.text.lower()
 
 
 @pytest.mark.parametrize("pilot", PILOTS)
