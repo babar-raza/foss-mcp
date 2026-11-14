@@ -1,0 +1,163 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_words_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-drpaqox5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+........................................                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-drpaqox5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 69%]
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_words_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-drpaqox5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 84%]
+........................................                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-drpaqox5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 69%]
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/words_python/authored_examples.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_words_python.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_authored_examples_title_word_limit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-drpaqox5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+...........................................................F.FFFFF...... [ 84%]
+........................................                                 [100%]
+================================== FAILURES ===================================
+______ test_the_sidecar_holds_exactly_the_expected_five_titles_in_order _______
+
+    def test_the_sidecar_holds_exactly_the_expected_five_titles_in_order() -> None:
+>       assert [example["title"] for example in _document()["examples"]] == EXPECTED_TITLES
+E       AssertionError: assert ['Export a do...nd RTF twins'] == ['Export a do...nd RTF twins']
+E         
+E         At index 2 diff: 'Compare DOCX package sizes across OOXML compression levels' != 'Create a document from scratch with a table using LdmDocxWriter'
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples_words_python.py:261: AssertionError
+____________ test_the_scratch_example_declares_its_builder_symbols ____________
+
+    def test_the_scratch_example_declares_its_builder_symbols() -> None:
+>       assert _scratch_example()["symbols"] == [
+               ^^^^^^^^^^^^^^^^^^
+            "Document",
+            "Document.light_document_model",
+            "Section",
+            "Body",
+            "Table",
+            "Row",
+            "Cell",
+            "Paragraph",
+            "LdmDocxWriter",
+            "LdmDocxWriter.write",
+        ]
+
+tests\indexing\test_authored_examples_words_python.py:273: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _scratch_example() -> dict:
+        matches = [example for example in _document()["examples"] if example["title"] == SCRATCH_TITLE]
+>       assert len(matches) == 1, "the from-scratch builder example must be present exactly once"
+E       AssertionError: the from-scratch builder example must be present exactly once
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_words_python.py:256: AssertionError
+_ test_the_scratch_example_builds_from_scratch_with_the_light_document_model_and_writes_docx _
+
+    def test_the_scratch_example_builds_from_scratch_with_the_light_document_model_and_writes_docx() -> None:
+>       code = _scratch_example()["code"]
+               ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_words_python.py:288: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _scratch_example() -> dict:
+        matches = [example for example in _document()["examples"] if example["title"] == SCRATCH_TITLE]
+>       assert len(matches) == 1, "the from-scratch builder example must be present exactly once"
+E       AssertionError: the from-scratch builder example must be present exactly once
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_words_python.py:256: AssertionError
+__ test_the_scratch_example_uses_only_the_public_path_for_paragraph_content ___
+
+    def test_the_scratch_example_uses_only_the_public_path_for_paragraph_content() -> None:
+        # RD2-283 / TC-815: Paragraph(children=[Run(...)]) is a private wrap-validator idiom upstream calls
+        # "intentionally not part of the public attribute surface"; the example must not build on it.
+>       code = _scratch_example()["code"]
+               ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_words_python.py:305: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _scratch_example() -> dict:
+        matches = [example for example in _document()["examples"] if example["title"] == SCRATCH_TITLE]
+>       assert len(matches) == 1, "the from-scratch builder example must be present exactly once"
+E       AssertionError: the from-scratch builder example must be present exactly once
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_words_python.py:256: AssertionError
+______ test_the_scratch_example_checks_the_reloaded_text_and_table_cells ______
+
+    def test_the_scratch_example_checks_the_reloaded_text_and_table_cells() -> None:
+>       code = _scratch_example()["code"]
+               ^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_words_python.py:315: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _scratch_example() -> dict:
+        matches = [example for example in _document()["examples"] if example["title"] == SCRATCH_TITLE]
+>       assert len(matches) == 1, "the from-scratch builder example must be present exactly once"
+E       AssertionError: the from-scratch builder example must be present exactly once
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_authored_examples_words_python.py:256: AssertionError
+________________ test_the_replaced_compression_example_is_gone ________________
+
+    def test_the_replaced_compression_example_is_gone() -> None:
+        document = _document()
+        titles = [example["title"] for example in document["examples"]]
+>       assert REPLACED_COMPRESSION_TITLE not in titles
+E       AssertionError: assert 'Compare DOCX package sizes across OOXML compression levels' not in ['Export a document to UTF-16 Markdown and confirm its byte-order mark', 'Preserve blank lines when loading Markdown w...firm an embedded image survives a DOCX round trip', 'Confirm legacy DOC extracted text matches its DOCX and RTF twins']
+
+tests\indexing\test_authored_examples_words_python.py:335: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_words_python.py::test_the_sidecar_holds_exactly_the_expected_five_titles_in_order
+FAILED tests/indexing/test_authored_examples_words_python.py::test_the_scratch_example_declares_its_builder_symbols
+FAILED tests/indexing/test_authored_examples_words_python.py::test_the_scratch_example_builds_from_scratch_with_the_light_document_model_and_writes_docx
+FAILED tests/indexing/test_authored_examples_words_python.py::test_the_scratch_example_uses_only_the_public_path_for_paragraph_content
+FAILED tests/indexing/test_authored_examples_words_python.py::test_the_scratch_example_checks_the_reloaded_text_and_table_cells
+FAILED tests/indexing/test_authored_examples_words_python.py::test_the_replaced_compression_example_is_gone
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-drpaqox5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 69%]
+................................                                         [100%]
+
+--- stderr ---
+
