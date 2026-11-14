@@ -1,0 +1,83 @@
+id: TC-814
+gate: G3
+lane: verification
+purpose: >-
+  Realigns tests/mcp/tools/test_product_reference_baked_contract.py with the real committed data:
+  19 of its tests fail on main today (found by the TC-798 worker, confirmed at baseline) because
+  they assert the pre-TC-786/787/788 world in which baked sidecars lack
+  `readme_document`/`manifest_path` - 12 limitations tests, 5 formats tests (cells_cpp,
+  imaging_net, pdf_typescript, slides_net, words_net) and 2 cpp-install tests. Every sidecar now
+  carries `readme_document`, so the README-section path is live for all 32 pilots. Update each
+  stale assertion so it states what is true now and still bites (the answer must be real,
+  non-empty content or an honest specific reason; the real served text must satisfy the original
+  intent of each test), after individually re-checking each failing case against a real
+  get_product_reference call. Never delete, skip or xfail a test; never weaken one to vacuity.
+depends_on:
+  - TC-681
+  - TC-698
+  - TC-786
+  - TC-787
+  - TC-788
+write_paths:
+  - tests/mcp/tools/test_product_reference_baked_contract.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: tests/mcp/tools/test_product_reference_baked_contract.py in full,
+    src/foss_mcp/mcp/tools/get_product_reference.py (limitations/formats/install builders) and
+    infra/demo-manifests/product_reference_*.json.
+  - >-
+    REPRODUCE FIRST: run `{python} -m pytest
+    tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider` on main
+    and record every failure (expect about 19). For each failing parametrization call the real
+    get_product_reference against the real sidecar and README sections and record what is actually
+    served; rewrite the assertion to pin the real, correct behaviour (for example: sidecar carries
+    readme_document; limitations is ReferenceContent with non-empty text, or a NotAvailable with a
+    specific reason when upstream has none).
+  - >-
+    Do NOT touch production code, sidecars, fixtures or any other test file. Do not skip, xfail or
+    delete a test; keep the parametrization over all pilots. If a failing case reveals a REAL
+    served-content defect (not a stale pin), do not paper over it: keep the assertion failing is not
+    allowed either, so instead report it in your final report with the pilot, section and served
+    text and keep that single case asserting the honest current behaviour with a comment naming the
+    defect.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    change). Run ruff format and ruff check on the changed file, then run the card's check command
+    twice and report real results.
+actions:
+  - >-
+    Bring the baked product-reference contract tests back to green against today's real sidecars by
+    correcting stale pins, with every changed assertion individually verified.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 110
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['tests/mcp/tools/test_product_reference_baked_contract.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-814/receipt.json
+closeout:
+  - >-
+    tests/mcp/tools/test_product_reference_baked_contract.py passes against the real committed
+    sidecars and each pin states current truth.
+recovery: Re-run from a clean tree.
