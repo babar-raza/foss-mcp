@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-803",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T13:02:38Z",
+  "base_rev": "8dcb82c289c5d7a04d6cc3b07f59931f489d9b5f",
+  "head_rev": "53de035af43ea1d722bb3b481e102259f61fd6e8",
+  "card_sha256": "1413050cbd29a31b8cf656fcbbb6c8e7075c0087e48756e88cba764fcf9a9c7d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "src/foss_mcp/indexing/example_verifier.py",
+      "tests/indexing/test_published_program_is_verified_program.py",
+      "tests/infra/test_build_chunks_candidate_chains.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_verifier_major_version.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_java_page_imports.py tests/indexing/test_example_verifier.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_verification_cache.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 251.83,
+          "stdout_sha256": "61800049e3767cbfe10d57054fbcec188ea2b89ea87dbb0c3cd033e6af66efb2",
+          "tests": 254,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_verifier_major_version.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_java_page_imports.py tests/indexing/test_example_verifier.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_verification_cache.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 335.639,
+          "stdout_sha256": "61800049e3767cbfe10d57054fbcec188ea2b89ea87dbb0c3cd033e6af66efb2",
+          "tests": 254,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/example_verifier.py', 'infra/build_chunks.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "71038e4bf836d5ee0c6db8686243479623aaaae9b043b366e179a6d3c2d7bd35",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
