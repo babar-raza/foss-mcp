@@ -328,7 +328,8 @@ _BASE = {"verified": True}
         ("java", {**_BASE, "ran": True, "verifier_version": _V - 1}, False),
         ("java", {**_BASE, "ran": True, "verifier_version": _V + 1}, False),
         ("java", {**_BASE, "ran": True, "verifier_version": True}, False),
-        ("go", {**_BASE}, True),
+        ("go", {**_BASE}, False),  # TC-805: go is run, so an entry with no run record is a miss
+        ("go", {**_BASE, "ran": True, "verifier_version": _V}, True),
         ("python", {**_BASE}, True),
         ("rust", {**_BASE, "verifier_version": _V}, True),
         ("python", {**_BASE, "verifier_version": _V - 1}, False),

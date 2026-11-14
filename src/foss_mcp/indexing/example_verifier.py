@@ -41,7 +41,7 @@ import urllib.request
 import xml.etree.ElementTree as ElementTree
 import zipfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from foss_mcp.indexing.example_candidates import CandidateExample
@@ -50,6 +50,11 @@ from foss_mcp.indexing.example_fixtures import (
     FixtureRecord,
     fixture_unavailable,
     provide_fixtures,
+)
+from foss_mcp.indexing.example_runtime import (
+    OUTPUT_OPTIONAL_PLATFORMS,
+    build_go_run_binary,
+    go_run_command,
 )
 
 __all__ = [
@@ -3614,9 +3619,10 @@ RUNTIME_NO_OUTPUT = "no_output"
 
 _RUNTIME_TIMEOUT_SECONDS = 60
 _RUNTIME_ERROR_CHARS = 300
-_RUNTIME_ERROR_MARKERS = ("Exception", "Error", "error", "terminate", "abort", "panicked", "fatal")
-# Platforms whose compiled candidate this module knows how to start (java: ``java``; dotnet: ``dotnet run``).
-RUNNABLE_PLATFORMS = frozenset({"java", "dotnet"})
+_RUNTIME_ERROR_MARKERS = ("Exception", "Error", "error", "terminate", "abort", "panicked", "panic:", "fatal")
+# Platforms whose compiled candidate this module knows how to start (java: ``java``; dotnet: ``dotnet run``;
+# go: its built binary, see ``example_runtime``).
+RUNNABLE_PLATFORMS = frozenset({"java", "dotnet", "go"})
 
 
 @dataclass(frozen=True)
@@ -3653,6 +3659,10 @@ class RuntimeRecord:
     produced_output: int | None = None
     error: str = ""
     artefact_extensions: tuple[str, ...] = ()
+    # TC-805: the example signals success by its exit code alone (a self-checking go program prints nothing when
+    # every check holds), so an exit-0 run that wrote nothing is ``ran``, not ``no_output``. Never persisted: it is
+    # a property of the platform (``OUTPUT_OPTIONAL_PLATFORMS``), re-derived by ``runtime_record_from_entry``.
+    output_optional: bool = False
 
     @property
     def status(self) -> str:
@@ -3684,7 +3694,7 @@ def classify_runtime(record: RuntimeRecord) -> str:
         or (record.exit_code is None and record.error)
     ):
         return RUNTIME_FAILED
-    if not record.produced_output:
+    if not record.produced_output and not record.output_optional:
         return RUNTIME_NO_OUTPUT
     return RUNTIME_RAN_OK
 
@@ -3712,6 +3722,7 @@ def runtime_record_from_entry(entry: Mapping[str, object]) -> RuntimeRecord:
         exit_code=exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None,
         produced_output=produced if isinstance(produced, int) and not isinstance(produced, bool) else None,
         error=error if isinstance(error, str) else "",
+        output_optional=entry.get("platform") in OUTPUT_OPTIONAL_PLATFORMS,
     )
 
 
@@ -3748,9 +3759,9 @@ def resolve_verification_level(level: str, runtime: RuntimeRecord) -> str:
     if not runtime.compiled:
         return ""
     status = runtime.status
-    if status == RUNTIME_RAN_OK:
+    if status == RUNTIME_RAN_OK and runtime.produced_output:
         return LEVEL_RAN_PRODUCED_OUTPUT
-    if status == RUNTIME_NO_OUTPUT:
+    if status in (RUNTIME_RAN_OK, RUNTIME_NO_OUTPUT):
         return LEVEL_RAN_EXIT0
     return level
 
@@ -3764,11 +3775,11 @@ def legacy_verification_level(platform: str, runtime: RuntimeRecord, *, cpp_run:
     platform or an example that did not compile."""
     if not runtime.compiled:
         return ""
-    if platform in ("java", "dotnet"):
+    if platform in ("java", "dotnet", "go"):
         return resolve_verification_level(LEVEL_BUILT, runtime)
     if platform == "python":
         return LEVEL_RAN_EXIT0
-    if platform in ("go", "rust"):
+    if platform == "rust":
         return LEVEL_BUILT
     if platform == "typescript":
         return LEVEL_TYPE_CHECKED
@@ -3927,6 +3938,8 @@ def runtime_command(
         return ["java", "-cp", classpath, class_name]
     if platform == "dotnet":
         return ["dotnet", "run", "--no-build", "--project", str(project_dir / "candidate.csproj")]
+    if platform == "go":
+        return go_run_command(project_dir)
     return None
 
 
@@ -3947,13 +3960,22 @@ def run_compiled_candidate(
     argv = runtime_command(platform, candidate, workdir=workdir, library=library)
     if argv is None or not RUNTIME_RUN_REQUIRED_FOR_VERIFIED:
         return RuntimeRecord(compiled=True)
-    return execute_in_sandbox(
+    active_runner = runner if runner is not None else default_runtime_runner
+    if platform == "go":
+        # TC-805: link the built candidate into a binary first (``go run`` needs the module as its working directory).
+        not_built = build_go_run_binary(
+            workdir / "candidate_project", runner=active_runner, timeout_seconds=timeout_seconds
+        )
+        if not_built:
+            return RuntimeRecord(compiled=True, ran=False, error=not_built[:_RUNTIME_ERROR_CHARS])
+    record = execute_in_sandbox(
         argv,
-        runner=runner if runner is not None else default_runtime_runner,
+        runner=active_runner,
         code=candidate.code,
         platform=platform,
         timeout_seconds=timeout_seconds,
     )
+    return replace(record, output_optional=platform in OUTPUT_OPTIONAL_PLATFORMS)
 
 
 # -- formats the pilot's own scope documentation says are not implemented ----------------------------

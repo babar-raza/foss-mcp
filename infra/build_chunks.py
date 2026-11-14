@@ -300,8 +300,13 @@ _PLATFORM_DISPATCH = {
 }
 
 # TC-565 (REQ-G3-009): the platforms whose compiled candidate is RUN after the compile verdict, mapped to the
-# real verify function that leaves the compiled project in the candidate workdir.
-_RUNNABLE_VERIFIERS = {"java": verify_java_example, "dotnet": verify_dotnet_example}
+# real verify function that leaves the compiled project in the candidate workdir. TC-805: go is run too (its
+# built binary, ``example_runtime``): a self-checking program's failed check is a non-zero exit.
+_RUNNABLE_VERIFIERS = {
+    "java": verify_java_example,
+    "dotnet": verify_dotnet_example,
+    "go": verify_go_example,
+}
 
 # TC-802 (REQ-G3-014): the real verify function of every platform, captured here so a stand-in verifier (a test
 # double swapped into ``_PLATFORM_DISPATCH``) is told apart from the real one. Only the real verifier stamps a
@@ -1079,6 +1084,9 @@ def _runtime_chunk_lines(runtime: RuntimeRecord) -> str:
     """
     status = runtime.status
     if status not in (RUNTIME_RAN_OK, RUNTIME_FAILED, RUNTIME_NO_OUTPUT):
+        return ""
+    if status == RUNTIME_RAN_OK and not runtime.produced_output:
+        # TC-805: an exit-0 run that wrote nothing (a self-checking go program): the level, ``ran-exit0``, says so.
         return ""
     lines = f"Runtime-Status: {status}\n"
     if runtime.produced_output is not None:

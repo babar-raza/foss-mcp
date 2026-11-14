@@ -90,7 +90,7 @@ def _prepare(monkeypatch: pytest.MonkeyPatch, platform: str, prepared: Path) -> 
 
 
 def _ran(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The run step of a runnable platform (java, dotnet): a clean run that printed something."""
+    """The run step of a runnable platform (java, dotnet, go): a clean run that printed something."""
     monkeypatch.setattr(
         build_chunks,
         "run_compiled_candidate",
@@ -335,6 +335,7 @@ def test_go_published_text_is_the_main_go_that_was_built(
     recorder = _Recorder("main.go", "go")
     monkeypatch.setattr(example_verifier, "_run", recorder)
     _prepare(monkeypatch, "go", tmp_path / "lib")
+    _ran(monkeypatch)  # TC-805: go is run too; a clean exit-0 run that printed something
 
     texts = _build(monkeypatch, tmp_path, page, "go", ["--library-module-path", module])
 
@@ -367,6 +368,7 @@ def test_go_blanked_unused_variables_are_published_and_named(
     recorder = _Recorder("main.go", "go", fail_first_build="./main.go:5:2: declared and not used: pages")
     monkeypatch.setattr(example_verifier, "_run", recorder)
     _prepare(monkeypatch, "go", tmp_path / "lib")
+    _ran(monkeypatch)  # TC-805: go is run too; a clean exit-0 run that printed something
 
     (text,) = _build(monkeypatch, tmp_path, page, "go", ["--library-module-path", GO_MODULE])
 
@@ -385,6 +387,7 @@ def test_go_cache_hit_republishes_the_assembled_source_and_verifies_nothing(
     recorder = _Recorder("main.go", "go")
     monkeypatch.setattr(example_verifier, "_run", recorder)
     _prepare(monkeypatch, "go", tmp_path / "lib")
+    _ran(monkeypatch)  # TC-805: go is run too; a clean exit-0 run that printed something
     flags = ["--library-module-path", GO_MODULE, *_cache_flags(cache)]
     first = _build(monkeypatch, tmp_path, PDF_GO_PAGE, "go", flags)
     entries = json.loads(cache.read_text(encoding="utf-8"))["entries"]
@@ -407,12 +410,14 @@ def test_go_legacy_cache_entry_without_assembled_source_republishes_as_before(
     recorder = _Recorder("main.go", "go")
     monkeypatch.setattr(example_verifier, "_run", recorder)
     _prepare(monkeypatch, "go", tmp_path / "lib")
+    _ran(monkeypatch)  # TC-805: go is run too; a clean exit-0 run that printed something
     flags = ["--library-module-path", GO_MODULE, *_cache_flags(cache)]
     _build(monkeypatch, tmp_path, PDF_GO_PAGE, "go", flags)
     document = json.loads(cache.read_text(encoding="utf-8"))
     for entry in document["entries"]:
+        # TC-805: go is a runnable platform, so an entry without ``verifier_version`` is a miss (it cannot say the
+        # example ran); the entry kept here is the one written between TC-801 and TC-803: versioned, no source.
         entry.pop("assembled_source", None)
-        entry.pop("verifier_version", None)
     cache.write_text(json.dumps(document), encoding="utf-8")
 
     _forbid_toolchain(monkeypatch)
@@ -431,6 +436,7 @@ def test_authored_examples_are_unchanged_by_the_assembly(
     recorder = _Recorder("main.go", "go")
     monkeypatch.setattr(example_verifier, "_run", recorder)
     _prepare(monkeypatch, "go", tmp_path / "lib")
+    _ran(monkeypatch)  # TC-805: go is run too; a clean exit-0 run that printed something
 
     texts = _build(
         monkeypatch,
