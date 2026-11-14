@@ -1,0 +1,158 @@
+id: TC-853
+gate: G3
+lane: verification
+purpose: >-
+  RD2-258 (tex/python, P0): the served index is pinned at upstream commit
+  181015d2eee3e19f8af3d84e4a932ac84ad47c7c where 35 of 45 source files fail ast.parse
+  (IndentationError), so the pilot is registered BLOCKED_UPSTREAM and carries the TEX-PYTHON-001
+  disclosure and a syntax-repair extraction (TC-561). The 2026-11-14 triage reproduced that
+  upstream releases 26.11 (de943bc9) and 26.11.1 (07db3203) parse clean: 0 of 59 files fail.
+  Re-pin tex/python to the latest upstream release that parses clean and regenerate it end to end,
+  so users get real tex content instead of a repaired, partly blocked index. Investigation first,
+  in this order: (1) resolve the exact full commit of the latest published release tag (gh api,
+  GITHUB_TOKEN via the env var only), re-confirm by cloning it outside the repo that EVERY .py
+  file under the package root passes `python -m py_compile`/ast.parse and that `import aspose_tex`
+  style imports of the public API work in a clean venv (AGENTS.md: a disclosure is re-verified
+  before it is removed or downgraded); if the newest release does not parse or import, stop and
+  report - do not re-pin; (2) find every place the old pin is recorded (git grep 181015d2:
+  infra/helm/foss-mcp/values.yaml, docker-compose.yml, config/known_defects/tex__python.yaml,
+  tests/fixtures/round3_readmes/tex_python/PIN.json,
+  tests/fixtures/furnished/tex_python/pages/_index.md, the
+  product_reference/package_registry/recent_releases sidecars, tests that pin it) and update
+  exactly those that must move; (3) regenerate the extraction fixture with the recipe in
+  plans/TC-847.yaml / TC-559 at the new pin (tests/fixtures/tex_python/api_surface.json: expect
+  as_written_failed to drop to 0 and the repaired-syntax list to be empty; no false stubs),
+  regenerate the furnished page from the README at the new pin (infra/generate_furnished_page.py
+  --source github --pilot tex/python, review the diff by eye), re-fetch the three sidecars AT the
+  new pin with the fetch_*/verify_* scripts and the operator's GITHUB_TOKEN (read TC-786..788 for
+  the 'at the pin' rule), re-verify the README/authored examples with regenerate_local.py (--only
+  tex_python, image built from your worktree; see TC-848 inputs) and refresh
+  tests/fixtures/verified_examples/tex_python.json and the baked generation; (4) update
+  config/known_defects/tex__python.yaml: TEX-PYTHON-001 is removed (or downgraded to a
+  version-scoped historical note with the re-verification evidence) ONLY if step 1 proved it fixed
+  at the new pin, and any other TEX-PYTHON entry is re-checked against the new pin before it is
+  kept; (5) re-pin tests that legitimately move (tex coverage counts, extraction fixture pins,
+  install sections) to confirmed real values - never loosen a pin. 'No pilot ever gets worse':
+  compare old vs new with scripts/release/generation_diff.py and answer_diff.py (a lost answer or
+  removed symbol must be explained by upstream genuinely removing it) and report the before/after
+  table.
+depends_on:
+  - TC-808
+  - TC-537
+  - TC-575
+  - TC-576
+  - TC-579
+  - TC-597
+  - TC-602
+  - TC-615
+  - TC-678
+  - TC-695
+  - TC-698
+  - TC-699
+  - TC-730
+  - TC-731
+  - TC-774
+  - TC-776
+  - TC-777
+  - TC-778
+  - TC-792
+  - TC-799
+  - TC-809
+  - TC-813
+  - TC-820
+  - TC-829
+  - TC-831
+  - TC-839
+  - TC-841
+  - TC-842
+  - TC-846
+  - TC-848
+  - TC-849
+  - TC-850
+  - TC-851
+  - TC-852
+  - TC-714
+  - TC-718
+  - TC-719
+  - TC-828
+  - TC-832
+write_paths:
+  - infra/helm/foss-mcp/values.yaml
+  - docker-compose.yml
+  - config/known_defects/tex__python.yaml
+  - config/products/tex/python.yaml
+  - tests/fixtures/round3_readmes/tex_python/**
+  - tests/fixtures/furnished/tex_python/**
+  - tests/fixtures/tex_python/**
+  - tests/fixtures/verified_examples/tex_python.json
+  - infra/demo-manifests/tex__python__self_extracted/**
+  - infra/demo-manifests/package_registry_tex_python.json
+  - infra/demo-manifests/product_reference_tex_python.json
+  - infra/demo-manifests/recent_releases_tex_python.json
+  - infra/demo-inputs/embeddings/tex__python.json
+  - tests/extraction/test_tex_python_extraction.py
+  - tests/extraction/test_run_extraction_python_repair.py
+  - tests/infra/test_round3_install_sections.py
+  - tests/mcp/tools/test_coverage_note.py
+  - tests/mcp/tools/test_round3_install_truth.py
+  - tests/deploy/test_regenerated_tex_python_repin.py
+  - tests/deploy/*
+  - tests/mcp/tools/test_known_defects_*.py
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/fixtures/conformance/*
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: docs/ROUND2_REVIEW.md rows TEX-PYTHON-* and RD2-258,
+    config/known_defects/tex__python.yaml, plans/TC-561.yaml and plans/TC-847.yaml (the repair/stub
+    history), plans/TC-786.yaml..TC-788.yaml (sidecar 'at the pin' rule), plans/TC-848.yaml (how a
+    cohort is regenerated; its inputs are your recipe for step 3),
+    scripts/release/regenerate_local.py docstring, infra/fetch_product_reference.py,
+    infra/fetch_recent_releases.py, infra/verify_package_registry.py.
+  - >-
+    ENVIRONMENT: PowerShell; run `.
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first in every
+    command that uses docker/helm/toolchains. Worktree has no venv: use
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
+    to your worktree root, src and infra. NEVER print GITHUB_TOKEN/GH_TOKEN/GPT_OSS_* values. Clones
+    and scratch work go outside the repository and OneDrive.
+  - >-
+    If the supervisor-pinned scope is too narrow for something you must change, report file + reason
+    and stop; do not edit outside write_paths. Make exactly ONE commit. Report once, leave no
+    container or background process running, delete your scratch clones.
+actions:
+  - >-
+    Re-pin tex/python to the newest upstream release that parses clean, regenerate every artefact at
+    that pin, re-verify and retire the stale disclosure, and report the before/after table.
+checks:
+  - command: '{python} -m pytest tests/deploy tests/extraction/test_tex_python_extraction.py tests/extraction/test_run_extraction_python_repair.py tests/infra/test_round3_install_sections.py tests/mcp/tools/test_coverage_note.py tests/mcp/tools/test_round3_install_truth.py tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 3000
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 1000
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['infra/helm/foss-mcp/values.yaml', 'config/known_defects/tex__python.yaml', 'tests/fixtures/tex_python', 'infra/demo-manifests']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-853/receipt.json
+closeout:
+  - >-
+    tex/python is served from an upstream commit that parses clean, with the blocked-upstream
+    disclosure retired on evidence.
+recovery: Re-run from a clean tree.
