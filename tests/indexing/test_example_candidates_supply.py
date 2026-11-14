@@ -29,6 +29,7 @@ from foss_mcp.indexing.example_candidates import (
     effective_candidate,
     extract_candidate_examples,
     extract_candidate_supply,
+    has_truncation_placeholder,
     import_like_lines,
     normalised_code_sha256,
 )
@@ -187,7 +188,12 @@ def test_platform_mode_supply_is_clean_unique_and_keeps_every_legacy_candidate(
     assert supply.from_single_blocks == sum(1 for c in candidates if c.source == "single")
     assert supply.imports_only == sum(1 for c in candidates if c.imports_only)
 
-    legacy_accepted = [c for c in extract_candidate_examples(page) if _tag_of(c.language) in accepted]
+    # TC-802: a fence whose string literal is a truncated blob (RD2-284) is no longer a candidate.
+    legacy_accepted = [
+        c
+        for c in extract_candidate_examples(page)
+        if _tag_of(c.language) in accepted and not has_truncation_placeholder(c.code)
+    ]
     singles = [c for c in candidates if c.source == "single"]
     assert [(c.title, c.description, c.language, c.code) for c in singles] == [
         (c.title, c.description, c.language, c.code) for c in legacy_accepted

@@ -183,6 +183,15 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
     produced = json.loads(out_path.read_text(encoding="utf-8"))
     chunks = produced["chunks"]
 
+    # TC-802: a candidate that compiled but whose RUN failed or produced nothing is not published as a
+    # verified_example (it stays in the verification report). The ground truth above is a compile-only pass, so
+    # the titles the report marks ``not_published`` leave the expected-published set; each must have compiled.
+    report = json.loads(out_path.with_suffix(".verification.json").read_text(encoding="utf-8"))
+    not_published_titles = {record["title"] for record in report if record.get("not_published")}
+    assert not_published_titles <= ground_truth_verified_titles
+    ground_truth_verified_titles -= not_published_titles
+    assert ground_truth_verified_titles, "expected at least one real candidate to compile, run and publish"
+
     # The pre-existing type-based chunks are still there (300 real types, capped at
     # max_types=20 default -> 20 real "## <TypeName>" sections from build_chunks_from_api_surface).
     type_chunks = [c for c in chunks if c["content_type"] == "api_surface"]

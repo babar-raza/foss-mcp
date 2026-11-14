@@ -97,6 +97,7 @@ from foss_mcp.indexing.example_verifier import (
     RUNTIME_FAILED,
     RUNTIME_NO_OUTPUT,
     RUNTIME_RAN_OK,
+    VERIFICATION_LEVELS,
     VERIFIER_VERSION,
     ExampleEnvironmentError,
     RuntimeRecord,
@@ -107,6 +108,7 @@ from foss_mcp.indexing.example_verifier import (
     cpp_compat_compile_options,
     entry_counts_as_verified,
     is_environmental_verdict,
+    legacy_verification_level,
     prepare_cpp_library_linux,
     prepare_go_library,
     prepare_java_library,
@@ -116,6 +118,7 @@ from foss_mcp.indexing.example_verifier import (
     prepare_rust_library,
     prepare_typescript_library,
     rejected_for_unimplemented_format,
+    resolve_verification_level,
     run_compiled_candidate,
     runtime_record_from_entry,
     scope_unimplemented_formats,
@@ -296,6 +299,11 @@ _PLATFORM_DISPATCH = {
 # TC-565 (REQ-G3-009): the platforms whose compiled candidate is RUN after the compile verdict, mapped to the
 # real verify function that leaves the compiled project in the candidate workdir.
 _RUNNABLE_VERIFIERS = {"java": verify_java_example, "dotnet": verify_dotnet_example}
+
+# TC-802 (REQ-G3-014): the real verify function of every platform, captured here so a stand-in verifier (a test
+# double swapped into ``_PLATFORM_DISPATCH``) is told apart from the real one. Only the real verifier stamps a
+# ``Verification-Level:``; a stand-in compiled and ran nothing, so it is never read as having achieved a level.
+_REAL_VERIFIERS = {name: spec["verify"] for name, spec in _PLATFORM_DISPATCH.items()}
 
 # REQ-G2-048 (TC-091): which extra CLI flag (beyond --library-repository/--library-commit) is
 # required for a given --library-platform, and its attribute name on the parsed args - keyed
@@ -549,8 +557,19 @@ _CACHE_ENTRY_FIELDS = frozenset(
 # TC-801 (REQ-G3-014): ``verifier_version`` (an int, ``VERIFIER_VERSION`` when written) is optional too - an
 # entry without it is LEGACY. Legacy entries still parse and still hit, except on a platform whose compiled
 # candidate is run (``_RUNNABLE_VERIFIERS``), where they are misses: such an entry cannot say the example ran.
+#
+# TC-802 (REQ-G3-014): ``verification_level`` (one of ``VERIFICATION_LEVELS``) is optional too - the level the
+# verifier achieved. An entry without it is read through ``legacy_verification_level``.
 _CACHE_RUNTIME_FIELDS = frozenset(
-    {"compiled", "ran", "exit_code", "produced_output", "runtime_error", "verifier_version"}
+    {
+        "compiled",
+        "ran",
+        "exit_code",
+        "produced_output",
+        "runtime_error",
+        "verifier_version",
+        "verification_level",
+    }
 )
 # The last N characters of a verifier's output kept in a cache entry - the FULL output stays in the
 # .verification.json report; the cache is meant to be read by a person skimming a diff, not to
@@ -899,6 +918,23 @@ def _runtime_chunk_lines(runtime: RuntimeRecord) -> str:
     return lines
 
 
+def _verification_level_lines(level: str, verified_with: str | None) -> str:
+    """TC-802: the chunk lines that say how far verification went and with what, directly after ``Kind``.
+
+    ``Verification-Level`` is the level the verifier achieved (``VERIFICATION_LEVELS``); ``Verified-With`` is the
+    toolchain id (``toolchain_id``). Each is written only when known: a chunk without them is a legacy chunk
+    and ``find_examples`` keeps its old label. The toolchain text is one line and never holds the ``Example:``
+    marker the code is split at.
+    """
+    if not level:
+        return ""
+    lines = f"Verification-Level: {level}\n"
+    tool = " ".join((verified_with or "").split()).replace("Example:", "Example :")
+    if tool:
+        lines += f"Verified-With: {tool}\n"
+    return lines
+
+
 def _cache_key_text(effective: CandidateExample, program: str, platform: str) -> str:
     """TC-458: the text a verdict's cache key is the hash of. The published program, except for go
     and java, whose assembly needs the built library: there it is the candidate's code plus the
@@ -992,6 +1028,12 @@ def _build_verified_example_chunks(
     lines of its chain where no verifier borrows page imports); the chunk publishes
     ``_published_program`` - what the toolchain compiled - with a ``Harness:`` line naming what was
     added, and the verification cache is keyed on that program.
+
+    TC-802 (REQ-G3-014): every published chunk carries ``Verification-Level:`` (the level the verifier achieved,
+    raised by the run step where one ran; a cache entry without one is read through
+    ``legacy_verification_level``) and ``Verified-With:`` (``toolchain``, else ``toolchain_id`` probed once). A candidate
+    whose run failed or produced nothing is kept in ``verification_records`` (``not_published``) and is NOT
+    published as a ``verified_example``.
     """
     page = _load_furnished_page(args.furnished_page)
     platform = args.library_platform
@@ -1013,7 +1055,13 @@ def _build_verified_example_chunks(
             f"candidate supply: {len(supply.candidates)} candidates for {platform} "
             f"({supply.from_single_blocks} from example blocks, {supply.from_content_blocks} from content "
             f"blocks; dropped {supply.duplicates_dropped} duplicates and {supply.other_language_dropped} "
-            f"fences in other languages; {supply.imports_only} import-only blocks)"
+            f"fences in other languages; {supply.imports_only} import-only blocks"
+            + (
+                f"; {supply.placeholder_dropped} fences with a truncated-literal placeholder"
+                if supply.placeholder_dropped
+                else ""
+            )
+            + ")"
         )
 
     platform_dispatch = _PLATFORM_DISPATCH[platform]
@@ -1113,6 +1161,19 @@ def _build_verified_example_chunks(
     verified_count = 0
     authored_verified = 0
     cached_count = 0
+    # TC-802: whether a cpp example was RUN (the default) or only compiled (``--library-cpp-verify-mode compile``).
+    cpp_run = getattr(args, "library_cpp_verify_mode", None) != "compile"
+    # Only the real verifier stamps a level; a stand-in (test double) states none and is never read as having one.
+    real_verifier = verify is _REAL_VERIFIERS.get(platform)
+    probed_toolchain: list[str | None] = []
+
+    def verified_with_toolchain() -> str | None:
+        if toolchain:
+            return toolchain
+        if not probed_toolchain:
+            probed_toolchain.append(toolchain_id(platform))
+        return probed_toolchain[0]
+
     for plan in plans:
         candidate = plan.candidate
         index = plan.index
@@ -1146,6 +1207,13 @@ def _build_verified_example_chunks(
             cached = True
             cached_count += 1
             runtime = runtime_record_from_entry(hit_entry)
+            # TC-802: the level the entry recorded; a legacy entry (written before levels) is read from its facts.
+            recorded_level = hit_entry.get("verification_level")
+            level = (
+                recorded_level
+                if isinstance(recorded_level, str) and recorded_level in VERIFICATION_LEVELS
+                else (legacy_verification_level(platform, runtime, cpp_run=cpp_run) if real_verifier else "")
+            )
         else:
             if shared_candidate_workdir is not None:
                 candidate_workdir = shared_candidate_workdir
@@ -1168,6 +1236,9 @@ def _build_verified_example_chunks(
                 )
             else:
                 runtime = RuntimeRecord(compiled=compiled)
+            # TC-802: what the verifier itself achieved, raised by the run step where one ran. A stand-in
+            # verifier states none, so its chunk claims none (and a hit on its verdict claims none either).
+            level = resolve_verification_level(getattr(verification_result, "level", ""), runtime)
         # TC-565: verified now means compiled AND (ran with exit 0 and produced output, or run not attempted).
         verified = (
             entry_counts_as_verified(hit_entry)
@@ -1177,6 +1248,15 @@ def _build_verified_example_chunks(
         rejected = compiled and rejected_for_unimplemented_format(
             runtime, candidate.code, unimplemented_formats
         )
+        # TC-802 (REQ-G3-014): a candidate whose run FAILED or produced nothing is never published as a
+        # ``verified_example`` - it stays in the verification report only. (A README example once reached the
+        # index as ``Kind: verified_example`` with ``Runtime-Status: failed``; the label was honest, the kind was not.)
+        not_published = ""
+        if compiled and not rejected:
+            if runtime.status == RUNTIME_FAILED:
+                not_published = "the run failed"
+            elif runtime.status == RUNTIME_NO_OUTPUT:
+                not_published = "the run produced no output"
 
         if verification_records is not None:
             record = {
@@ -1199,6 +1279,10 @@ def _build_verified_example_chunks(
             record["source"] = candidate.source
             record["starts_example"] = candidate.starts_example
             record["harness"] = plan.harness
+            if level:
+                record["verification_level"] = level
+            if not_published:
+                record["not_published"] = not_published
             record["status"] = getattr(verification_result, "status", "")
             record["fixtures"] = [
                 fixture.as_dict() for fixture in getattr(verification_result, "fixtures", ())
@@ -1225,18 +1309,30 @@ def _build_verified_example_chunks(
                     "verified": compiled,
                     "output": output[-_CACHE_OUTPUT_TAIL_CHARS:],
                     **(runtime.as_cache_fields() if runtime.ran is not None else {}),
+                    **({"verification_level": level} if level else {}),
                     "verifier_version": VERIFIER_VERSION,
                 }
             )
 
         if verified:
             verified_count += 1
-        if compiled and not rejected and (verified or candidate.provenance != "authored"):
-            # TC-565: an example that compiled but fails at runtime (or produced nothing) is published
-            # only with its honest runtime lines, never as verified; an authored one only when verified.
+        if (
+            compiled
+            and not rejected
+            and not not_published
+            and (verified or candidate.provenance != "authored")
+        ):
+            # TC-802: only an example that compiled and did not fail or come out empty at runtime is published;
+            # an authored one only when verified. ``Verification-Level`` / ``Verified-With`` say how far it went.
             harness_line = f"Harness: {plan.harness}\n" if plan.harness else ""
             authored_lines = ""
             runtime_lines = _runtime_chunk_lines(runtime)
+            level_lines = _verification_level_lines(level, verified_with_toolchain() if level else None)
+            # The README prose before the example is read back as the example's lead-in (the run of non-blank lines
+            # directly above ``Example:``, up to a recognised header line). ``Verification-Level:`` and
+            # ``Verified-With:`` are not recognised header lines, so a blank line closes the header whenever they
+            # are written: the prose stays its own paragraph and is never prefixed by them.
+            header_end = "\n" if level_lines else ""
             if candidate.provenance == "authored":
                 authored_verified += 1
                 # TC-460: a verified authored example says so, in three lines directly after Kind.
@@ -1256,8 +1352,10 @@ def _build_verified_example_chunks(
                     f"FQN: Example: {candidate.title}\n"
                     f"Kind: verified_example\n"
                     f"{authored_lines}"
+                    f"{level_lines}"
                     f"{runtime_lines}"
                     f"{harness_line}"
+                    f"{header_end}"
                     f"{_chunkable_description(candidate.description)}\n\n"
                     f"Example:\n{plan.program}"
                 ),

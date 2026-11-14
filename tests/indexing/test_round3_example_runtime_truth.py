@@ -587,6 +587,13 @@ def test_build_chunks_runs_what_compiled_and_publishes_the_run_in_the_chunk(
         out = tmp_path / mode
         out.mkdir()
         _main(_argv(out, page))
+        if status != "ran":
+            # TC-802: a README example whose run failed or produced nothing is NOT published as a
+            # verified_example any more (it stays in the verification report with its honest status).
+            assert "Save a box" not in _example_texts(out)
+            report = json.loads((out / "chunks.verification.json").read_text(encoding="utf-8"))
+            assert report[0]["runtime_status"] == status and report[0]["not_published"]
+            continue
         text = _example_texts(out)["Save a box"]
         assert f"Runtime-Status: {status}\n" in text
         assert (f"Runtime-Produced-Bytes: {produced}\n" in text) is (produced is not None)
@@ -634,7 +641,10 @@ def test_a_cached_failing_example_is_not_run_again_and_publishes_the_same_chunk(
     _main(_argv(second, page, ["--verification-cache", str(cache)]))
     assert len(runs) == 1 and len(compile_calls) == 1
     assert _example_texts(first) == _example_texts(second)
-    assert "Runtime-Status: failed" in _example_texts(second)["Save a box"]
+    # TC-802: the failed README example is not published as a verified_example, on a hit as on a first run.
+    assert "Save a box" not in _example_texts(second)
+    report = json.loads((second / "chunks.verification.json").read_text(encoding="utf-8"))
+    assert report[0]["cached"] is True and report[0]["runtime_status"] == "failed"
 
 
 @pytest.mark.parametrize(("mode", "published"), [("throw", False), ("empty", False), ("ok", True)])
@@ -655,7 +665,8 @@ def test_an_authored_example_is_published_only_when_it_ran_and_produced_output(
     argv[argv.index("--library-commit") + 1] = "3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3"
     _main(argv)
     texts = _example_texts(tmp_path)
-    assert "Save a box" in texts
+    # TC-802: the README example is published only when it ran and produced output, like an authored one.
+    assert ("Save a box" in texts) is published
     authored = {title: text for title, text in texts.items() if "Provenance: authored" in text}
     assert bool(authored) is published
     for text in authored.values():

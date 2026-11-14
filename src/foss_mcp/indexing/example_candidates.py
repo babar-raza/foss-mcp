@@ -47,6 +47,7 @@ __all__ = [
     "effective_candidate",
     "extract_candidate_examples",
     "extract_candidate_supply",
+    "has_truncation_placeholder",
     "import_like_lines",
     "merge_authored_candidates",
     "normalised_code_sha256",
@@ -82,6 +83,41 @@ CHAIN_PREFIX_PLATFORMS: frozenset[str] = frozenset({"python", "typescript", "nod
 # (``_NO_STATEMENTS_MESSAGE``). dotnet, go, typescript, python and rust reject such a block; cpp
 # compiles and counts it, java wraps it in a class and compiles it, and nodejs passes its link check.
 IMPORT_ONLY_GUARD_PLATFORMS: frozenset[str] = frozenset({"cpp", "java", "nodejs"})
+
+
+# TC-802 (REQ-G3-014, RD2-284): a README abbreviates a long literal ("iVBORw0KGgo...") and the verifier happily runs
+# the shortened string, so the example is "verified" with a payload that is not the one the reader would paste. A
+# string literal is a truncation placeholder when it holds a base64 blob cut off with ``...`` (or the ellipsis
+# character): a ``base64,`` data-URI payload, a well-known base64 file prefix (PNG, JPEG, PDF, GIF, ZIP, OGG), or a
+# 32+ character mixed-case run with a digit. Each is followed directly by the cut. Ordinary prose ("Loading...",
+# "Processing...") and lowercase hex hashes never match.
+_STRING_LITERAL_RE = re.compile(
+    r'"""[\s\S]*?"""'  # a triple-quoted string
+    r"|'''[\s\S]*?'''"
+    r'|"(?:[^"\\\n]|\\.)*"'  # a one-line double-quoted string
+    r"|'(?:[^'\\\n]|\\.)*'"  # a one-line single-quoted string
+    r"|`[^`]*`"  # a backtick string (go raw string, javascript template)
+)
+_CUT = r"(?:\.\.\.|…)"
+_TRUNCATION_PLACEHOLDER_RE = re.compile(
+    r"base64,[A-Za-z0-9+/=_-]*"
+    + _CUT
+    + r"|(?:iVBORw0KGgo|/9j/|JVBERi0|R0lGOD|UEsDB|T2dnUw)[A-Za-z0-9+/=]*"
+    + _CUT
+    + r"|(?=[A-Za-z0-9+/]*[A-Z])(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*\d)[A-Za-z0-9+/]{32,}={0,2}"
+    + _CUT
+)
+
+
+def has_truncation_placeholder(code: str) -> bool:
+    """TC-802: whether ``code`` holds a string literal that is a truncated blob (see ``_TRUNCATION_PLACEHOLDER_RE``).
+
+    Only the inside of a string literal is read - a comment or an identifier that merely mentions ``...`` never
+    counts - and only a base64-looking payload followed directly by the cut does."""
+    return any(
+        _TRUNCATION_PLACEHOLDER_RE.search(literal.group(0)) is not None
+        for literal in _STRING_LITERAL_RE.finditer(code)
+    )
 
 
 def normalised_code_sha256(code: str) -> str:
@@ -141,6 +177,8 @@ class CandidateSupply:
     ``duplicates_dropped`` and ``other_language_dropped`` count the fences left out; ``imports_only``
     counts the returned candidates that hold nothing but imports. ``fallback`` is True when no
     fence of the page carries an accepted tag, so ``candidates`` is the legacy list.
+    ``placeholder_dropped`` (TC-802) counts the same-language fences left out because a string literal in them is a
+    truncated blob (``has_truncation_placeholder``).
     """
 
     candidates: tuple[CandidateExample, ...]
@@ -150,6 +188,7 @@ class CandidateSupply:
     other_language_dropped: int
     imports_only: int
     fallback: bool
+    placeholder_dropped: int = 0
 
 
 # --- import units --------------------------------------------------------------------------------
@@ -636,6 +675,7 @@ def _readme_candidate_supply(page: Mapping[str, object], platform: str) -> Candi
     raw: list[CandidateExample] = []
     chains: list[tuple[str, int, str]] = []
     other_language = 0
+    placeholder_dropped = 0
     for field_ in _fields(page):
         ordinal = 0
         previous_end = 0
@@ -644,6 +684,10 @@ def _readme_candidate_supply(page: Mapping[str, object], platform: str) -> Candi
             previous_end = match.end()
             if _fence_tag(match.group(1)) not in accepted_tags:
                 other_language += 1
+                continue
+            if has_truncation_placeholder(match.group(2)):
+                # TC-802: the verifier would run the abbreviated literal; the example is not the one a reader pastes.
+                placeholder_dropped += 1
                 continue
             ordinal += 1
             title = field_.title if ordinal == 1 else f"{field_.title} (part {ordinal})"
@@ -660,6 +704,18 @@ def _readme_candidate_supply(page: Mapping[str, object], platform: str) -> Candi
             )
             chains.append(field_.chain)
 
+    if not raw and placeholder_dropped:
+        # Every same-language fence was a truncated blob: the legacy list would re-admit them, so publish none.
+        return CandidateSupply(
+            candidates=(),
+            from_single_blocks=0,
+            from_content_blocks=0,
+            duplicates_dropped=0,
+            other_language_dropped=other_language,
+            imports_only=0,
+            fallback=False,
+            placeholder_dropped=placeholder_dropped,
+        )
     if not raw:
         legacy = _legacy_candidates(page)
         # No fence of the page carries an accepted tag (or the page has no fence at all).
@@ -702,6 +758,7 @@ def _readme_candidate_supply(page: Mapping[str, object], platform: str) -> Candi
         other_language_dropped=other_language,
         imports_only=sum(1 for candidate in annotated if candidate.imports_only),
         fallback=False,
+        placeholder_dropped=placeholder_dropped,
     )
 
 

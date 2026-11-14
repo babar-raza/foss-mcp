@@ -73,7 +73,14 @@ __all__ = [
     "verify_cpp_example",
     "prepare_cpp_library_linux",
     "verify_cpp_example_linux",
+    "LEVEL_ARTIFACT_VALIDATED",
+    "LEVEL_BUILT",
+    "LEVEL_RAN_EXIT0",
+    "LEVEL_RAN_PRODUCED_OUTPUT",
+    "LEVEL_SYNTAX_ONLY",
+    "LEVEL_TYPE_CHECKED",
     "RUNTIME_RUN_REQUIRED_FOR_VERIFIED",
+    "VERIFICATION_LEVELS",
     "VERIFIER_VERSION",
     "RunOutcome",
     "RuntimeRecord",
@@ -82,6 +89,8 @@ __all__ = [
     "entry_counts_as_verified",
     "execute_in_sandbox",
     "is_environmental_verdict",
+    "legacy_verification_level",
+    "resolve_verification_level",
     "run_compiled_candidate",
     "runtime_record_from_entry",
 ]
@@ -410,15 +419,40 @@ def _match_network_failure_marker(output: str) -> str | None:
     return None
 
 
+# TC-802 (REQ-G3-014): the strongest thing a verifier PROVED about a verified example, from weakest to strongest.
+# ``VerificationResult.level`` is one of these (or "" when nothing was proved, i.e. the example is not verified).
+# The level is a CLAIM about the run, never an input to the verdict: ``counts_as_verified`` does not read it.
+LEVEL_SYNTAX_ONLY = "syntax-only"
+LEVEL_TYPE_CHECKED = "type-checked"
+LEVEL_BUILT = "built"
+LEVEL_RAN_EXIT0 = "ran-exit0"
+LEVEL_RAN_PRODUCED_OUTPUT = "ran-produced-output"
+LEVEL_ARTIFACT_VALIDATED = "artifact-validated"
+VERIFICATION_LEVELS: tuple[str, ...] = (
+    LEVEL_SYNTAX_ONLY,
+    LEVEL_TYPE_CHECKED,
+    LEVEL_BUILT,
+    LEVEL_RAN_EXIT0,
+    LEVEL_RAN_PRODUCED_OUTPUT,
+    LEVEL_ARTIFACT_VALIDATED,
+)
+
+
 @dataclass(frozen=True)
 class VerificationResult:
-    """The real, compiler-determined outcome of verifying one candidate."""
+    """The real, compiler-determined outcome of verifying one candidate.
+
+    ``level`` (TC-802) is the verification level the verifier itself achieved - one of
+    ``VERIFICATION_LEVELS`` - set only when ``verified`` is True and excluded from equality, so it never
+    changes what a result compares equal to. A stand-in verifier that sets nothing leaves it empty.
+    """
 
     candidate: CandidateExample
     verified: bool
     output: str
     status: str = ""
     fixtures: tuple[FixtureRecord, ...] = field(default=(), compare=False)
+    level: str = field(default="", compare=False)
 
 
 # TC-456 (REQ-G3-007): words/net's packages/ (Aspose.JavaAttributes, Aspose.CodePorting) are
@@ -705,7 +739,10 @@ def verify_dotnet_example(
     combined = f"{result.stdout}\n{result.stderr}"
     output = f"{assembly_line}\n{_truncate(combined)}"
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    # A successful ``dotnet build`` proves the block builds; running it is a separate step (run_compiled_candidate).
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, level=LEVEL_BUILT if verified else ""
+    )
 
 
 # --- cells/cpp ---------------------------------------------------------------
@@ -1077,7 +1114,10 @@ def verify_cpp_example(
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    # The MSVC verifier compiles and links; it never runs the executable.
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, level=LEVEL_BUILT if verified else ""
+    )
 
 
 def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
@@ -1591,8 +1631,15 @@ def verify_python_example(
         status = FIXTURE_UNAVAILABLE
         output += f"\n[foss-mcp] fixture unavailable: {', '.join(plan.missing)}"
 
+    # ``verified`` is the literal exit code of the real run: python is executed, so exit 0 is ``ran-exit0``.
+    # What the script printed is not read here (17 README examples print nothing and still count).
     return VerificationResult(
-        candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records
+        candidate=candidate,
+        verified=verified,
+        output=output,
+        status=status,
+        fixtures=plan.records,
+        level=LEVEL_RAN_EXIT0 if verified else "",
     )
 
 
@@ -1844,7 +1891,10 @@ def verify_rust_example(
     )
     output = f"{assembly_line}\n{_truncate(output_text)}"
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    # ``cargo build`` only: the binary is never run.
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, level=LEVEL_BUILT if verified else ""
+    )
 
 
 def prepare_go_library(
@@ -2216,10 +2266,12 @@ def verify_go_example(
     def finish(verified: bool, tidy_returncode: int | None, *outputs: str) -> VerificationResult:
         assembly = _go_assembly_line(plan, blank_uses, tidy_returncode)
         joined = "\n".join(outputs)
+        # ``go build`` (+ ``go vet``): the binary is never run.
         return VerificationResult(
             candidate=candidate,
             verified=verified,
             output=f"{assembly}\n{_truncate(joined)}",
+            level=LEVEL_BUILT if verified else "",
         )
 
     write_main_go()
@@ -2566,7 +2618,10 @@ def verify_java_example(
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    # ``javac`` only: a successful compile is ``built``; the java run step (run_compiled_candidate) may raise it.
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, level=LEVEL_BUILT if verified else ""
+    )
 
 
 # --- pdf/typescript ----------------------------------------------------------
@@ -2890,7 +2945,10 @@ def verify_typescript_example(
     verified, note = _typescript_verdict(result.returncode, tsc_output)
     output = f"[foss-mcp] verdict: {note}\n{_truncate(tsc_output)}"
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    # ``tsc --noEmit``: type-checked, never emitted or run.
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, level=LEVEL_TYPE_CHECKED if verified else ""
+    )
 
 
 # --- nodejs (TC-362) ---------------------------------------------------------
@@ -3027,7 +3085,13 @@ def verify_nodejs_example(
     link = _run(["node", _NODEJS_LINK_CHECK_FILENAME], cwd=project_dir)
     output += f"\n{link.stdout}\n{link.stderr}"
     verified = syntax.returncode == 0 and link.returncode == 0
-    return VerificationResult(candidate=candidate, verified=verified, output=_truncate(output))
+    # ``node --check`` plus an import link check: nothing is type-checked and the candidate never runs.
+    return VerificationResult(
+        candidate=candidate,
+        verified=verified,
+        output=_truncate(output),
+        level=LEVEL_SYNTAX_ONLY if verified else "",
+    )
 
 
 # --- pdf/cpp on Linux (TC-222) -----------------------------------------------
@@ -3443,7 +3507,8 @@ def verify_cpp_example_linux(
 
     if not run:
         output = note + _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
-        return VerificationResult(candidate=candidate, verified=True, output=output)
+        # Compile-mode verdict: compiled and linked, the executable is not run.
+        return VerificationResult(candidate=candidate, verified=True, output=output, level=LEVEL_BUILT)
 
     clone_root = _cpp_clone_root(library_dir)
     cpp_staged = _stage_named_repository_files(candidate.code, clone_root, project_dir) if clone_root else []
@@ -3481,7 +3546,12 @@ def verify_cpp_example_linux(
         status = FIXTURE_UNAVAILABLE
         output += f"\n[foss-mcp] fixture unavailable: {', '.join(plan.missing)}"
     return VerificationResult(
-        candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records
+        candidate=candidate,
+        verified=verified,
+        output=output,
+        status=status,
+        fixtures=plan.records,
+        level=LEVEL_RAN_EXIT0 if verified else "",
     )
 
 
@@ -3639,6 +3709,45 @@ def is_environmental_verdict(result: object, runtime: RuntimeRecord | None = Non
 def entry_counts_as_verified(entry: Mapping[str, object]) -> bool:
     """Whether a verification-cache entry counts as verified under the current switch."""
     return counts_as_verified(runtime_record_from_entry(entry).status)
+
+
+def resolve_verification_level(level: str, runtime: RuntimeRecord) -> str:
+    """The level a verified example is stamped with (TC-802): the verifier's own ``level``, raised by the run
+    step where one ran (java, dotnet). A run that exited 0 with output is ``ran-produced-output``; one that
+    exited 0 with none is ``ran-exit0``; a failed or unattempted run leaves ``level`` as the compile step set
+    it. An example that did not compile has no level (``""``). Never reads ``counts_as_verified``."""
+    if not runtime.compiled:
+        return ""
+    status = runtime.status
+    if status == RUNTIME_RAN_OK:
+        return LEVEL_RAN_PRODUCED_OUTPUT
+    if status == RUNTIME_NO_OUTPUT:
+        return LEVEL_RAN_EXIT0
+    return level
+
+
+def legacy_verification_level(platform: str, runtime: RuntimeRecord, *, cpp_run: bool = True) -> str:
+    """The level of a verdict recorded before the verifiers stamped one (a cache entry without
+    ``verification_level``), derived from the facts that verdict already holds: python is verified by its
+    exit code (``ran-exit0``); go and rust by a build (``built``); typescript by ``tsc --noEmit``
+    (``type-checked``); nodejs by a syntax and link check (``syntax-only``); cpp by a run (``ran-exit0``) or,
+    in compile mode (``cpp_run`` False), a build; java and dotnet by their run record. ``""`` for an unknown
+    platform or an example that did not compile."""
+    if not runtime.compiled:
+        return ""
+    if platform in ("java", "dotnet"):
+        return resolve_verification_level(LEVEL_BUILT, runtime)
+    if platform == "python":
+        return LEVEL_RAN_EXIT0
+    if platform in ("go", "rust"):
+        return LEVEL_BUILT
+    if platform == "typescript":
+        return LEVEL_TYPE_CHECKED
+    if platform == "nodejs":
+        return LEVEL_SYNTAX_ONLY
+    if platform == "cpp":
+        return LEVEL_RAN_EXIT0 if cpp_run else LEVEL_BUILT
+    return ""
 
 
 # -- format readers: an artefact is judged by its own bytes, never by an exit code ----------------

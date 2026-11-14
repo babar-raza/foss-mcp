@@ -314,9 +314,22 @@ RUNTIME_LABEL_NO_OUTPUT = "compiles; produced no output"
 _RUNTIME_STATUS_PREFIX = "Runtime-Status:"
 _RUNTIME_BYTES_PREFIX = "Runtime-Produced-Bytes:"
 _RUNTIME_ERROR_PREFIX = "Runtime-Error:"
+_VERIFICATION_LEVEL_PREFIX = "Verification-Level:"
+_VERIFIED_WITH_PREFIX = "Verified-With:"
 _STATUS_RAN = "ran"
 _STATUS_FAILED = "failed"
 _STATUS_NO_OUTPUT = "no_output"
+# TC-802: what each ``Verification-Level:`` a chunk can carry proved, in one sentence. The sentence is derived from the
+# level, never from the platform, so it can say no more than the verifier achieved. A level this server does not know
+# is not in the table and falls back to the legacy label (never to a stronger claim).
+LEVEL_LABELS = {
+    "syntax-only": "syntax-checked only; not compiled or run",
+    "type-checked": "type-checked against the library; not run",
+    "built": "built against the library; not run",
+    "ran-exit0": "built and run to exit 0; its output was not checked",
+    "ran-produced-output": "built and run to exit 0 and produced output",
+    "artifact-validated": "built and run to exit 0 and produced an artifact that was validated",
+}
 README_NOTE_TAIL = (
     "checked by the ingestion verifier against the library at source_commit; the verifier may "
     "have added the README's own imports or an entry point around this snippet, which are not shown, so "
@@ -463,13 +476,29 @@ def _runtime_fields(text: str) -> tuple[str, int | None, str]:
     return status, produced, error
 
 
-def runtime_label(text: str) -> str:
-    """What running the chunk's example proved, in the verifier's own words.
+def _verification_fields(text: str) -> tuple[str, str]:
+    """``(level, toolchain)`` read from the chunk's ``Verification-Level:`` and ``Verified-With:`` lines (TC-802);
+    each is ``""`` for a chunk that has none (a legacy chunk, written before the verifiers stamped a level)."""
+    level = ""
+    tool = ""
+    for line in text.splitlines():
+        stripped = line.rstrip("\r\n")
+        if stripped.startswith(_VERIFICATION_LEVEL_PREFIX) and not level:
+            level = stripped[len(_VERIFICATION_LEVEL_PREFIX) :].strip()
+        elif stripped.startswith(_VERIFIED_WITH_PREFIX) and not tool:
+            tool = stripped[len(_VERIFIED_WITH_PREFIX) :].strip()
+    return level, tool
 
-    ``compiled and ran, produced N bytes`` (ran, exit 0, an artefact with content); ``compiles; fails at
-    runtime: <error>``; ``compiles; produced no output`` (ran, exit 0, an empty artefact); and, for a
-    chunk with no ``Runtime-Status`` line or one this server does not know, ``compiled only (run not
-    verified)``. A label never claims more than the line says.
+
+def runtime_label(text: str) -> str:
+    """What the verifier proved about the chunk's example, in its own words.
+
+    A ``Runtime-Status`` line (java, dotnet: the example was started) wins: ``compiled and ran, produced N
+    bytes`` (ran, exit 0, an artefact with content); ``compiles; fails at runtime: <error>``; ``compiles;
+    produced no output`` (ran, exit 0, an empty artefact). Otherwise a ``Verification-Level`` line this server
+    knows gives its sentence (``LEVEL_LABELS``): python and cpp runs say they ran, go / rust / cpp-compile that
+    they built, typescript that it type-checked. A chunk with neither (a legacy chunk, or an unknown level) is
+    ``compiled only (run not verified)``. A label never claims more than the lines say.
     """
     status, produced, error = _runtime_fields(text)
     if status == _STATUS_RAN:
@@ -478,7 +507,8 @@ def runtime_label(text: str) -> str:
         return f"compiles; fails at runtime: {error or 'error not recorded'}"
     if status == _STATUS_NO_OUTPUT:
         return RUNTIME_LABEL_NO_OUTPUT
-    return RUNTIME_LABEL_COMPILED_ONLY
+    level = _verification_fields(text)[0]
+    return LEVEL_LABELS.get(level, RUNTIME_LABEL_COMPILED_ONLY)
 
 
 def _runtime_rank(text: str) -> int:
@@ -492,6 +522,9 @@ def _verification_note(text: str) -> str:
     """The fixed sentence saying what ``verified`` means for the chunk: its provenance and exactly what
     running it proved (``runtime_label``)."""
     label = runtime_label(text)
+    tool = _verification_fields(text)[1]
+    if tool:
+        label = f"{label} (verified with {tool})"
     if _provenance(text) == "authored":
         return f"Authored for this index; {label}; {AUTHORED_NOTE_TAIL}"
     return f"{label}; {README_NOTE_TAIL}"
