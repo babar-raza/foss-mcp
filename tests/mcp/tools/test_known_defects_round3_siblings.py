@@ -121,7 +121,8 @@ def test_load_known_defects_returns_pdf_net_003_with_the_real_shape() -> None:
     (defect,) = load_known_defects("pdf", "net")
     assert defect.id == "PDF-NET-003"
     assert defect.subject.kind == "method"
-    assert defect.subject.refs == ("Aspose.Pdf.Text.TableAbsorber",)
+    # TC-811 added the sibling ``Table`` (the type whose borderless instances TableAbsorber misses).
+    assert defect.subject.refs == ("Aspose.Pdf.Text.TableAbsorber", "Aspose.Pdf.Table")
     assert defect.status == "open"
     assert defect.applies_to.package_versions == ("26.10.0",)
     assert defect.evidence.verified_on.package == "Aspose.PDF.FOSS"

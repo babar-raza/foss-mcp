@@ -197,7 +197,8 @@ def test_real_pdf_java_pdf_java_001_subject_refs_is_the_migrated_single_value() 
     defects = {defect.id: defect for defect in load_known_defects("pdf", "java")}
     defect = defects["PDF-JAVA-001"]
 
-    assert defect.subject.refs == ("org.aspose.pdf.WatermarkArtifact",)
+    # TC-811 added the sibling ``Page`` (``Page.getArtifacts().add()`` is where the artifact is added).
+    assert defect.subject.refs == ("org.aspose.pdf.WatermarkArtifact", "org.aspose.pdf.Page")
 
 
 def test_real_pdf_java_pdf_java_001_still_surfaces_through_get_symbol_after_migration() -> None:
@@ -221,9 +222,10 @@ def test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migra
 
     lines = get_symbol_known_defect_lines(scope, fqn, _symbol_text(fqn))
 
-    assert len(lines) == 1
-    assert "sheet index" in lines[0]
-    assert "3rd+ worksheet" in lines[0]
+    # TC-796 later added CELLS-TYPESCRIPT-006/009 to this same Workbook symbol, so it now carries
+    # three disclosures; the migrated CELLS-TYPESCRIPT-013 line must still be exactly one of them.
+    matching = [line for line in lines if "sheet index" in line and "3rd+ worksheet" in line]
+    assert len(matching) == 1
 
 
 def test_real_note_python_entries_still_surface_through_get_symbol_after_migration() -> None:
@@ -256,9 +258,13 @@ def test_real_pdf_java_pdf_java_002_does_not_cross_match_pdf_java_001s_symbol() 
         scope, "org.aspose.pdf.WatermarkArtifact", _symbol_text("org.aspose.pdf.WatermarkArtifact")
     )
 
-    assert len(page_lines) == 1
+    # TC-811 added ``Page`` as a sibling ref of PDF-JAVA-001 (the watermark is added through
+    # ``Page.getArtifacts().add()``), so ``Page`` now carries both entries and ``WatermarkArtifact``
+    # still carries only its own: neither entry loses its original symbol.
+    assert len(page_lines) == 2
     assert len(watermark_lines) == 1
-    assert page_lines != watermark_lines
+    assert watermark_lines[0] in page_lines
+    assert any("addStamp" in line for line in page_lines)
 
 
 # -------------------------------------------------------------------------------------------
