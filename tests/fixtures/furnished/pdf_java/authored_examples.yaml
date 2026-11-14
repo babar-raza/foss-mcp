@@ -234,3 +234,53 @@ examples:
         }
     }
   code_sha256: 2f8d4ceca42a3cbe924b58b88d96e24a4b724e29a6b7912d5f06def4697aa5dd
+- title: Build a two-column row and confirm its text survives a reload
+  description: Adds a Table to a page with one Row holding two cells, saves the document to memory, reloads it and uses TextAbsorber to confirm both cell values are present in the reloaded page's extracted text.
+  symbols:
+  - Document
+  - Page.getParagraphs
+  - Page.accept
+  - Table
+  - Table.getRows
+  - Row
+  - Row.getCells
+  - Rows.add
+  - Cells.add
+  - TextAbsorber
+  - TextAbsorber.getText
+  code: |
+    // Authored example: build a two-cell table row on a page and read the cell text back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.pdf.Document;
+    import org.aspose.pdf.Page;
+    import org.aspose.pdf.Table;
+    import org.aspose.pdf.Row;
+    import org.aspose.pdf.text.TextAbsorber;
+
+    public class TableRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            Document document = new Document();
+            Page page = document.getPages().add();
+
+            Table table = new Table();
+            page.getParagraphs().add(table);
+            Row row = table.getRows().add();
+            row.getCells().add("Quarter");
+            row.getCells().add("Revenue");
+
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            document.save(savedBytes);
+
+            Document reloaded = new Document(new ByteArrayInputStream(savedBytes.toByteArray()));
+            TextAbsorber absorber = new TextAbsorber();
+            reloaded.getPages().get(1).accept(absorber);
+            String extracted = absorber.getText();
+
+            System.out.println("extracted text: " + extracted);
+            if (!extracted.contains("Quarter") || !extracted.contains("Revenue")) {
+                throw new AssertionError("expected both cell values to be present in the extracted text");
+            }
+        }
+    }
+  code_sha256: bc186a8eea83e5e2268d7065c74c3496b67007bdc20e85cf4caebce9abc37718

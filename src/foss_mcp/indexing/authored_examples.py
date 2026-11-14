@@ -63,7 +63,7 @@ _TOP_LEVEL_KEYS = frozenset(
     {"schema_version", "pilot", "library_repository", "library_commit", "language", "examples"}
 )
 _EXAMPLE_KEYS = frozenset({"title", "description", "symbols", "code", "code_sha256"})
-_MAX_EXAMPLES = 5
+_MAX_EXAMPLES = 6
 _MAX_TITLE_CHARS = 120
 # A title is wrapped in conversational sentence frames by tests/conformance/test_sentence_wrapped_retrieval.py;
 # the tightest frame leaves room for 12 title words before the rendered sentence exceeds its 35-word bound.

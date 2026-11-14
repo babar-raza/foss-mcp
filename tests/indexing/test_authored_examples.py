@@ -469,7 +469,7 @@ STRUCTURAL_CASES = {
     "commit-short": _set("library_commit", "a" * 39),
     "language-empty": _set("language", ""),
     "examples-empty": _set("examples", []),
-    "examples-six": lambda document: document.__setitem__("examples", [_example() for _ in range(6)]),
+    "examples-seven": lambda document: document.__setitem__("examples", [_example() for _ in range(7)]),
     "examples-not-a-list": _set("examples", {"title": "x"}),
     "example-not-a-mapping": lambda document: document.__setitem__("examples", ["text"]),
     "title-empty": _with_example(title=""),
@@ -494,11 +494,32 @@ def test_the_schema_and_the_validator_agree_on_the_valid_document() -> None:
     assert _validate(document) == []
 
 
+def _numbered_examples(count: int) -> list[dict]:
+    return [_example(title=f"Example {n}", symbols=["Widget.Spin", "Widget"]) for n in range(count)]
+
+
+def test_the_example_cap_is_six() -> None:
+    # TC-837: raised from 5 to 6 so a pilot's examples are not dropped merely to make room.
+    assert authored_examples._MAX_EXAMPLES == 6
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    assert schema["properties"]["examples"]["maxItems"] == authored_examples._MAX_EXAMPLES
+
+
 def test_the_schema_and_the_validator_agree_on_a_maximal_valid_document() -> None:
-    examples = [_example(title=f"Example {n}", symbols=["Widget.Spin", "Widget"]) for n in range(5)]
-    document = _document(examples=examples)
+    document = _document(examples=_numbered_examples(6))
     assert _schema_errors(document) == []
     assert _validate(document) == []
+
+
+def test_six_examples_are_accepted_and_seven_are_rejected_by_the_schema_and_the_validator() -> None:
+    for count in (1, 5, 6):
+        document = _document(examples=_numbered_examples(count))
+        assert _schema_errors(document) == [], count
+        assert _validate(document) == [], count
+    seven = _document(examples=_numbered_examples(7))
+    assert _schema_errors(seven), "the schema accepted seven examples"
+    problems = _validate(seven)
+    assert any("1 to 6 items, not 7" in problem for problem in problems), problems
 
 
 @pytest.mark.parametrize("name", sorted(STRUCTURAL_CASES))

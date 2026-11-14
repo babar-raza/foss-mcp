@@ -1,12 +1,13 @@
 """Offline checks of the pdf/java authored-example sidecar (TC-748, REQ-G3-014).
 
-``tests/fixtures/furnished/pdf_java/authored_examples.yaml`` holds five authored examples written
+``tests/fixtures/furnished/pdf_java/authored_examples.yaml`` holds six authored examples written
 against the real public API of ``org.aspose.pdf`` (Aspose.PDF FOSS for Java) at the pinned commit:
 a text-fragment round trip read back with ``TextAbsorber``, an AcroForm ``TextBoxField`` round
-trip, a page rendered to a PNG with ``PngDevice``, a ``DocumentInfo`` title/author round trip, and
-(TC-827, replacing the earlier ``Table`` row round trip, which only re-proved the ``TextAbsorber``
-read-back example 1 already covers) a ``RadioButtonField`` group round trip: two options, one
-selected by value, the group and its selection read back by name after a reload. The upstream
+trip, a page rendered to a PNG with ``PngDevice``, a ``DocumentInfo`` title/author round trip, a
+``Table`` row round trip read back with ``TextAbsorber`` (TC-827 dropped it only to stay inside the
+five-example cap, which made the bare query ``table`` a miss; TC-837 raised the cap to six and
+restored it) and (TC-827) a ``RadioButtonField`` group round trip: two options, one selected by
+value, the group and its selection read back by name after a reload. The upstream
 README's own radio-button example omits the ``RadioButtonField`` import and cannot compile as
 published, so this one carries the correct ``org.aspose.pdf.forms`` imports. Each is a complete, self-
 contained Java program (its own ``public class`` with a ``main`` method and its own ``import``
@@ -59,8 +60,8 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
-EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
+EXPECTED_EXAMPLES = 6
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5, 6]
 
 _IMPORT_LINE_RE = re.compile(r"(?m)^import\s+([^;]+);")
 _LIBRARY_IMPORT_PREFIX = "org.aspose.pdf"
@@ -107,7 +108,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
@@ -278,3 +279,48 @@ def test_the_radio_button_example_builds_a_group_then_checks_the_reloaded_select
     assert ".getValue()" in after_reload
     assert ".getOptions().size()" in after_reload
     assert after_reload.count("throw new AssertionError(") >= 2
+
+
+# --- TC-837: the Table row example, dropped only for the five-example cap, is restored -------------
+
+
+def _table_examples() -> list[dict]:
+    return [example for example in _document()["examples"] if "Table" in example["symbols"]]
+
+
+def test_exactly_one_example_builds_a_table_row_and_reads_it_back() -> None:
+    examples = _table_examples()
+    assert len(examples) == 1, [example["title"] for example in examples]
+    example = examples[0]
+    words = example["title"].lower().split()
+    assert {"two-column", "row"} <= set(words)
+    assert len(words) <= 12
+    assert example["title"] in {candidate.title for candidate in _candidates()}
+    # the Table example and the radio button example are different examples with different titles
+    radio = [e for e in _document()["examples"] if "RadioButtonField" in e["symbols"]]
+    assert len(radio) == 1
+    assert radio[0]["title"] != example["title"]
+
+
+def test_the_table_example_adds_two_cells_then_checks_both_in_the_reloaded_text() -> None:
+    code = _table_examples()[0]["code"]
+    assert "import org.aspose.pdf.Table;" in code
+    assert "import org.aspose.pdf.Row;" in code
+    assert "page.getParagraphs().add(table)" in code
+    assert "table.getRows().add()" in code
+    assert code.count("row.getCells().add(") == 2
+    assert "new Document(new ByteArrayInputStream(" in code
+    after_reload = code[code.index("new Document(new ByteArrayInputStream(") :]
+    # the cell text is read from the RELOADED document, not from the in-memory table
+    assert "new TextAbsorber()" in after_reload
+    assert "absorber.getText()" in after_reload
+    assert after_reload.count("throw new AssertionError(") >= 1
+    assert 'extracted.contains("Quarter")' in after_reload
+    assert 'extracted.contains("Revenue")' in after_reload
+
+
+def test_the_table_example_keeps_its_verified_hash() -> None:
+    # verified when first authored (TC-748) and re-run for TC-837 against org.aspose:aspose-pdf-foss at
+    # the pinned commit; an edit to the code changes this hash
+    code_sha256 = _table_examples()[0]["code_sha256"]
+    assert code_sha256 == "bc186a8eea83e5e2268d7065c74c3496b67007bdc20e85cf4caebce9abc37718"

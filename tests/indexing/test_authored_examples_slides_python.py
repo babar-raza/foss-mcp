@@ -1,11 +1,13 @@
 """Offline checks of the slides/python authored-example sidecar (TC-750, REQ-G3-014).
 
-``tests/fixtures/furnished/slides_python/authored_examples.yaml`` holds five minimal, labelled
+``tests/fixtures/furnished/slides_python/authored_examples.yaml`` holds six minimal, labelled
 examples written against the real public API of ``aspose-slides-foss`` at the pinned commit. The
-pinned repository ships no ``examples/``-style sample directory at all, so four of them are adapted
+pinned repository ships no ``examples/``-style sample directory at all, so five of them are adapted
 from a real upstream ``tests/test_*.py`` suite method (table creation/merge, comment authors and
-filtering, group shapes, and slide transitions) and one is authored from the real behaviour of the pinned
-build (filling a layout's placeholders by name, TC-825); the ``pytest`` fixture
+filtering, core and custom document properties, group shapes, and slide transitions) and one is
+authored from the real behaviour of the pinned build (filling a layout's placeholders by name,
+TC-825). TC-825 had to drop the document-properties example to stay inside the five-example cap;
+TC-837 raised the cap to six and restored it. The ``pytest`` fixture
 scaffolding (``tmp_pptx``, bare ``assert``-only bodies with no ``print``/round trip of their own)
 is replaced by a real, standalone save/reopen round trip plus printed output. This file proves they
 are well-formed, labelled, tied to the chart's pinned commit and use only symbols that resolve in
@@ -49,7 +51,7 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
+EXPECTED_EXAMPLES = 6
 EXAMPLE_INDEXES = list(range(EXPECTED_EXAMPLES))
 
 _IMPORT_RE = re.compile(r"(?m)^[ \t]*(?:import\s+([^\s#]+)|from\s+([^\s#]+)\s+import\b)")
@@ -94,7 +96,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
@@ -229,7 +231,7 @@ def test_every_example_prints_and_asserts_real_output(index: int) -> None:
     assert "assert " in code
 
 
-# --- TC-825: the placeholder-filling example replaced the document-properties example -------------
+# --- TC-825: the placeholder-filling example; TC-837: the document-properties example is back -----
 
 PLACEHOLDER_SYMBOLS = {
     "Presentation.layout_slides",
@@ -240,6 +242,7 @@ PLACEHOLDER_SYMBOLS = {
 }
 KEPT_TITLE_WORDS = {
     "table": "Create a Table, Merge Cells and Verify Round-Trip Persistence",
+    "properties": "Set Core and Custom Document Properties and Delete One",
     "comment": "Add Comments From Two Authors and Filter a Slide's Comments by Author",
     "group": "Group Two Rectangles and Lock the Group Against Ungrouping",
     "transition": "Apply a Circle Slide Transition With a Timed Automatic Advance",
@@ -284,12 +287,67 @@ def test_the_placeholder_example_code_enumerates_fills_and_reloads() -> None:
     assert '"Content Placeholder 2": "Revenue grew 12 percent"' in code
 
 
-def test_the_four_kept_examples_remain_and_the_document_properties_example_is_gone() -> None:
+def test_the_five_other_examples_remain_alongside_the_placeholder_example() -> None:
     titles = [example["title"] for example in _document()["examples"]]
     for topic, title in KEPT_TITLE_WORDS.items():
         assert title in titles, topic
     assert len(titles) == EXPECTED_EXAMPLES
-    for example in _document()["examples"]:
-        assert "document properties" not in example["title"].lower(), example["title"]
-        assert not any(symbol.startswith("DocumentProperties") for symbol in example["symbols"])
-        assert "document_properties" not in example["code"]
+    assert len(_placeholder_examples()) == 1
+
+
+# --- TC-837: the document-properties example, dropped only for the five-example cap, is restored ---
+
+DOCUMENT_PROPERTIES_SYMBOLS = {
+    "DocumentProperties.title",
+    "DocumentProperties.set_custom_property_value",
+    "DocumentProperties.count_of_custom_properties",
+    "DocumentProperties.remove_custom_property",
+    "DocumentProperties.contains_custom_property",
+    "DocumentProperties.get_custom_property_value",
+}
+
+
+def _document_properties_examples() -> list[dict]:
+    return [
+        example
+        for example in _document()["examples"]
+        if DOCUMENT_PROPERTIES_SYMBOLS <= set(example["symbols"])
+    ]
+
+
+def test_exactly_one_example_sets_and_deletes_document_properties() -> None:
+    found = _document_properties_examples()
+    assert len(found) == 1, [example["title"] for example in found]
+    title = found[0]["title"]
+    lowered = title.lower()
+    assert "document properties" in lowered
+    assert "custom" in lowered
+    assert len(title.split()) <= MAX_TITLE_WORDS, title
+    # a distinct title from the placeholder example: the two must not collide as title anchors
+    assert title != _placeholder_examples()[0]["title"]
+
+
+def test_the_document_properties_example_sets_removes_saves_and_reloads() -> None:
+    code = _document_properties_examples()[0]["code"]
+    assert "props = prs.document_properties" in code
+    assert 'props.title = "Quarterly Review"' in code
+    assert 'props.set_custom_property_value("Draft", "no")' in code
+    assert 'props.remove_custom_property("Draft")' in code
+    assert 'assert props.contains_custom_property("Draft") is False' in code
+    assert "assert props.count_of_custom_properties == 2" in code
+    # saved, reopened, and the surviving values asserted on the reloaded presentation
+    assert "prs.save(path, SaveFormat.PPTX)" in code
+    reload_index = code.index("Presentation(path) as reloaded")
+    after_reload = code[reload_index:]
+    assert "reloaded.document_properties" in after_reload
+    assert 'assert reloaded_props.title == "Quarterly Review"' in after_reload
+    assert "assert reloaded_props.count_of_custom_properties == 2" in after_reload
+    assert "get_custom_property_value" in after_reload
+    assert "assert revision_out[0] == 3" in after_reload
+
+
+def test_the_document_properties_example_keeps_its_verified_hash() -> None:
+    # the example was verified when first authored (TC-750) and re-run for TC-837 against
+    # aspose-slides-foss at the pinned commit; an edit to the code changes this hash
+    example = _document_properties_examples()[0]
+    assert example["code_sha256"] == "6448dbd7c3f5d7a833b5d2689e942e6837795b751aafa9553b399f32966e371f"
