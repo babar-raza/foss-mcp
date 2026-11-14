@@ -5,6 +5,13 @@
 Usage:
     python scripts/release/snapshot_demo_from_cluster.py --namespace foss-mcp [--root DIR]
         [--only FAMILY_PLATFORM ...] [--allow-missing-sidecars] [--dry-run]
+    python scripts/release/snapshot_demo_from_cluster.py --from-dir DIR [--root DIR]
+        [--only FAMILY_PLATFORM ...] [--no-sidecars] [--allow-missing-sidecars] [--dry-run]
+
+--from-dir DIR (G3/TC-829) replaces steps 1-2 with a plain directory laid out like the manifests volume
+(``<scope>/active_pointer.json``, ``<scope>/generation__*.json``, sidecars at the top level): no kubectl runs and
+no --namespace is given. Steps 3-5 are unchanged and are the same code; ``--no-sidecars`` additionally skips
+step 4 and writes no sidecar, for a source that never holds them (a local ingestion work directory).
 
 infra/demo-manifests/ is what the standalone demo image bakes in. It must hold exactly what the live
 chart serves: per pilot the active generation AND the three sidecar files the server reads from the
@@ -299,6 +306,29 @@ def read_archive(data: bytes, wanted: Callable[[str], bool], *, dest: Path) -> d
     return files
 
 
+def read_directory(source: Path, wanted: Callable[[str], bool]) -> dict[str, bytes]:
+    """The bytes of every regular file ``wanted(rel)`` accepts, among the files directly in ``source`` and in its
+    immediate sub-directories (rel is ``name`` or ``dir/name``): the directory counterpart of ``read_archive``
+    (G3/TC-829). A link anywhere among those entries refuses the whole directory, as a link member refuses an
+    archive; nothing outside ``source`` is ever read.
+    """
+    if not source.is_dir():
+        raise SnapshotError(f"--from-dir {source} is not a directory")
+    candidates: list[tuple[str, Path]] = []
+    for entry in sorted(source.iterdir()):
+        if entry.is_symlink():
+            raise SnapshotError(f"unsafe directory entry {entry.name!r}: link")
+        if entry.is_file():
+            candidates.append((entry.name, entry))
+        elif entry.is_dir():
+            for child in sorted(entry.iterdir()):
+                if child.is_symlink():
+                    raise SnapshotError(f"unsafe directory entry {entry.name}/{child.name!r}: link")
+                if child.is_file():
+                    candidates.append((f"{entry.name}/{child.name}", child))
+    return {rel: path.read_bytes() for rel, path in candidates if wanted(rel)}
+
+
 # ---------------------------------------------------------------------------------------------------
 # validation of what was fetched
 # ---------------------------------------------------------------------------------------------------
@@ -340,6 +370,10 @@ def inspect_generation(scope: str, raw: bytes) -> tuple[int, int]:
             f"{scope}: the generation's lexical index is empty - there is nothing real to serve"
         )
     return len(chunks), kept
+
+
+def _origin(from_dir: Path | None) -> str:
+    return "cluster" if from_dir is None else "source directory"
 
 
 def _check_sidecar(name: str, data: bytes) -> None:
@@ -446,10 +480,14 @@ def snapshot_pilot(
     *,
     allow_missing_sidecars: bool,
     dry_run: bool,
+    from_dir: Path | None = None,
+    include_sidecars: bool = True,
 ) -> PilotResult:
     result = PilotResult(pilot=pilots.pilot_key(pilot))
     try:
-        _snapshot_pilot(pilot, namespace, root, allow_missing_sidecars, dry_run, result)
+        _snapshot_pilot(
+            pilot, namespace, root, allow_missing_sidecars, dry_run, result, from_dir, include_sidecars
+        )
     except (
         SnapshotError,
         compact.CompactionError,
@@ -471,15 +509,14 @@ def _snapshot_pilot(
     allow_missing_sidecars: bool,
     dry_run: bool,
     result: PilotResult,
+    from_dir: Path | None = None,
+    include_sidecars: bool = True,
 ) -> None:
     family, platform, source_kind = pilot["family"], pilot["platform"], pilot["sourceKind"]
     pilot_scope = "::".join((family, platform, source_kind))
     scope = "__".join((family, platform, source_kind))
     result.scope = scope
-    names = sidecar_names(family, platform)
-
-    pod = ready_serving_pod(namespace, pilot)
-    data = export_manifests(namespace, pod)
+    names = sidecar_names(family, platform) if include_sidecars else {}
 
     exact = {f"{scope}/{ACTIVE_POINTER}", *names.values()}
 
@@ -491,16 +528,20 @@ def _snapshot_pilot(
             head == scope and "/" not in tail and tail.startswith("generation__") and tail.endswith(".json")
         )
 
-    files = read_archive(data, wanted, dest=root.resolve())
+    if from_dir is not None:
+        files = read_directory(from_dir, wanted)
+    else:
+        pod = ready_serving_pod(namespace, pilot)
+        files = read_archive(export_manifests(namespace, pod), wanted, dest=root.resolve())
 
     pointer = files.get(f"{scope}/{ACTIVE_POINTER}")
     if pointer is None:
-        raise SnapshotError(f"{scope}: the cluster has no {ACTIVE_POINTER} for this pilot")
+        raise SnapshotError(f"{scope}: the {_origin(from_dir)} has no {ACTIVE_POINTER} for this pilot")
     _, generation_name = generation_file_name(scope, pointer, pilot_scope)
     generation = files.get(f"{scope}/{generation_name}")
     if generation is None:
         raise SnapshotError(
-            f"{scope}: the active pointer names {generation_name} but the cluster has no such file"
+            f"{scope}: the active pointer names {generation_name} but the {_origin(from_dir)} has no such file"
         )
     result.chunks, result.points_kept = inspect_generation(scope, generation)
     result.generation_bytes = len(generation)
@@ -570,7 +611,21 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Snapshot each pilot's active generation and sidecars from the live cluster."
     )
-    parser.add_argument("--namespace", required=True, help="Kubernetes namespace of the pilot releases")
+    parser.add_argument(
+        "--namespace", default=None, help="Kubernetes namespace of the pilot releases (not with --from-dir)"
+    )
+    parser.add_argument(
+        "--from-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="read from a directory laid out like the manifests volume instead of a cluster (no kubectl)",
+    )
+    parser.add_argument(
+        "--no-sidecars",
+        action="store_true",
+        help="with --from-dir: neither require nor copy the three sidecars (the generation only)",
+    )
     parser.add_argument(
         "--root", type=Path, default=compact.DEFAULT_ROOT, help="manifest root (default: %(default)s)"
     )
@@ -587,12 +642,17 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="do not fail a pilot whose cluster copy lacks a sidecar (the gap is still reported)",
     )
     parser.add_argument("--dry-run", action="store_true", help="read and validate; write nothing")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if (args.namespace is None) == (args.from_dir is None):
+        parser.error("exactly one of --namespace and --from-dir is required")
+    if args.no_sidecars and args.from_dir is None:
+        parser.error("--no-sidecars needs --from-dir")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if _NAMESPACE.fullmatch(args.namespace) is None:
+    if args.from_dir is None and _NAMESPACE.fullmatch(args.namespace) is None:
         print(
             "snapshot_demo_from_cluster: --namespace is not a valid Kubernetes namespace name",
             file=sys.stderr,
@@ -613,10 +673,12 @@ def main(argv: list[str] | None = None) -> int:
     for pilot in selected:
         result = snapshot_pilot(
             pilot,
-            args.namespace,
+            args.namespace or "",
             root,
             allow_missing_sidecars=args.allow_missing_sidecars,
             dry_run=args.dry_run,
+            from_dir=args.from_dir,
+            include_sidecars=not args.no_sidecars,
         )
         results.append(result)
         print(format_result(result), flush=True)

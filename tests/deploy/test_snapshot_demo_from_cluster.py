@@ -1051,3 +1051,196 @@ def test_the_script_runs_standalone_and_rejects_an_unknown_pilot(tmp_path: Path)
     assert proc.returncode == 2, proc.stderr
     assert "unknown pilot(s): not_a_pilot" in proc.stderr
     assert not (tmp_path / "r").exists()
+
+
+# ---------------------------------------------------------------------------------------------------
+# G3/TC-829: --from-dir, the cluster-free source
+# ---------------------------------------------------------------------------------------------------
+
+
+def make_source_dir(
+    base: Path,
+    pilot: dict[str, Any],
+    *,
+    version: str = VERSION,
+    sidecars: bool = True,
+    pointer: bool = True,
+    generation: bool = True,
+    chunks: int = 3,
+) -> Path:
+    """What a local ingestion work directory holds: the scope, a stale generation, lease state and the sidecars."""
+    scope_dir = base / scope_of(pilot)
+    scope_dir.mkdir(parents=True)
+    if pointer:
+        (scope_dir / "active_pointer.json").write_bytes(pointer_bytes(pilot, version))
+    if generation:
+        doc = generation_doc(pilot, version, chunks)
+        (scope_dir / f"generation__{version}.json").write_bytes(json.dumps(doc, indent=2).encode("utf-8"))
+    stale = json.dumps(generation_doc(pilot, OLD_VERSION, 1)).encode("utf-8")
+    (scope_dir / f"generation__{OLD_VERSION}.json").write_bytes(stale)
+    (scope_dir / "lease_state.json").write_bytes(b'{"fencing_token": 4}')
+    if sidecars:
+        for label in SIDECAR_LABELS:
+            (base / sidecar_name_of(label, pilot)).write_bytes(sidecar_content(label, pilot))
+    (base / "product_reference_other_pilot.json").write_bytes(b'{"foreign": true}')
+    return base
+
+
+@pytest.fixture
+def no_kubectl(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    calls: list[list[str]] = []
+
+    def boom(cmd: list[str], **kwargs: Any) -> Any:
+        calls.append(list(cmd))
+        raise AssertionError(f"--from-dir must never run a subprocess: {cmd}")
+
+    monkeypatch.setattr(snap.subprocess, "run", boom)
+    return calls
+
+
+def run_from_dir(
+    capsys: pytest.CaptureFixture[str], root: Path, source: Path, *args: str
+) -> tuple[int, str, str]:
+    rc = snap.main(["--from-dir", str(source), "--root", str(root), *args])
+    captured = capsys.readouterr()
+    return rc, captured.out, captured.err
+
+
+def test_from_dir_matches_the_cluster_path_byte_for_byte(
+    cluster: FakeCluster, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cluster.add(PDF_NET)
+    cluster_root = tmp_path / "from-cluster"
+    rc, _, err = run_tool(capsys, cluster_root, "--only", "pdf_net")
+    assert rc == 0, err
+    source = make_source_dir(tmp_path / "source", PDF_NET)
+    dir_root = tmp_path / "from-dir"
+
+    rc, out, err = run_from_dir(capsys, dir_root, source, "--only", "pdf_net")
+
+    assert rc == 0, (out, err)
+    assert tree(dir_root) == tree(cluster_root)
+    assert "pdf_net: ok [written]" in out
+
+
+def test_from_dir_runs_no_subprocess_and_needs_no_namespace(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET)
+    rc, out, err = run_from_dir(capsys, tmp_path / "root", source, "--only", "pdf_net")
+    assert rc == 0, (out, err)
+    assert no_kubectl == []
+
+
+def test_from_dir_no_sidecars_writes_only_pointer_and_generation(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET)
+    root = tmp_path / "root"
+
+    rc, out, err = run_from_dir(capsys, root, source, "--only", "pdf_net", "--no-sidecars")
+
+    assert rc == 0, (out, err)
+    assert sorted(p.name for p in root.iterdir()) == [scope_of(PDF_NET)]
+    assert sorted(p.name for p in (root / scope_of(PDF_NET)).iterdir()) == [
+        "active_pointer.json",
+        f"generation__{VERSION}.json",
+    ]
+
+
+def test_from_dir_no_sidecars_does_not_need_them_to_exist(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET, sidecars=False)
+    rc, out, _ = run_from_dir(capsys, tmp_path / "root", source, "--only", "pdf_net", "--no-sidecars")
+    assert rc == 0, out
+
+
+def test_from_dir_without_no_sidecars_still_requires_them(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET, sidecars=False)
+    root = tmp_path / "root"
+    rc, out, _ = run_from_dir(capsys, root, source, "--only", "pdf_net")
+    assert rc == 1 and "missing sidecar(s)" in out
+    assert not (root / scope_of(PDF_NET)).exists()
+
+
+def test_from_dir_names_the_source_directory_when_the_pointer_is_missing(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET, pointer=False)
+    rc, out, _ = run_from_dir(capsys, tmp_path / "root", source, "--only", "pdf_net", "--no-sidecars")
+    assert rc == 1 and "the source directory has no active_pointer.json" in out
+
+
+def test_from_dir_missing_generation_fails(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET, generation=False)
+    rc, out, _ = run_from_dir(capsys, tmp_path / "root", source, "--only", "pdf_net", "--no-sidecars")
+    assert rc == 1 and "the source directory has no such file" in out
+
+
+def test_from_dir_an_empty_lexical_index_is_a_failure(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET, chunks=0)
+    rc, out, _ = run_from_dir(capsys, tmp_path / "root", source, "--only", "pdf_net", "--no-sidecars")
+    assert rc == 1 and "lexical index is empty" in out
+
+
+def test_from_dir_that_is_not_a_directory_fails_the_pilot(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, out, _ = run_from_dir(capsys, tmp_path / "root", tmp_path / "missing", "--only", "pdf_net")
+    assert rc == 1 and "is not a directory" in out
+
+
+def test_from_dir_refuses_a_link(
+    no_kubectl: list[list[str]],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET)
+    (source / "evil.json").write_bytes(b"{}")
+    real_is_symlink = Path.is_symlink
+    monkeypatch.setattr(Path, "is_symlink", lambda self: self.name == "evil.json" or real_is_symlink(self))
+    rc, out, _ = run_from_dir(capsys, tmp_path / "root", source, "--only", "pdf_net", "--no-sidecars")
+    assert rc == 1 and "link" in out
+    assert not (tmp_path / "root" / scope_of(PDF_NET)).exists()
+
+
+def test_from_dir_dry_run_writes_nothing(
+    no_kubectl: list[list[str]], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = make_source_dir(tmp_path / "source", PDF_NET)
+    root = tmp_path / "root"
+    rc, out, _ = run_from_dir(capsys, root, source, "--only", "pdf_net", "--dry-run")
+    assert rc == 0 and "pdf_net: ok [dry-run]" in out
+    assert not root.exists() or list(root.iterdir()) == []
+
+
+def test_read_directory_reads_only_wanted_files_one_level_deep(tmp_path: Path) -> None:
+    (tmp_path / "scope").mkdir()
+    (tmp_path / "scope" / "a.json").write_bytes(b"A")
+    (tmp_path / "scope" / "deeper").mkdir()
+    (tmp_path / "scope" / "deeper" / "x.json").write_bytes(b"X")
+    (tmp_path / "top.json").write_bytes(b"T")
+    (tmp_path / "skip.json").write_bytes(b"S")
+    files = snap.read_directory(tmp_path, lambda rel: rel in {"scope/a.json", "top.json", "deeper/x.json"})
+    assert files == {"scope/a.json": b"A", "top.json": b"T"}
+
+
+def test_exactly_one_of_namespace_and_from_dir_is_required(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as neither:
+        snap.parse_args([])
+    assert neither.value.code == 2
+    with pytest.raises(SystemExit) as both:
+        snap.parse_args(["--namespace", NS, "--from-dir", str(tmp_path)])
+    assert both.value.code == 2
+    with pytest.raises(SystemExit) as stray:
+        snap.parse_args(["--namespace", NS, "--no-sidecars"])
+    assert stray.value.code == 2
+    assert snap.parse_args(["--from-dir", str(tmp_path), "--no-sidecars"]).no_sidecars is True

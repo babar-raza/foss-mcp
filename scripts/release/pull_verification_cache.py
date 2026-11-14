@@ -4,6 +4,12 @@
 Usage:
     python scripts/release/pull_verification_cache.py --namespace NS
         [--only FAMILY_PLATFORM ...] [--dest DIR] [--dry-run]
+    python scripts/release/pull_verification_cache.py --from-dir DIR
+        [--only FAMILY_PLATFORM ...] [--dest DIR] [--dry-run]
+
+--from-dir DIR (G3/TC-829) replaces steps 1-2 below with a plain directory holding the same
+``verification_cache_<family>_<platform>.json`` files (a local ingestion work directory): no kubectl runs and no
+--namespace is given. Steps 3-4 - validation and the merge - are the same code either way.
 
 infra/helm/foss-mcp/templates/ingestion-job.yaml's own ``--verification-cache-out`` writes each
 furnished pilot's merged verification cache to ``verification_cache_<family>_<platform>.json`` on
@@ -144,12 +150,30 @@ def export_cache_bytes(namespace: str, pod: str, filename: str, *, dest: Path) -
     return files.get(filename)
 
 
-def _pull_pilot(pilot: dict, namespace: str, dest: Path, *, dry_run: bool) -> PullResult:
+def read_cache_from_dir(source: Path, filename: str) -> bytes | None:
+    """The raw bytes of ``filename`` directly inside ``source``, or ``None`` when it is absent (G3/TC-829: the
+    ``--from-dir`` counterpart of ``export_cache_bytes``). A link is refused, never followed."""
+    if not source.is_dir():
+        raise PullError(f"--from-dir {source} is not a directory")
+    path = source / filename
+    if path.is_symlink():
+        raise PullError(f"unsafe entry {filename!r}: link")
+    if not path.is_file():
+        return None
+    return path.read_bytes()
+
+
+def _pull_pilot(
+    pilot: dict, namespace: str, dest: Path, *, dry_run: bool, from_dir: Path | None = None
+) -> PullResult:
     key = pilots.pilot_key(pilot)
     try:
-        pod = snapshot_tool.ready_serving_pod(namespace, pilot)
         filename = cluster_cache_filename(pilot["family"], pilot["platform"])
-        data = export_cache_bytes(namespace, pod, filename, dest=dest)
+        if from_dir is not None:
+            data = read_cache_from_dir(from_dir, filename)
+        else:
+            pod = snapshot_tool.ready_serving_pod(namespace, pilot)
+            data = export_cache_bytes(namespace, pod, filename, dest=dest)
         if data is None:
             return PullResult(pilot=key, status="absent")
         try:
@@ -181,6 +205,12 @@ def _pull_pilot(pilot: dict, namespace: str, dest: Path, *, dry_run: bool) -> Pu
         return PullResult(pilot=key, status="failed", message=str(exc) or type(exc).__name__)
 
 
+def pull_pilot(pilot: dict, dest: Path, *, from_dir: Path, dry_run: bool = False) -> PullResult:
+    """Merge one pilot's ``verification_cache_<family>_<platform>.json`` found in ``from_dir`` into ``dest``
+    (G3/TC-829: the entry point scripts/release/regenerate_local.py uses; the same code as the cluster path)."""
+    return _pull_pilot(pilot, "", dest, dry_run=dry_run, from_dir=from_dir)
+
+
 def format_result(result: PullResult) -> str:
     if result.status == "failed":
         return f"{result.pilot}: failed: {result.message}"
@@ -191,7 +221,16 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Pull each pilot's cluster verification cache back into the repository."
     )
-    parser.add_argument("--namespace", required=True, help="Kubernetes namespace of the pilot releases")
+    parser.add_argument(
+        "--namespace", default=None, help="Kubernetes namespace of the pilot releases (not with --from-dir)"
+    )
+    parser.add_argument(
+        "--from-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="read verification_cache_<family>_<platform>.json from this directory instead of a cluster",
+    )
     parser.add_argument(
         "--dest", type=Path, default=DEFAULT_DEST, help="verification cache directory (default: %(default)s)"
     )
@@ -203,7 +242,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="pull only this pilot, e.g. pdf_net (repeatable)",
     )
     parser.add_argument("--dry-run", action="store_true", help="read and validate; write nothing")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if (args.namespace is None) == (args.from_dir is None):
+        parser.error("exactly one of --namespace and --from-dir is required")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -219,7 +261,9 @@ def main(argv: list[str] | None = None) -> int:
 
     failed = False
     for pilot in selected:
-        result = _pull_pilot(pilot, args.namespace, args.dest, dry_run=args.dry_run)
+        result = _pull_pilot(
+            pilot, args.namespace or "", args.dest, dry_run=args.dry_run, from_dir=args.from_dir
+        )
         print(format_result(result), flush=True)
         if result.status == "failed":
             failed = True

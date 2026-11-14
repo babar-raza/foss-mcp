@@ -270,3 +270,144 @@ def test_multiple_pilots_are_each_reported_on_their_own_line(
 
     assert rc == 0
     assert set(lines) == {"pdf_net: written", "pdf_go: absent"}
+
+
+# ---------------------------------------------------------------------------------------------------
+# G3/TC-829: --from-dir, the cluster-free source
+# ---------------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def no_kubectl(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    calls: list[list[str]] = []
+
+    def boom(cmd: list[str], **kwargs: Any) -> Any:
+        calls.append(list(cmd))
+        raise AssertionError(f"--from-dir must never run a subprocess: {cmd}")
+
+    monkeypatch.setattr(pull.subprocess, "run", boom)
+    return calls
+
+
+def _from_dir(
+    capsys: pytest.CaptureFixture[str], source: Path, dest: Path, *extra: str
+) -> tuple[int, list[str]]:
+    rc = pull.main(["--from-dir", str(source), "--dest", str(dest), *extra])
+    return rc, capsys.readouterr().out.splitlines()
+
+
+def _source_with(tmp_path: Path, filename: str, data: bytes) -> Path:
+    source = tmp_path / "work"
+    source.mkdir()
+    (source / filename).write_bytes(data)
+    return source
+
+
+def test_from_dir_writes_the_cache_and_runs_no_subprocess(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = _source_with(tmp_path, "verification_cache_pdf_net.json", _cache_bytes([_entry()]))
+
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net")
+
+    assert (rc, lines) == (0, ["pdf_net: written"])
+    assert (dest / "pdf_net.json").read_text(encoding="utf-8") == build_chunks.verification_cache_document(
+        [_entry()]
+    )
+    assert no_kubectl == []
+
+
+def test_from_dir_merges_and_preserves_failing_entries_of_the_existing_cache(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    dest.mkdir()
+    failing = _entry(title="known failing", code_sha256="b" * 64, verified=False, output="boom")
+    (dest / "pdf_net.json").write_bytes(_cache_bytes([failing]))
+    source = _source_with(tmp_path, "verification_cache_pdf_net.json", _cache_bytes([_entry()]))
+
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net")
+
+    assert (rc, lines) == (0, ["pdf_net: written"])
+    merged = build_chunks.parse_verification_cache((dest / "pdf_net.json").read_text(encoding="utf-8"))
+    assert {e["title"]: e["verified"] for e in merged} == {"known failing": False, "An example": True}
+
+
+def test_from_dir_a_second_identical_pull_is_unchanged(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = _source_with(tmp_path, "verification_cache_pdf_net.json", _cache_bytes([_entry()]))
+    assert _from_dir(capsys, source, dest, "--only", "pdf_net")[0] == 0
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net")
+    assert (rc, lines) == (0, ["pdf_net: unchanged"])
+
+
+def test_from_dir_without_the_file_is_absent_not_a_failure(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "work"
+    source.mkdir()
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net")
+    assert (rc, lines) == (0, ["pdf_net: absent"])
+    assert not (dest / "pdf_net.json").exists()
+
+
+def test_from_dir_malformed_cache_fails(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = _source_with(
+        tmp_path, "verification_cache_pdf_net.json", b'{"schema_version": 2, "entries": []}'
+    )
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net")
+    assert rc == 1 and lines[0].startswith("pdf_net: failed: cluster cache is malformed")
+
+
+def test_from_dir_that_is_not_a_directory_fails(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, lines = _from_dir(capsys, tmp_path / "missing", dest, "--only", "pdf_net")
+    assert rc == 1 and "is not a directory" in lines[0]
+
+
+def test_from_dir_dry_run_writes_nothing(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = _source_with(tmp_path, "verification_cache_pdf_net.json", _cache_bytes([_entry()]))
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net", "--dry-run")
+    assert (rc, lines) == (0, ["pdf_net: written"])
+    assert not dest.exists()
+
+
+def test_pull_pilot_is_the_public_from_dir_entry_point(
+    no_kubectl: list[list[str]], tmp_path: Path, dest: Path
+) -> None:
+    source = _source_with(tmp_path, "verification_cache_pdf_net.json", _cache_bytes([_entry()]))
+    result = pull.pull_pilot(PDF_NET, dest, from_dir=source)
+    assert (result.pilot, result.status) == ("pdf_net", "written")
+
+
+def test_exactly_one_of_namespace_and_from_dir_is_required_for_pull(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as neither:
+        pull.parse_args([])
+    assert neither.value.code == 2
+    with pytest.raises(SystemExit) as both:
+        pull.parse_args(["--namespace", NS, "--from-dir", str(tmp_path)])
+    assert both.value.code == 2
+
+
+def test_from_dir_refuses_a_linked_cache_file(
+    no_kubectl: list[list[str]],
+    tmp_path: Path,
+    dest: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source_with(tmp_path, "verification_cache_pdf_net.json", _cache_bytes([_entry()]))
+    real_is_symlink = Path.is_symlink
+    monkeypatch.setattr(
+        Path,
+        "is_symlink",
+        lambda self: self.name == "verification_cache_pdf_net.json" or real_is_symlink(self),
+    )
+    rc, lines = _from_dir(capsys, source, dest, "--only", "pdf_net")
+    assert rc == 1 and "link" in lines[0]
+    assert not (dest / "pdf_net.json").exists()
