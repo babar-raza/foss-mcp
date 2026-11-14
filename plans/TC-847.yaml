@@ -1,0 +1,144 @@
+id: TC-847
+gate: G3
+lane: extraction
+purpose: >-
+  Found by the TC-841 worker (2026-11-14): the regenerated tex/python extraction fixture carries
+  38 FALSE `stub: true` members ('empty body (pass)'). Upstream
+  `src/aspose_tex/presentation/__init__.py` (and `font_manager.py`) do not parse because of broken
+  indentation; the extractor's syntax repair (`repaired-syntax` entries in the fixture) closes
+  header lines with `pass`, and the stub detector (python_surface.py `stub_reason`) then reads
+  REAL implemented methods as empty `pass` bodies - e.g. `DviDevice.finalize`, `get_bytes`,
+  `OutputDevice.destination` and 14 `FontManager` methods, which the worker verified have real
+  bodies at the pinned commit. Baking that fixture would serve a false 'not implemented in this
+  build: empty body (pass)' disclosure for tex/python (the 'no pilot ever gets worse' honesty
+  class; TC-844 fixed the analogous slides/python false positives). FIX: a `pass` (or any
+  statement) that the syntax REPAIR inserted must never count as the author's empty body: make the
+  repair path record which function bodies it synthesised (or run `stub_reason` against the
+  ORIGINAL source slice for repaired functions, or skip stub classification for any function whose
+  body lies in a repaired span) so a method whose body was synthesised by repair gets NO stub flag
+  - while a genuinely written `pass`/`...`/`raise NotImplementedError` in a repaired file is still
+  flagged when detectable from the original text. Choose the narrowest correct mechanism after
+  reading how repair works (grep `repaired-syntax`, `_repair` in
+  src/foss_mcp/extraction/run_extraction.py and python_surface.py). Then regenerate ONLY the
+  tex_python fixture: `python -X utf8 -m foss_mcp.extraction.run_extraction
+  config/products/tex/python.yaml tests/fixtures/tex_python/api_surface.json --commit <pin from
+  infra/helm/foss-mcp/values.yaml> --keep-names-from
+  tests/fixtures/furnished/tex_python/pages/_index.md --max-types 100000` (clone at the pin
+  outside the repo; GITHUB_TOKEN env var available, never print it), assert source_commit == pin,
+  kept == total, LF line endings, and report the stub-flag count before/after (expected: the 38
+  false flags gone; list any that remain with the reason). Re-pin tests that counted the old tex
+  fixture's stub flags/coverage (tests/extraction/test_tex_python_extraction.py,
+  test_round3_python_fidelity.py ... only what actually fails; report anything outside
+  write_paths).
+depends_on:
+  - TC-011
+  - TC-021
+  - TC-233
+  - TC-234
+  - TC-252
+  - TC-265
+  - TC-274
+  - TC-281
+  - TC-294
+  - TC-324
+  - TC-393
+  - TC-394
+  - TC-401
+  - TC-420
+  - TC-426
+  - TC-429
+  - TC-473
+  - TC-520
+  - TC-521
+  - TC-522
+  - TC-523
+  - TC-525
+  - TC-528
+  - TC-532
+  - TC-533
+  - TC-534
+  - TC-535
+  - TC-545
+  - TC-550
+  - TC-552
+  - TC-555
+  - TC-557
+  - TC-558
+  - TC-559
+  - TC-561
+  - TC-620
+  - TC-674
+  - TC-686
+  - TC-700
+  - TC-729
+  - TC-779
+  - TC-818
+  - TC-819
+  - TC-841
+  - TC-844
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+  - src/foss_mcp/extraction/run_extraction.py
+  - tests/extraction/test_python_repaired_stub_false_positive.py
+  - tests/fixtures/tex_python/api_surface.json
+  - tests/extraction/test_tex_python_extraction.py
+  - tests/extraction/test_round3_python_fidelity.py
+  - tests/extraction/test_round3_stub_detection.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: how the syntax repair works (grep `repaired-syntax` / `repair` in
+    src/foss_mcp/extraction/), python_surface.py `stub_reason` and its callers,
+    tests/extraction/test_tex_python_extraction.py, tests/extraction/test_round3_stub_detection.py,
+    TC-844's test tests/extraction/test_python_stub_interface_and_inheritance.py (pattern), and the
+    TC-841 worker's scratch in the session scratchpad (tc841_regen.py, tc841_out/).
+  - >-
+    REPRODUCE FIRST: extract tex/python at its pin in-process and list the 38 stub flags with their
+    reasons; confirm by reading the pinned source that e.g. `DviDevice.finalize` has a real body.
+  - >-
+    NEW TEST tests/extraction/test_python_repaired_stub_false_positive.py with a hand-authored
+    micro-library: a module with broken indentation that the repair fixes, containing methods with
+    real bodies (must NOT be stubs) and a genuine `pass` method on an unbroken region (stub) and a
+    genuine `raise NotImplementedError` (stub); plus an assertion over the regenerated tex fixture
+    that no member has `stub: true` with reason 'empty body (pass)' unless the original upstream
+    text at that member is really `pass`/`...` (list the survivors in your report).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies the src and fixture
+    diff). ruff format + ruff check; run the card's check command twice; report real counts. Do NOT
+    use git stash. Never skip a test. Never use PowerShell Set-Content to write repo files. If a
+    test outside write_paths fails, stop and report exact ids.
+actions:
+  - >-
+    Stop syntax-repair-synthesised `pass` bodies from being flagged as 'not implemented' stubs and
+    regenerate the tex/python fixture.
+checks:
+  - command: '{python} -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 3000
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 1000
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/extraction/tree_sitter_engine/python_surface.py', 'src/foss_mcp/extraction/run_extraction.py', 'tests/fixtures/tex_python/api_surface.json']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-847/receipt.json
+closeout:
+  - >-
+    tex/python's fixture no longer carries false 'empty body (pass)' stubs from syntax repair.
+recovery: Re-run from a clean tree.
