@@ -17,7 +17,7 @@ from __future__ import annotations
 import difflib
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Final
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -285,6 +285,73 @@ def called_member_defect_lines(
                 lines.append(line)
                 break
     return tuple(lines)
+
+
+@dataclass(frozen=True)
+class NotedSignature(SymbolSignature):
+    """TC-822 (RD2-208): a ``SymbolSignature`` that also carries ``notes`` - used ONLY for a .NET answer
+    whose members include tagged ones (see ``net_member_tag_note``). Every other answer stays a plain
+    ``SymbolSignature``, so its JSON gains no ``notes`` key at all."""
+
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class NotedResolvedSignature(ResolvedSignature):
+    """The ``ResolvedSignature`` twin of ``NotedSignature`` (a resolved .NET name whose answer contains tagged
+    members)."""
+
+    notes: tuple[str, ...] = ()
+
+
+# TC-822 (RD2-208): the member tags a .NET property line can carry that are NOT properties - events and
+# (static) readonly fields are listed with the properties and told apart only by the bracket tag.
+_NET_PLATFORM = "net"
+_NET_TAG_GROUP = re.compile(r"\s\[([a-z][a-z, ]*)\]")
+_NET_TAG_MEANINGS: Final = (
+    ("event", "[event] = event"),
+    ("static, readonly", "[static, readonly] = static readonly field"),
+    ("readonly", "[readonly] = readonly field"),
+)
+
+
+def net_member_tag_note(scope: Scope, member_lines: Sequence[str]) -> str | None:
+    """TC-822 (RD2-208): one short factual line naming the tag convention, or ``None``.
+
+    Only a .NET scope, and only when *member_lines* really hold a member tagged ``[event]``,
+    ``[readonly]`` or ``[static, readonly]`` - the events and readonly fields the chunk lists among the
+    properties. Only the tags actually present are explained, so every other answer gets no line.
+    """
+    if scope.platform != _NET_PLATFORM:
+        return None
+    present: set[str] = set()
+    for line in member_lines:
+        for match in _NET_TAG_GROUP.finditer(line):
+            tag = ", ".join(part.strip() for part in match.group(1).split(","))
+            present.add(tag)
+    meanings = [meaning for tag, meaning in _NET_TAG_MEANINGS if tag in present]
+    if not meanings:
+        return None
+    return f"Note: {'; '.join(meanings)}; they are listed with the properties."
+
+
+def _with_member_tag_note(
+    scope: Scope, answer: SymbolSignature | ResolvedSignature | NotFound
+) -> SymbolSignature | ResolvedSignature | NotFound:
+    """TC-822: *answer* with the ``net_member_tag_note`` line in ``notes`` when it has tagged members, else
+    *answer* itself, untouched (same object, same type, same JSON)."""
+    if isinstance(answer, NotFound):
+        return answer
+    lines = (
+        answer.member_lines if isinstance(answer, ResolvedSignature) and answer.member else answer.properties
+    )
+    note = net_member_tag_note(scope, lines)
+    if note is None:
+        return answer
+    values = {field.name: getattr(answer, field.name) for field in fields(answer)}
+    if isinstance(answer, ResolvedSignature):
+        return NotedResolvedSignature(**values, notes=(note,))
+    return NotedSignature(**values, notes=(note,))
 
 
 def _word_pattern(word: str) -> re.Pattern[str]:
@@ -679,7 +746,7 @@ def _resolve_name(
     )
 
 
-def get_symbol(
+def _lookup_symbol(
     store: GenerationManifestStore,
     scope: Scope,
     fqn: str,
@@ -762,3 +829,19 @@ def get_symbol(
         suggestions=suggest_similar_fqns(known_fqns, fqn),
         coverage_note=coverage_note,
     )
+
+
+def get_symbol(
+    store: GenerationManifestStore,
+    scope: Scope,
+    fqn: str,
+    include_raw_text: bool = False,
+) -> SymbolSignature | ResolvedSignature | NotFound:
+    """The exact signature published for *fqn* in ``scope``'s currently active generation - see
+    ``_lookup_symbol`` for the lookup rules (exact match, shell resolution, member resolution, raw text).
+
+    TC-822 (RD2-208): a .NET answer whose members include an ``[event]`` / ``[readonly]`` /
+    ``[static, readonly]`` tagged one additionally carries ``notes``, one line naming that tag
+    convention (additive - no key renamed or removed; every other answer is unchanged).
+    """
+    return _with_member_tag_note(scope, _lookup_symbol(store, scope, fqn, include_raw_text=include_raw_text))

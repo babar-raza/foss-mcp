@@ -12,6 +12,8 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import (
     _TYPE_LIMITATION_PREFIX,
+    NotedResolvedSignature,
+    NotedSignature,
     NotFound,
     ResolvedSignature,
     get_symbol,
@@ -41,16 +43,20 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     signature = get_symbol(store, scope, fqn)
     if isinstance(signature, NotFound):
         return signature
+    # TC-822 (RD2-208): a .NET answer with ``[event]`` / ``[readonly]`` / ``[static, readonly]`` members
+    # leads with the one line that explains those tags (same prepend precedent as TC-559 / TC-639).
+    tag_note = signature.notes if isinstance(signature, NotedSignature | NotedResolvedSignature) else ()
     if isinstance(signature, ResolvedSignature) and signature.member:
         # TC-540: "<Type>.<member>" returns just that member's lines (all its overloads).
-        return signature.member_lines
+        return tag_note + signature.member_lines
     # TC-559: a type that is not implemented says so first (``Limitation: not implemented in this build ...``);
     # a member that is not implemented carries the same phrase on its own line. A working type adds nothing.
     type_limitation = tuple(
         line for line in signature.limitations if line.startswith(_TYPE_LIMITATION_PREFIX)
     )
     return (
-        type_limitation
+        tag_note
+        + type_limitation
         + signature.known_defects
         + signature.methods
         + signature.properties
