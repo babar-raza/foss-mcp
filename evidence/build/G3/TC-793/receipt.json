@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "card": "TC-793",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T06:57:58Z",
+  "base_rev": "a9f0ad883a4b7cda288a127cfa86cf70e60a8e05",
+  "head_rev": "9a8a40c519b3fe260d9beba9ae7546ef1393a1d2",
+  "card_sha256": "9b6c1c8bb63b2349c8de248d4fda5e69c9b7b31dbcb99b1ef7c40b060a2b873f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.serving",
+      "src/foss_mcp/indexing/generation_manifest.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/indexing/test_generation_manifest_lf_newlines.py",
+      "tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py",
+      "tests/test_serving_hashseed_pin.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py tests/indexing/test_generation_manifest_lf_newlines.py tests/test_serving_hashseed_pin.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/indexing/test_generation_manifest.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.513,
+          "stdout_sha256": "e8ca89320215100aa98af0253237bf6f46c62048fbacd0ca2bf547d0f2ee2c58",
+          "tests": 67,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py tests/indexing/test_generation_manifest_lf_newlines.py tests/test_serving_hashseed_pin.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/indexing/test_generation_manifest.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.664,
+          "stdout_sha256": "e8ca89320215100aa98af0253237bf6f46c62048fbacd0ca2bf547d0f2ee2c58",
+          "tests": 67,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = '(-family_generic_fraction(stem, lexical_payload), stem)'; assert s.count(old) == 1, 'the mandated tie-break key was not found exactly once - the card has not made this fix yet'; s2 = s.replace(old, '-family_generic_fraction(stem, lexical_payload)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "06c2ee6abccce3fdb8a383204405c47efa0f9a7ef2af7b3306af11b3d3b85048",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_symbols.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

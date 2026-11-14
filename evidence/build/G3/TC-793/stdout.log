@@ -1,0 +1,61 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py tests/indexing/test_generation_manifest_lf_newlines.py tests/test_serving_hashseed_pin.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/indexing/test_generation_manifest.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rc4ivky9\.junit-0.xml"
+--- stdout ---
+...................................................................      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py tests/indexing/test_generation_manifest_lf_newlines.py tests/test_serving_hashseed_pin.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/indexing/test_generation_manifest.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rc4ivky9\.junit-0.xml"
+--- stdout ---
+...................................................................      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py tests/indexing/test_generation_manifest_lf_newlines.py tests/test_serving_hashseed_pin.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/indexing/test_generation_manifest.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rc4ivky9\.junit-0.xml"
+--- stdout ---
+FF.................................................................      [100%]
+================================== FAILURES ===================================
+_______ test_equal_fraction_ties_resolve_identically_across_hash_seeds ________
+
+    def test_equal_fraction_ties_resolve_identically_across_hash_seeds() -> None:
+        results = {seed: _run_with_seed(seed) for seed in SEEDS}
+>       assert len({tuple(chosen) for chosen in results.values()}) == 1, results
+E       AssertionError: {0: ['delta', 'gamma', 'kappa', 'omega', 'zeta'], 1: ['delta', 'epsilon', 'kappa', 'omega', 'zeta'], 2: ['delta', 'epsilon', 'gamma', 'kappa', 'omega'], 3: ['delta', 'epsilon', 'gamma', 'kappa', 'zeta'], ...}
+E       assert 5 == 1
+E        +  where 5 = len({('delta', 'epsilon', 'gamma', 'kappa', 'omega'), ('delta', 'epsilon', 'gamma', 'kappa', 'zeta'), ('delta', 'epsilon', 'kappa', 'omega', 'zeta'), ('delta', 'gamma', 'kappa', 'omega', 'zeta'), ('epsilon', 'gamma', 'kappa', 'omega', 'zeta')})
+
+tests\mcp\tools\test_search_symbols_tiebreak_hashseed.py:55: AssertionError
+______________ test_equal_fraction_stems_come_back_in_stem_order ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002142A98CD60>
+
+    def test_equal_fraction_stems_come_back_in_stem_order(monkeypatch) -> None:
+        monkeypatch.setattr(relevance, "family_generic_fraction", lambda stem, payload: 0.5)
+        docs = {f"d{i}": {"text": f"FQN: Sample.Type{i}\nKind: class_declaration\n"} for i in range(40)}
+        payload = {"documents": docs, "doc_freq": {word: 20 for word in WORDS}}
+    
+        chosen = ss._safe_extra_generic(WORDS, "sample", payload)
+    
+        # The alphabetically last strong stem is the one the greedy selection leaves unexcluded.
+>       assert chosen == frozenset(sorted(WORDS)[:-1])
+E       AssertionError: assert frozenset({'d...ega', 'zeta'}) == frozenset({'d...pa', 'omega'})
+E         
+E         Extra items in the left set:
+E         'zeta'
+E         Extra items in the right set:
+E         'epsilon'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_tiebreak_hashseed.py:68: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py::test_equal_fraction_ties_resolve_identically_across_hash_seeds
+FAILED tests/mcp/tools/test_search_symbols_tiebreak_hashseed.py::test_equal_fraction_stems_come_back_in_stem_order
+
+--- stderr ---
+
