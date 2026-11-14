@@ -1,0 +1,291 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_round2_recall_ratchet.py tests/mcp/tools/test_find_examples_rare_code_word.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_example_search_mode.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z5rv3lpz\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 58%]
+........................................................................ [ 77%]
+........................................................................ [ 97%]
+..........                                                               [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_round2_recall_ratchet.py tests/mcp/tools/test_find_examples_rare_code_word.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_example_search_mode.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z5rv3lpz\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 58%]
+........................................................................ [ 77%]
+........................................................................ [ 97%]
+..........                                                               [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/find_examples.py, M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_round2_recall_ratchet.py tests/mcp/tools/test_find_examples_rare_code_word.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_example_search_mode.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z5rv3lpz\.junit-0.xml"
+--- stdout ---
+.FF.F......FFFF........................................F...FF........... [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 58%]
+........................................................................ [ 77%]
+........................................................................ [ 97%]
+..........                                                               [100%]
+================================== FAILURES ===================================
+___________________ test_every_must_hit_pair_still_answers ____________________
+
+answers = {('3d__java', 'Example: Save a box mesh as an STL file'): [ExampleMatch(scope=Scope(family='3d', platform='java', sour...e side, now confirmed on the import side too.)"))], ('3d__java', 'animation'): None, ('3d__java', 'camera'): None, ...}
+
+    def test_every_must_hit_pair_still_answers(answers: dict[tuple[str, str], list[ExampleMatch] | None]) -> None:
+        lost = [
+            (pair["pilot"], pair["query"])
+            for pair in _load_pairs()
+            if pair["must_hit"] and not answers[(str(pair["pilot"]), str(pair["query"]))]
+        ]
+>       assert not lost, f"{len(lost)} round-2 queries that used to answer are a miss again: {lost}"
+E       AssertionError: 24 round-2 queries that used to answer are a miss again: [('3d__python', 'OBJ'), ('cells__java', 'formula'), ('cells__java', 'style'), ('cells__java', 'merge'), ('cells__java', 'conditional'), ('cells__java', 'Totals'), ('cells__typescript', 'formula'), ('cells__typescript', 'format'), ('cells__typescript', 'Products'), ('cells__typescript', 'updated'), ('cells__typescript', 'Apple'), ('cells__typescript', 'Orange'), ('cells__typescript', 'Price'), ('email__cpp', 'subject'), ('email__cpp', 'attachment'), ('email__cpp', 'sender'), ('email__cpp', 'alice'), ('email__net', 'Subject'), ('pdf__java', 'extract'), ('pdf__java', 'image'), ('pdf__net', 'hello'), ('words__python', 'table'), ('words__python', 'header'), ('words__python', 'footer')]
+E       assert not [('3d__python', 'OBJ'), ('cells__java', 'formula'), ('cells__java', 'style'), ('cells__java', 'merge'), ('cells__java', 'conditional'), ('cells__java', 'Totals'), ...]
+
+tests\mcp\tools\test_find_examples_round2_recall_ratchet.py:114: AssertionError
+___________ test_the_recall_over_the_round_two_pairs_does_not_fall ____________
+
+answers = {('3d__java', 'Example: Save a box mesh as an STL file'): [ExampleMatch(scope=Scope(family='3d', platform='java', sour...e side, now confirmed on the import side too.)"))], ('3d__java', 'animation'): None, ('3d__java', 'camera'): None, ...}
+
+    def test_the_recall_over_the_round_two_pairs_does_not_fall(
+        answers: dict[tuple[str, str], list[ExampleMatch] | None],
+    ) -> None:
+        hits = sum(1 for matches in answers.values() if matches)
+>       assert hits >= FROZEN_MUST_HIT, hits
+E       AssertionError: 108
+E       assert 108 >= 132
+
+tests\mcp\tools\test_find_examples_round2_recall_ratchet.py:121: AssertionError
+_ test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word_path _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3314/test_the_real_cells_java_formu0')
+
+    def test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word_path(
+        tmp_path: Path,
+    ) -> None:
+        store = _real_store(tmp_path)
+        scope = Scope(family="cells", platform="java")
+        key = scope_key(scope, "self_extracted")
+        generation_id = store.read_active(key)
+        assert generation_id is not None
+        documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+        titles = {
+            (document.get("text") or "").splitlines()[0][len("FQN: ") :]
+            for document in documents.values()
+            if (document.get("text") or "").startswith("FQN: Example: ")
+        }
+        assert "Example: Additional Examples" in titles
+    
+        # None of the three pre-existing admission paths would have anchored this query - the gap the
+        # card's own round-2 finding is built on, confirmed directly against the real functions.
+        assert required_terms("formula") == frozenset()
+        assert title_anchored("formula", "cells", "Additional Examples") is False
+        assert title_prefix_anchored("formula", "cells", "Additional Examples") is False
+    
+        result = find_examples(store, scope, "formula")
+>       assert isinstance(result, list), result
+E       AssertionError: NoExampleFound(scope=Scope(family='cells', platform='java', source_kind='self_extracted'), query='formula', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+E       assert False
+E        +  where False = isinstance(NoExampleFound(scope=Scope(family='cells', platform='java', source_kind='self_extracted'), query='formula', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error'), list)
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:182: AssertionError
+_________ test_the_scope_cap_is_twelve_examples_and_twelve_is_a_cliff _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3314/test_the_scope_cap_is_twelve_e0')
+
+    def test_the_scope_cap_is_twelve_examples_and_twelve_is_a_cliff(tmp_path: Path) -> None:
+        unique_once = _example("Mount a Bracket", "bracket = Bracket()\nbracket.flange()\nbracket.run()")
+        # 12 examples (the unique one + 11 pads): inside the cap, a one-time mention of a unique term answers.
+        inside = _publish(tmp_path / "inside", [SYMBOL_CHUNK, unique_once, *_padding_examples(11)])
+        result = find_examples(inside, SCOPE, "flange")
+>       assert _titles(result) == ["Mount a Bracket"]
+               ^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:318: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+result = NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='flange', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+
+    def _titles(result: object) -> list[str]:
+>       assert isinstance(result, list), result
+E       AssertionError: NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='flange', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+E       assert False
+E        +  where False = isinstance(NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='flange', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error'), list)
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:141: AssertionError
+_ test_a_term_in_two_examples_must_still_recur_twice_in_the_one_that_answers __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3314/test_a_term_in_two_examples_mu0')
+
+    def test_a_term_in_two_examples_must_still_recur_twice_in_the_one_that_answers(tmp_path: Path) -> None:
+        once_a = _example("Mount a Bracket", "bracket = Bracket()\nbracket.flange()\nbracket.run()")
+        once_b = _example("Mount a Rail", "rail = Rail()\nrail.flange()\nrail.run()")
+        store = _publish(tmp_path / "m", [SYMBOL_CHUNK, once_a, once_b, *_padding_examples(6)])
+        # "flange" is in the code of two examples, each mentions it once: not unique, not recurring - a miss.
+        assert isinstance(find_examples(store, SCOPE, "flange"), NoExampleFound)
+        twice = _example("Mount a Rail", "rail = Rail()\nrail.flange()\nrail.flange()\nrail.run()")
+        store = _publish(tmp_path / "n", [SYMBOL_CHUNK, once_a, twice, *_padding_examples(6)])
+>       assert _titles(find_examples(store, SCOPE, "flange")) == ["Mount a Rail"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+result = NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='flange', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+
+    def _titles(result: object) -> list[str]:
+>       assert isinstance(result, list), result
+E       AssertionError: NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='flange', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+E       assert False
+E        +  where False = isinstance(NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='flange', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error'), list)
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:141: AssertionError
+___ test_a_loose_rare_code_word_match_is_served_after_a_title_anchored_one ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3314/test_a_loose_rare_code_word_ma0')
+
+    def test_a_loose_rare_code_word_match_is_served_after_a_title_anchored_one(tmp_path: Path) -> None:
+        # The code-only example names the word six times (a strong bm25 score); the title-anchored example
+        # only in its title. The loose, body-only mention must not outrank the example the query names.
+        loud = _example("Mount a Bracket", "\n".join("bracket.flange()" for _ in range(6)))
+        titled = _example("Weld a Flange Joint", "joint = Joint()\njoint.run()")
+        store = _publish(tmp_path / "m", [SYMBOL_CHUNK, loud, titled, *_padding_examples(5)])
+        result = find_examples(store, SCOPE, "flange")
+>       assert _titles(result) == ["Weld a Flange Joint", "Mount a Bracket"]
+E       AssertionError: assert ['Weld a Flange Joint'] == ['Weld a Flan...nt a Bracket']
+E         
+E         Right contains one more item: 'Mount a Bracket'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:344: AssertionError
+___________ test_the_real_cells_java_scope_sits_in_the_widened_band ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3314/test_the_real_cells_java_scope0')
+
+    def test_the_real_cells_java_scope_sits_in_the_widened_band(tmp_path: Path) -> None:
+        # cells/java has 8 examples (cap 6 excluded it). Its "formula" test above is the pinned case; this
+        # pins that the scope really is in the widened band, so the widening - not a data change - did it.
+        store = _real_store(tmp_path)
+        scope = Scope(family="cells", platform="java")
+        key = scope_key(scope, "self_extracted")
+        generation_id = store.read_active(key)
+        assert generation_id is not None
+        documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+        count = sum(1 for d in documents.values() if (d.get("text") or "").startswith("FQN: Example: "))
+>       assert 6 < count <= find_examples_module._RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
+E       assert 8 <= 6
+E        +  where 6 = find_examples_module._RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:361: AssertionError
+___________ test_the_slides_cpp_export_format_reproduction_is_fixed ___________
+
+stores = <tests.mcp.tools.test_find_examples_title_anchor._Stores object at 0x000001DFD235A660>
+
+    def test_the_slides_cpp_export_format_reproduction_is_fixed(stores: _Stores) -> None:
+        """TC-586's real reproduction, re-confirmed against the committed infra/demo-manifests on
+        2026-10-26 (commit 469ce77a07b988c49deb930632b8276c89ec6b66): slides/cpp has exactly two verified
+        examples, "Comments and Replies" and "Document Properties", and BOTH examples' code ends with the
+        same boilerplate call, ``pres.save(..., SaveFormat::PPTX)`` - it has nothing to do with either
+        example's real topic. Before this card, the three-distinctive-term query below (deck, export, pptx)
+        hit title_anchored's unconditional escape (3 > the old TITLE_ANCHOR_MAX_TERMS of 2) and the coverage
+        floor alone answered with BOTH unrelated examples, at coverage 1.0 and 0.67. Neither example answers
+        a question about exporting to a format, so the honest result is a miss.
+        """
+        directory = _directory_of("slides/cpp")
+        scope = _scope_of(directory)
+        query = "export the deck to pptx"
+        assert len(distinctive_terms(query, scope.family)) == 3
+        for title in ("Comments and Replies", "Document Properties"):
+            assert title_anchored(query, scope.family, title) is False, title
+        result = find_examples(stores.of(directory), scope, query)
+>       assert isinstance(result, NoExampleFound), result
+E       AssertionError: [ExampleMatch(scope=Scope(family='slides', platform='cpp', source_kind='self_extracted'), generation_id='slides::cpp::...library at source_commit; add the imports and entry point your language needs.', confidence='loose', known_defects=())]
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='slides', platform='cpp', source_kind='self_extracted'), generation_id='slides::cpp::...library at source_commit; add the imports and entry point your language needs.', confidence='loose', known_defects=())], NoExampleFound)
+
+tests\mcp\tools\test_find_examples_title_anchor.py:472: AssertionError
+_ test_a_generic_save_in_the_title_does_not_anchor_a_multi_term_export_query_through_the_synonym _
+
+    def test_a_generic_save_in_the_title_does_not_anchor_a_multi_term_export_query_through_the_synonym() -> None:
+        """The slides/cpp regression's cause, in isolation: "export" is a synonym of "save", so the two new
+        slides/cpp examples titled "... Save and Reload" / "... Then Save" anchored "export the deck to
+        pptx" - on the very boilerplate word every example ends with. The synonym alone no longer anchors a
+        query of more than one distinctive term; a literal word, or a one-word query, is unchanged."""
+        query = "export the deck to pptx"
+        for title in ("Document Properties Round Trip Through Save and Reload", "Add Three Shapes, Then Save"):
+>           assert title_anchored(query, "slides", title) is False, title
+E           AssertionError: Document Properties Round Trip Through Save and Reload
+E           assert True is False
+E            +  where True = title_anchored('export the deck to pptx', 'slides', 'Document Properties Round Trip Through Save and Reload')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:515: AssertionError
+_ test_the_real_slides_cpp_deck_export_query_is_an_honest_miss_with_its_seven_examples _
+
+stores = <tests.mcp.tools.test_find_examples_title_anchor._Stores object at 0x000001DFD235A660>
+
+    def test_the_real_slides_cpp_deck_export_query_is_an_honest_miss_with_its_seven_examples(
+        stores: _Stores,
+    ) -> None:
+        directory = _directory_of("slides/cpp")
+        scope = _scope_of(directory)
+        store = stores.of(directory)
+        key = scope_key(scope, "self_extracted")
+        generation_id = store.read_active(key)
+        assert generation_id is not None
+        documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+        titles = {
+            (document.get("text") or "").splitlines()[0][len("FQN: Example: ") :]
+            for document in documents.values()
+            if (document.get("text") or "").startswith("FQN: Example: ")
+        }
+        # The scope grew from 2 to 7 examples; two new titles carry the word "Save".
+        assert len(titles) >= 7
+        assert any(title.endswith("Then Save") for title in titles)
+        for query in ("export the deck to pptx", "export the deck to pptx format"):
+            result = find_examples(stores.of(directory), scope, query)
+>           assert isinstance(result, NoExampleFound), (query, result)
+E           AssertionError: ('export the deck to pptx', [ExampleMatch(scope=Scope(family='slides', platform='cpp', source_kind='self_extracted'), ...ibrary at source_commit; add the imports and entry point your language needs.', confidence='loose', known_defects=())])
+E           assert False
+E            +  where False = isinstance([ExampleMatch(scope=Scope(family='slides', platform='cpp', source_kind='self_extracted'), generation_id='slides::cpp::...library at source_commit; add the imports and entry point your language needs.', confidence='loose', known_defects=())], NoExampleFound)
+
+tests\mcp\tools\test_find_examples_title_anchor.py:549: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_round2_recall_ratchet.py::test_every_must_hit_pair_still_answers
+FAILED tests/mcp/tools/test_find_examples_round2_recall_ratchet.py::test_the_recall_over_the_round_two_pairs_does_not_fall
+FAILED tests/mcp/tools/test_find_examples_rare_code_word.py::test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word_path
+FAILED tests/mcp/tools/test_find_examples_rare_code_word.py::test_the_scope_cap_is_twelve_examples_and_twelve_is_a_cliff
+FAILED tests/mcp/tools/test_find_examples_rare_code_word.py::test_a_term_in_two_examples_must_still_recur_twice_in_the_one_that_answers
+FAILED tests/mcp/tools/test_find_examples_rare_code_word.py::test_a_loose_rare_code_word_match_is_served_after_a_title_anchored_one
+FAILED tests/mcp/tools/test_find_examples_rare_code_word.py::test_the_real_cells_java_scope_sits_in_the_widened_band
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_slides_cpp_export_format_reproduction_is_fixed
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_generic_save_in_the_title_does_not_anchor_a_multi_term_export_query_through_the_synonym
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_real_slides_cpp_deck_export_query_is_an_honest_miss_with_its_seven_examples
+
+--- stderr ---
+
