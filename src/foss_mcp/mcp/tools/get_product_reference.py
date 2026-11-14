@@ -37,7 +37,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -56,12 +56,14 @@ from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentP
 from foss_mcp.indexing.known_defects import KnownDefect, load_known_defects
 from foss_mcp.mcp.response_budget import fence_blocks
 from foss_mcp.mcp.sidecar_state import FETCH_FAILED_REASON, SIDECAR_FETCH_FAILED, SIDECAR_PRESENT
+from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.readme_sections import (
     ReadmeSection,
     ReadmeSections,
     merge_sections,
     sections_from_markdown,
 )
+from foss_mcp.mcp.tools.relevance import SYMBOL, chunk_kind, fqn_last_segment, known_symbol_names
 
 # G3/TC-561: a README install line that installs a package the registry check found absent is removed (and
 # the removal said) instead of being quoted next to "not found on <registry>". False restores the
@@ -1987,7 +1989,139 @@ def _is_contributor_guidance(document: DocumentPresent) -> bool:
     )
 
 
-def _agent_guidance_section(document: DocumentResult | None) -> ReferenceContent | NotAvailable:
+# G3/TC-812 (3D-JAVA-005): served agent_guidance is the upstream repository's own AGENTS.md /
+# CLAUDE.md, which for some pilots carries a stale session-log claim that a symbol "must NOT exist"
+# in the port although the live index holds it (3d/java: `License` and `Metered` are listed under
+# "The following APIs must NOT exist in the FOSS version", yet com.aspose.threed.License and
+# com.aspose.threed.Metered are indexed). The text is DISCLOSED as contradicted, never stripped: a
+# correction note naming the real FQNs is appended, every original character is kept.
+#
+# Strictly block-scoped: a NEGATIVE block is a paragraph (blank-line separated, fenced code excluded)
+# whose FIRST non-empty line carries a "must not exist / do not implement / excluded / intentionally
+# omitted" cue - so a bullet list opened by "The following APIs must NOT exist ...:" is one block,
+# while a stray "excluded" three lines into an unrelated paragraph is not. Only identifiers inside
+# backticks within such a block are candidates, and a candidate counts only when it equals (case
+# sensitive) the short name of a real indexed SYMBOL - or, when written qualified, a real FQN.
+# MEASURED over all 32 pilots' real agent_guidance.content against each pilot's own real index
+# (infra/demo-manifests): ONLY 3d/java flags, and exactly `License` and `Metered`.
+_NEGATIVE_BLOCK_CUE_RE = re.compile(
+    r"must\s+not\s+exist|do\s+not\s+implement|\bexcluded\b|intentionally\s+omitted", re.IGNORECASE
+)
+_BACKTICKED_IDENTIFIER_RE = re.compile(
+    r"`([A-Za-z_][A-Za-z0-9_]*(?:(?:\.|::)[A-Za-z_][A-Za-z0-9_]*)*)(?:\(\))?`"
+)
+_FENCE_LINE_RE = re.compile(r"^[ \t]*(```|~~~)")
+_STALE_CLAIM_FQN_LIMIT = 3
+
+
+def symbol_fqns_by_short_name(documents: Mapping[str, Mapping[str, str]]) -> dict[str, tuple[str, ...]]:
+    """Each indexed short symbol name (``relevance.known_symbol_names`` - the one definition of "an
+    indexed short name") mapped to the sorted real FQNs that carry it, built fresh from *documents*
+    (the active generation's ``lexical_index.documents``)."""
+    names = known_symbol_names(documents)
+    grouped: dict[str, set[str]] = {}
+    for document in documents.values():
+        text = document.get("text", "")
+        if chunk_kind(text) != SYMBOL:
+            continue
+        fqn = extract_fqn(text)
+        if fqn and fqn_last_segment(fqn) in names:
+            grouped.setdefault(fqn_last_segment(fqn), set()).add(fqn)
+    return {short: tuple(sorted(fqns)) for short, fqns in grouped.items()}
+
+
+def read_known_symbols(store: Any, scope: Any) -> dict[str, tuple[str, ...]]:
+    """``symbol_fqns_by_short_name`` of *scope*'s active ``self_extracted`` generation. Never raises: a
+    failing store, no active generation, or no documents all yield ``{}`` (no claim is then checked)."""
+    try:
+        key = "::".join((scope.family, scope.platform, "self_extracted"))
+        generation_id = store.read_active(key)
+        if not generation_id:
+            return {}
+        manifest = store.read_generation(key, generation_id)
+        documents = (manifest.payload.get("lexical_index") or {}).get("documents") or {}
+        return symbol_fqns_by_short_name(documents)
+    except Exception:  # noqa: BLE001 - a best-effort disclosure must never fail the tool
+        return {}
+
+
+def _negative_blocks(content: str) -> list[str]:
+    """The paragraphs of *content* whose first non-empty line opens a negative claim."""
+    paragraphs: list[list[str]] = [[]]
+    in_fence = False
+    for line in content.split("\n"):
+        if _FENCE_LINE_RE.match(line):
+            in_fence = not in_fence
+            paragraphs.append([])
+            continue
+        if in_fence:
+            continue
+        if line.strip():
+            paragraphs[-1].append(line)
+        else:
+            paragraphs.append([])
+    return ["\n".join(lines) for lines in paragraphs if lines and _NEGATIVE_BLOCK_CUE_RE.search(lines[0])]
+
+
+def _contradicted_negative_claims(
+    content: str, known_symbols: Mapping[str, Sequence[str]]
+) -> dict[str, tuple[str, ...]]:
+    """Identifier as written -> real FQNs, for every backticked identifier inside a negative block of
+    *content* that the live index contradicts, in first-appearance order."""
+    found: dict[str, tuple[str, ...]] = {}
+    for block in _negative_blocks(content):
+        for match in _BACKTICKED_IDENTIFIER_RE.finditer(block):
+            written = match.group(1)
+            if written in found:
+                continue
+            fqns = tuple(known_symbols.get(fqn_last_segment(written), ()))
+            if "." in written or "::" in written:
+                normalised = written.replace("::", ".")
+                fqns = tuple(fqn for fqn in fqns if fqn.replace("::", ".") == normalised)
+            if fqns:
+                found[written] = fqns
+    return found
+
+
+def _stale_negative_claims_note(
+    content: str, known_symbols: Mapping[str, Sequence[str]] | None
+) -> str | None:
+    """The correction note for *content*, or ``None`` when no negative claim in it is contradicted."""
+    if not known_symbols:
+        return None
+    contradicted = _contradicted_negative_claims(content, known_symbols)
+    if not contradicted:
+        return None
+    parts: list[str] = []
+    for written, fqns in contradicted.items():
+        shown = ", ".join(f"`{fqn}`" for fqn in fqns[:_STALE_CLAIM_FQN_LIMIT])
+        if len(fqns) > _STALE_CLAIM_FQN_LIMIT:
+            shown += f" and {len(fqns) - _STALE_CLAIM_FQN_LIMIT} more"
+        parts.append(f"`{written}` is indexed as {shown}")
+    return (
+        "[Correction note from this server's live symbol index: the text above says some symbols must "
+        "not exist, are excluded or are intentionally omitted, but the index contradicts it - "
+        + "; ".join(parts)
+        + ". That text is stale upstream wording; the original is left unchanged, and the real "
+        "symbols can be looked up with get_symbol.]"
+    )
+
+
+def _agent_guidance_section(
+    document: DocumentResult | None, known_symbols: Mapping[str, Sequence[str]] | None = None
+) -> ReferenceContent | NotAvailable:
+    result = _agent_guidance_answer(document)
+    if not isinstance(result, ReferenceContent):
+        return result
+    # G3/TC-812: disclose (never strip) a negative claim the live index contradicts. Computed from the
+    # served text itself, so a TC-683 stripped line is never examined and the note rides every branch.
+    note = _stale_negative_claims_note(result.text, known_symbols)
+    if note is None:
+        return result
+    return dataclasses.replace(result, text=f"{result.text}\n\n{note}")
+
+
+def _agent_guidance_answer(document: DocumentResult | None) -> ReferenceContent | NotAvailable:
     section: Section = "agent_guidance"
     if isinstance(document, DocumentPresent):
         # G3/TC-683: strip any prompt-injection-shaped imperative line BEFORE the
@@ -2084,7 +2218,11 @@ def install_coordinate_for_verification(inputs: ProductReferenceInputs) -> tuple
 
 
 def get_product_reference(
-    inputs: ProductReferenceInputs, section: Section, *, readme: ReadmeSections | None = None
+    inputs: ProductReferenceInputs,
+    section: Section,
+    *,
+    readme: ReadmeSections | None = None,
+    known_symbols: Mapping[str, Sequence[str]] | None = None,
 ) -> ReferenceContent | NotAvailable:
     """Real content for *section*, or an explicit ``NotAvailable`` - never a guess.
 
@@ -2095,18 +2233,26 @@ def get_product_reference(
 
     G3/TC-561: when the sidecar carries the repository's own README (``inputs.readme_document``) its
     sections fill each one the index lacks, and an install answer for a library the index's Extraction notice
-    says cannot be imported leads with that statement."""
+    says cannot be imported leads with that statement.
+
+    G3/TC-812: *known_symbols* maps each short symbol name the active generation indexes to its real FQNs
+    (``symbol_fqns_by_short_name``). The ``agent_guidance`` answer then appends a correction note for every
+    backticked identifier its "must not exist / excluded" blocks name that the index in fact holds; ``None``
+    (the default) checks nothing and answers exactly as before."""
     if section not in SECTIONS:
         raise ValueError(f"section must be one of {SECTIONS}, got {section!r}")
     effective = _effective_readme(inputs, readme)
-    result = _answer(inputs, section, effective)
+    result = _answer(inputs, section, effective, known_symbols)
     if section == "install":
         result = _with_import_warning(result, effective)
     return result
 
 
 def _answer(
-    inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    inputs: ProductReferenceInputs,
+    section: Section,
+    readme: ReadmeSections | None,
+    known_symbols: Mapping[str, Sequence[str]] | None = None,
 ) -> ReferenceContent | NotAvailable:
     """``get_product_reference`` after the README sections are settled."""
 
@@ -2121,7 +2267,7 @@ def _answer(
     if section == "contributing":
         return _document_section(section, inputs.contributing)
     if section == "agent_guidance":
-        return _agent_guidance_section(inputs.agent_guidance)
+        return _agent_guidance_section(inputs.agent_guidance, known_symbols)
 
     if section in ("formats", "limitations"):
         if readme is not None:

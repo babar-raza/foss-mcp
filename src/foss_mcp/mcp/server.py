@@ -77,7 +77,12 @@ from foss_mcp.mcp.sidecar_state import (
     SidecarNotLoadedError,
 )
 from foss_mcp.mcp.tools.find_examples import find_examples
-from foss_mcp.mcp.tools.get_product_reference import SECTIONS, ProductReferenceInputs, get_product_reference
+from foss_mcp.mcp.tools.get_product_reference import (
+    SECTIONS,
+    ProductReferenceInputs,
+    get_product_reference,
+    read_known_symbols,
+)
 from foss_mcp.mcp.tools.get_symbol import RAW_TEXT_OMITTED, get_symbol
 from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
@@ -326,6 +331,15 @@ def _live_get_product_reference(
         readme: ReadmeSections | None = (
             read_readme_sections(store, scope) if section in _README_SECTIONS else None
         )
+        # G3/TC-812 (3D-JAVA-005): the agent_guidance answer cross-checks its "must not exist" claims against
+        # the active generation's real symbols; no other section reads the index for this.
+        if section == "agent_guidance":
+            return get_product_reference(
+                inputs,
+                section,  # type: ignore[arg-type]
+                readme=readme,
+                known_symbols=read_known_symbols(store, scope),
+            )
         return get_product_reference(inputs, section, readme=readme)  # type: ignore[arg-type]
 
     return get_product_reference_tool
