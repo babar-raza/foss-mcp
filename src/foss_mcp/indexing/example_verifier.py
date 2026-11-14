@@ -54,7 +54,10 @@ from foss_mcp.indexing.example_fixtures import (
 from foss_mcp.indexing.example_runtime import (
     OUTPUT_OPTIONAL_PLATFORMS,
     build_go_run_binary,
+    build_rust_run_binary,
     go_run_command,
+    panic_detail_line,
+    rust_run_command,
 )
 
 __all__ = [
@@ -3621,8 +3624,8 @@ _RUNTIME_TIMEOUT_SECONDS = 60
 _RUNTIME_ERROR_CHARS = 300
 _RUNTIME_ERROR_MARKERS = ("Exception", "Error", "error", "terminate", "abort", "panicked", "panic:", "fatal")
 # Platforms whose compiled candidate this module knows how to start (java: ``java``; dotnet: ``dotnet run``;
-# go: its built binary, see ``example_runtime``).
-RUNNABLE_PLATFORMS = frozenset({"java", "dotnet", "go"})
+# go and rust: their built binary, see ``example_runtime``).
+RUNNABLE_PLATFORMS = frozenset({"java", "dotnet", "go", "rust"})
 
 
 @dataclass(frozen=True)
@@ -3775,12 +3778,10 @@ def legacy_verification_level(platform: str, runtime: RuntimeRecord, *, cpp_run:
     platform or an example that did not compile."""
     if not runtime.compiled:
         return ""
-    if platform in ("java", "dotnet", "go"):
+    if platform in ("java", "dotnet", "go", "rust"):
         return resolve_verification_level(LEVEL_BUILT, runtime)
     if platform == "python":
         return LEVEL_RAN_EXIT0
-    if platform == "rust":
-        return LEVEL_BUILT
     if platform == "typescript":
         return LEVEL_TYPE_CHECKED
     if platform == "nodejs":
@@ -3855,14 +3856,18 @@ def _runtime_error_text(outcome: RunOutcome) -> str:
     """One short line naming why a run failed: the first exception-looking line of its stderr (then
     stdout), else the last non-empty line, whitespace collapsed and cut to a fixed length."""
     lines = [line.strip() for line in f"{outcome.stderr}\n{outcome.stdout}".splitlines() if line.strip()]
-    chosen = next(
+    index = next(
         (
-            line
-            for line in lines
+            position
+            for position, line in enumerate(lines)
             if not line.startswith("at ") and any(marker in line for marker in _RUNTIME_ERROR_MARKERS)
         ),
-        lines[-1] if lines else "",
+        len(lines) - 1,
     )
+    chosen = lines[index] if lines else ""
+    if lines:
+        # TC-806: a Rust panic header names where, the next line says what failed.
+        chosen = f"{chosen} {panic_detail_line(lines, index)}"
     return " ".join(chosen.split())[:_RUNTIME_ERROR_CHARS]
 
 
@@ -3940,6 +3945,8 @@ def runtime_command(
         return ["dotnet", "run", "--no-build", "--project", str(project_dir / "candidate.csproj")]
     if platform == "go":
         return go_run_command(project_dir)
+    if platform == "rust":
+        return rust_run_command(project_dir)
     return None
 
 
@@ -3964,6 +3971,13 @@ def run_compiled_candidate(
     if platform == "go":
         # TC-805: link the built candidate into a binary first (``go run`` needs the module as its working directory).
         not_built = build_go_run_binary(
+            workdir / "candidate_project", runner=active_runner, timeout_seconds=timeout_seconds
+        )
+        if not_built:
+            return RuntimeRecord(compiled=True, ran=False, error=not_built[:_RUNTIME_ERROR_CHARS])
+    if platform == "rust":
+        # TC-806: make sure the built crate's binary exists (cargo's own fingerprints make this a no-op).
+        not_built = build_rust_run_binary(
             workdir / "candidate_project", runner=active_runner, timeout_seconds=timeout_seconds
         )
         if not_built:

@@ -301,11 +301,13 @@ _PLATFORM_DISPATCH = {
 
 # TC-565 (REQ-G3-009): the platforms whose compiled candidate is RUN after the compile verdict, mapped to the
 # real verify function that leaves the compiled project in the candidate workdir. TC-805: go is run too (its
-# built binary, ``example_runtime``): a self-checking program's failed check is a non-zero exit.
+# built binary, ``example_runtime``): a self-checking program's failed check is a non-zero exit. TC-806: so is
+# rust (its built ``target/debug/candidate``; a panic exits 101).
 _RUNNABLE_VERIFIERS = {
     "java": verify_java_example,
     "dotnet": verify_dotnet_example,
     "go": verify_go_example,
+    "rust": verify_rust_example,
 }
 
 # TC-802 (REQ-G3-014): the real verify function of every platform, captured here so a stand-in verifier (a test
