@@ -1,0 +1,303 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_pdf_net_ocsp.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects_sibling_refs_round3.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kjcsmty6\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 81%]
+..................................................                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_pdf_net_ocsp.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects_sibling_refs_round3.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kjcsmty6\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 81%]
+..................................................                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/pdf__net.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_pdf_net_ocsp.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/indexing/test_known_defects_sibling_refs_round3.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kjcsmty6\.junit-0.xml"
+--- stdout ---
+FFFF....FFFFFF..F..............................................F........ [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 81%]
+..................................................                       [100%]
+================================== FAILURES ===================================
+_____ test_registry_file_validates_against_the_schema_with_the_new_entry ______
+
+    def test_registry_file_validates_against_the_schema_with_the_new_entry() -> None:
+        document = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+        schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(document))
+        assert errors == [], f"pdf/net registry file failed schema validation: {errors}"
+        assert document["pilot"] == "pdf_net"
+        ids = [defect["id"] for defect in document["defects"]]
+>       assert ids.count(DEFECT_ID) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x00000203061F2700>('PDF-NET-009')
+E        +    where <built-in method count of list object at 0x00000203061F2700> = ['PDF-NET-003'].count
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:90: AssertionError
+______________________________ test_entry_shape _______________________________
+
+    def test_entry_shape() -> None:
+>       defect = _defect()
+                 ^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+___________________ test_user_action_present_and_actionable ___________________
+
+    def test_user_action_present_and_actionable() -> None:
+>       defect = _defect()
+                 ^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+______ test_disclosure_states_the_verified_facts_and_does_not_overstate _______
+
+    def test_disclosure_states_the_verified_facts_and_does_not_overstate() -> None:
+>       defect = _defect()
+                 ^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+_ test_get_symbol_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.OcspSettings] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000203061B17F0>
+ref = 'Aspose.Pdf.OcspSettings'
+
+    @pytest.mark.parametrize("ref", REFS)
+    def test_get_symbol_on_the_ref_carries_the_disclosure_line(corpus: ConformanceCorpus, ref: str) -> None:
+        tool = server_module._wrap_get_symbol(corpus.store, corpus.pilots[PILOT].scope)
+        result = tool(fqn=ref)
+        assert isinstance(result, SymbolSignature) and result.found, f"get_symbol({ref!r}) -> {result!r}"
+>       assert _carries(result.known_defects)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:65: in _carries
+    summary = _defect().summary
+              ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+_ test_get_symbol_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.Forms.Signature] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000203061B17F0>
+ref = 'Aspose.Pdf.Forms.Signature'
+
+    @pytest.mark.parametrize("ref", REFS)
+    def test_get_symbol_on_the_ref_carries_the_disclosure_line(corpus: ConformanceCorpus, ref: str) -> None:
+        tool = server_module._wrap_get_symbol(corpus.store, corpus.pilots[PILOT].scope)
+        result = tool(fqn=ref)
+        assert isinstance(result, SymbolSignature) and result.found, f"get_symbol({ref!r}) -> {result!r}"
+>       assert _carries(result.known_defects)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:65: in _carries
+    summary = _defect().summary
+              ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+_ test_list_members_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.OcspSettings] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000203061B17F0>
+ref = 'Aspose.Pdf.OcspSettings'
+
+    @pytest.mark.parametrize("ref", REFS)
+    def test_list_members_on_the_ref_carries_the_disclosure_line(corpus: ConformanceCorpus, ref: str) -> None:
+        tool = server_module._wrap_list_members(corpus.store, corpus.pilots[PILOT].scope)
+        result = tool(fqn=ref)
+        assert not isinstance(result, NotFound), f"list_members({ref!r}) -> {result!r}"
+>       assert _carries(tuple(result))
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:65: in _carries
+    summary = _defect().summary
+              ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+_ test_list_members_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.Forms.Signature] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000203061B17F0>
+ref = 'Aspose.Pdf.Forms.Signature'
+
+    @pytest.mark.parametrize("ref", REFS)
+    def test_list_members_on_the_ref_carries_the_disclosure_line(corpus: ConformanceCorpus, ref: str) -> None:
+        tool = server_module._wrap_list_members(corpus.store, corpus.pilots[PILOT].scope)
+        result = tool(fqn=ref)
+        assert not isinstance(result, NotFound), f"list_members({ref!r}) -> {result!r}"
+>       assert _carries(tuple(result))
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:65: in _carries
+    summary = _defect().summary
+              ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+_________ test_no_other_symbol_of_the_pilot_gains_the_disclosure_line _________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000203061B17F0>
+
+    def test_no_other_symbol_of_the_pilot_gains_the_disclosure_line(corpus: ConformanceCorpus) -> None:
+        scope = corpus.pilots[PILOT].scope
+        texts: dict[str, str] = {}
+        for chunk in corpus.pilots[PILOT].symbol_chunks():
+            fqn = extract_fqn(chunk["text"])
+            if fqn:
+                texts.setdefault(fqn, chunk["text"])
+        assert len(texts) > 100, "the real pdf/net corpus should index hundreds of symbols"
+    
+        carrying: set[str] = set()
+        for fqn, text in texts.items():
+            lines = known_defect_lines(scope, fqn, text)
+            target = extract_defined_in(text)
+            if target is not None and target in texts:
+                lines += known_defect_lines(scope, target, texts[target])
+>           if _carries(lines):
+               ^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:65: in _carries
+    summary = _defect().summary
+              ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _defect() -> KnownDefect:
+>       (match,) = [defect for defect in _defects() if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_pdf_net_ocsp.py:60: ValueError
+___ test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids ___
+
+    def test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids() -> None:
+        expected_ids = _real_upstream_library_bug_ids()
+        written_ids = set(_all_registry_ids())
+    
+        missing_entries = expected_ids - written_ids
+        orphan_entries = written_ids - expected_ids
+    
+>       assert expected_ids == written_ids, (
+            "config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug "
+            f"category. Real round-2 upstream-library-bug issues with NO registry entry: "
+            f"{sorted(missing_entries) or 'none'}. Registry entries with NO matching real round-2 "
+            f"upstream-library-bug issue: {sorted(orphan_entries) or 'none'}."
+        )
+E       AssertionError: config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug category. Real round-2 upstream-library-bug issues with NO registry entry: ['PDF-NET-009']. Registry entries with NO matching real round-2 upstream-library-bug issue: none.
+E       assert {'3D-JAVA-001...AVA-014', ...} == {'3D-JAVA-001...AVA-014', ...}
+E         
+E         Extra items in the left set:
+E         'PDF-NET-009'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:459: AssertionError
+______ test_registry_entry_count_equals_upstream_library_bug_issue_count ______
+
+    def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
+        upstream_issue_ids = _real_upstream_library_bug_ids()
+        registry_ids = _all_registry_ids()
+    
+        # Every registry id is unique (proven by the global no-duplicate test above), so the raw
+        # entry count and the id-set size agree; comparing both derived counts directly here, not the
+        # literal 53, is what makes this assertion non-tautological.
+>       assert len(registry_ids) == len(upstream_issue_ids), (
+            f"registry entry count ({len(registry_ids)}) does not equal the real upstream-library-bug "
+            f"issue count ({len(upstream_issue_ids)})"
+        )
+E       AssertionError: registry entry count (67) does not equal the real upstream-library-bug issue count (68)
+E       assert 67 == 68
+E        +  where 67 = len(['3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-001', '3D-JAVA-014', '3D-JAVA-006', ...])
+E        +  and   68 = len({'3D-JAVA-001', '3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-006', '3D-JAVA-014', ...})
+
+tests\indexing\test_known_defects_completeness.py:517: AssertionError
+_______ test_pdf_net_registry_file_parses_and_validates_against_schema ________
+
+    def test_pdf_net_registry_file_parses_and_validates_against_schema() -> None:
+        document = _load_real_registry_document("pdf", "net")
+        schema = _load_schema()
+        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(document))
+        assert errors == [], f"pdf/net registry file failed schema validation: {errors}"
+        assert document["schema_version"] == 1
+        assert document["pilot"] == "pdf_net"
+>       assert len(document["defects"]) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([{'id': 'PDF-NET-003', 'subject': {'kind': 'method', 'refs': ['Aspose.Pdf.Text.TableAbsorber', 'Aspose.Pdf.Table']}, '... 0 tables found for a real Table added to a page with no explicit visible border set, with no error or warning.', ...}])
+
+tests\mcp\tools\test_known_defects_round3_siblings.py:102: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_registry_file_validates_against_the_schema_with_the_new_entry
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_entry_shape
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_user_action_present_and_actionable
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_disclosure_states_the_verified_facts_and_does_not_overstate
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_get_symbol_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.OcspSettings]
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_get_symbol_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.Forms.Signature]
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_list_members_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.OcspSettings]
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_list_members_on_the_ref_carries_the_disclosure_line[Aspose.Pdf.Forms.Signature]
+FAILED tests/indexing/test_known_defects_data_pdf_net_ocsp.py::test_no_other_symbol_of_the_pilot_gains_the_disclosure_line
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_entry_count_equals_upstream_library_bug_issue_count
+FAILED tests/mcp/tools/test_known_defects_round3_siblings.py::test_pdf_net_registry_file_parses_and_validates_against_schema
+
+--- stderr ---
+
