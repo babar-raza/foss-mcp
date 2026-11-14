@@ -1,0 +1,90 @@
+id: TC-831
+gate: G3
+lane: verification
+purpose: >-
+  REGEN-1 gap: there is no before/after comparator of SERVED ANSWERS (generation_diff.py is
+  data-level only). The 'no pilot ever gets worse' rule (AGENTS.md) needs one for the regeneration
+  cohorts. Add `scripts/release/answer_diff.py`: load two manifest trees (default OLD = the
+  committed tree at a git rev via `git show`/worktree-free export or a directory, NEW = the
+  working tree's infra/demo-manifests; both selectable by flags) through
+  `tests/conformance/corpus.py`-style loading (parameterise `manifests_root`; reuse
+  `copy_demo_manifests_to(dest, manifests_root)`; do not import test-only code from production
+  paths - put shared loading in the script or a small helper module under scripts/release/), run a
+  SEEDED, deterministic query set per pilot (`--seed`, default fixed; per pilot: N symbols sampled
+  by the corpus sampler for get_symbol / list_members / search_symbols exact + prefix, the pilot's
+  own find_examples titles' first words, and search_docs/lookup for 6 canonical questions:
+  install, limitations, formats, quick start, authentication/licence, 'what is not supported')
+  through the in-process MCP tool functions, and emit a JSON + markdown report: per pilot, per
+  tool, counts of (identical, changed, lost-answer, new-answer) and the exact diffs for
+  changed/lost ones (truncated to a bounded size). Exit non-zero when any previously-answered
+  query (found / confident) now returns a miss or a lower match_quality (`--allow-lost` can list
+  pilots/ids explicitly accepted with a reason string recorded in the report). Offline, no
+  network, no gateway. Add a liveness test that the script's main() calls its diff function. Tests
+  use two tiny synthetic manifest trees plus one run over the real committed tree against itself
+  (zero diff).
+depends_on:
+  - TC-793
+  - TC-553
+  - TC-551
+write_paths:
+  - scripts/release/answer_diff.py
+  - tests/deploy/test_answer_diff.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    The measured design record for the cluster-free regeneration route is
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\regen1_design.md
+    (sections 2-4 for the procedure, gaps G1-G8). Its facts were measured on 2026-11-14 at HEAD
+    9c272701 - re-check what you rely on; where it and the code disagree, the code wins, say so in
+    your report.
+  - >-
+    READ FIRST: tests/conformance/corpus.py (Corpus loader, `sample_pilots`/`sample_items`,
+    `copy_demo_manifests_to`), scripts/release/generation_diff.py (report style), the in-process
+    tool entry points used by tests/conformance (how
+    get_symbol/search_symbols/find_examples/lookup/search_docs are invoked against a manifest copy).
+  - >-
+    REPRODUCE FIRST: run the corpus loader against the committed tree and note runtime; the full
+    default query set over all 32 pilots must complete in at most ~10 minutes on a loaded laptop
+    (add `--pilots` and `--queries-per-pilot` to bound it; defaults sized accordingly).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. If a related test
+    outside write_paths fails because of your change, do not edit it: stop and report it with the
+    exact failure. Never print, log or write a credential value (GPT_OSS_*, GITHUB_TOKEN, gateway
+    keys): refer to environment variable NAMES only.
+actions:
+  - >-
+    Add a seeded, offline served-answer before/after comparator that fails on any lost or downgraded
+    answer.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_answer_diff.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 1
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['scripts/release/answer_diff.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-831/receipt.json
+closeout:
+  - >-
+    Regeneration cohorts can be gated on a served-answer diff, not only data-level diffs.
+recovery: Re-run from a clean tree.

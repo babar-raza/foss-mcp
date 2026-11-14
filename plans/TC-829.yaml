@@ -1,0 +1,125 @@
+id: TC-829
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REGEN-1 tooling (plan H6 re-scoped to the cluster-free route; the kind cluster no longer exists,
+  Docker Desktop is available). Add `scripts/release/regenerate_local.py`: a cohort-driven local
+  driver that regenerates committed demo data WITHOUT kubectl. For each selected pilot (`--only
+  <pilot[,pilot...]>` or `--cohort C0..C5` from a table in the module: C0 imaging/net; C1 the 11
+  Python pilots; C2 the 7 .NET; C3 the 4 Java; C4 the 3 TypeScript; C5 Go, Rust and the 4 C++
+  pilots) it (1) renders the per-pilot ingestion Job with `helm template` (helm via
+  scripts/toolchain/activate.ps1; values via scripts/deploy/pilots.py `write_values`) and extracts
+  the Job container args, (2) runs ONLY the `build_chunks.py ... && ingest.py ...` part (the
+  `fetch_product_reference` / `verify_product_reference_install` / `fetch_recent_releases` sidecar
+  tail is DROPPED - sidecars are committed history, decision J) inside the pinned
+  `foss-mcp-ingestion` image with `docker run` (`--entrypoint sh`, per-pilot memory caps from
+  values.yaml: 4g default, 8g words/net and html/page python, 10g pdf/cpp and slides/cpp, `--cpus
+  2`, bounded parallelism `--parallel N`, default 2), against a work dir OUTSIDE the repo/OneDrive
+  (`--work-dir`, default under %LOCALAPPDATA%) that is SEEDED with a copy of the committed
+  `infra/demo-manifests/<scope>` (so ingest.py's TC-510 shrink guard has a baseline), with
+  `--content-derived-version --source-date-epoch <fixed>` added to ingest.py, (3) copies back ONLY
+  `active_pointer.json` + the active generation file (never sidecars) into
+  `infra/demo-manifests/<scope>` and `verification_cache_<pilot>.json` into
+  `tests/fixtures/verified_examples/` (merging via `build_chunks.merge_verification_cache`,
+  preserving failing entries), (4) runs `scripts/release/compact_demo_manifests.py` and its
+  `--check`. Embeddings: the driver maps the operator's laptop variables GPT_OSS_ENDPOINT /
+  GPT_OSS_API_KEY to FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT / FOSS_MCP_EMBEDDING_GATEWAY_API_KEY for
+  the container (by NAME, never printing values), does NOT set the dimension variable (default
+  4096), uses `--vector-scope examples --vector-decimals 5`, and REFUSES to ingest (exit non-zero,
+  clear message) if neither pair is present, and ASSERTS the dimension of every written vector
+  index is 4096 (the 2026-11 regression: 31 of 32 baked indexes are 64-dim hashing vectors, which
+  makes find_examples permanently lexical-only). Also give `snapshot_demo_from_cluster.py` and
+  `pull_verification_cache.py` a `--from-dir DIR` source so their copy/merge logic is reusable
+  without kubectl (import their helpers rather than duplicating). A `--dry-run` prints every
+  command (secrets redacted to NAMES) and touches nothing; tests use dry-run and fake runners only
+  - no docker, network or gateway in the test suite.
+depends_on:
+  - TC-349
+  - TC-441
+  - TC-553
+  - TC-510
+  - TC-600
+  - TC-601
+  - TC-793
+write_paths:
+  - scripts/release/regenerate_local.py
+  - scripts/release/snapshot_demo_from_cluster.py
+  - scripts/release/pull_verification_cache.py
+  - tests/deploy/test_regenerate_local.py
+  - tests/deploy/test_snapshot_demo_from_cluster.py
+  - tests/deploy/test_pull_verification_cache.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    The measured design record for the cluster-free regeneration route is
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\regen1_design.md
+    (sections 2-4 for the procedure, gaps G1-G8). Its facts were measured on 2026-11-14 at HEAD
+    9c272701 - re-check what you rely on; where it and the code disagree, the code wins, say so in
+    your report.
+  - >-
+    READ FIRST: scripts/release/snapshot_demo_from_cluster.py and pull_verification_cache.py in full
+    (their copy/merge helpers), scripts/release/compact_demo_manifests.py,
+    scripts/deploy/install_pilots.py and scripts/deploy/pilots.py (how Job values/commands are
+    rendered), infra/helm/foss-mcp/templates/ingestion-job.yaml (Job args, ~l.100-160) and
+    values.yaml (per-pilot memory), infra/ingest.py CLI, tests/deploy/test_install_pilots.py and
+    test_snapshot_demo_from_cluster.py (testing style: injected runner, dry-run command assertions),
+    AGENTS.md 'Toolchain' (helm only on PATH after scripts/toolchain/activate.ps1 - the driver must
+    locate helm via PATH and say so clearly if missing).
+  - >-
+    Scope boundaries: do NOT run any real regeneration, docker build/run, or network call from this
+    card; do NOT touch infra/demo-manifests, tests/fixtures/verified_examples or any fixture; the
+    driver is exercised only through tests with injected fakes plus `--dry-run`. Provide a clear
+    `--help`. New tests in tests/deploy/test_regenerate_local.py must cover: cohort table covers all
+    32 pilots exactly once; the dry-run command for a pilot contains build_chunks, ingest with
+    --content-derived-version/--vector-scope examples and NOT the sidecar fetch tail; refusal
+    without gateway env; env-name mapping GPT_OSS_* -> FOSS_MCP_EMBEDDING_GATEWAY_* never printing
+    values (redaction test); memory caps for the named pilots; seeding copies the committed manifest
+    dir; copy-back never copies sidecar files; a 64-dim vector index in the work output is rejected;
+    `--from-dir` paths in the two existing scripts.
+  - >-
+    Add a liveness proof (AGENTS.md 'Integration and liveness'): a test asserting the driver's
+    main() calls the snapshot/compaction helpers (AST/grep of the committed source).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. If a related test
+    outside write_paths fails because of your change, do not edit it: stop and report it with the
+    exact failure. Never print, log or write a credential value (GPT_OSS_*, GITHUB_TOKEN, gateway
+    keys): refer to environment variable NAMES only.
+actions:
+  - >-
+    Add the cluster-free local regeneration driver (helm template -> docker run build_chunks+ingest
+    -> copy pointer/generation/cache -> compact) with gateway-dimension enforcement, plus --from-dir
+    for the two cluster-copy scripts.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_regenerate_local.py tests/deploy/test_snapshot_demo_from_cluster.py tests/deploy/test_pull_verification_cache.py tests/deploy/test_install_pilots.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 189
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['scripts/release/regenerate_local.py', 'scripts/release/snapshot_demo_from_cluster.py', 'scripts/release/pull_verification_cache.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-829/receipt.json
+closeout:
+  - >-
+    `python scripts/release/regenerate_local.py --cohort C0 --dry-run` prints the full, secret-free
+    command plan; the driver refuses to produce 64-dim vector data.
+recovery: Re-run from a clean tree.

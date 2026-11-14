@@ -1,0 +1,91 @@
+id: TC-830
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REGEN-1 gap G4: the replay-only `CachedEmbeddingProvider` (TC-601; infra/demo-inputs/embeddings,
+  4096-dim) hits only 165 of the 282 current example texts and raises `CachedEmbeddingMissError`
+  on any miss, and every changed example text (TC-800 one-chunk examples, TC-813 retitles, new
+  authored examples) changes its embedding key. Add a `FallbackEmbeddingProvider` in
+  src/foss_mcp/indexing/cached_embedding_provider.py: look the text up in the cache first; on a
+  MISS call the configured gateway provider (`GatewayEmbeddingProvider`), return its vector and
+  record it (write-back to the cache dict/file the same way the cache is stored, deterministic key
+  order and the same rounding as the cache writer) so a regeneration is cache-first and
+  byte-stable on the second run, with a recorded count of hits/misses/gateway calls. Wire it into
+  infra/ingest.py as an additional `--embedding-provider` choice (e.g. `cached-gateway`) without
+  changing any existing choice's behaviour or default, and keep dimension handling identical to
+  the gateway provider (4096 default; mismatching cached vector length raises, never silently
+  pads). The provider must be a real production-path option: a test proves the CLI builds it
+  (AST/grep of ingest.py for the choice and constructor call) per AGENTS.md 'Integration and
+  liveness'. Tests use fakes only (no network).
+depends_on:
+  - TC-601
+  - TC-600
+  - TC-510
+  - TC-632
+  - TC-829
+write_paths:
+  - src/foss_mcp/indexing/cached_embedding_provider.py
+  - infra/ingest.py
+  - tests/indexing/test_fallback_embedding_provider.py
+  - tests/indexing/test_cached_embedding_provider.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    The measured design record for the cluster-free regeneration route is
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\regen1_design.md
+    (sections 2-4 for the procedure, gaps G1-G8). Its facts were measured on 2026-11-14 at HEAD
+    9c272701 - re-check what you rely on; where it and the code disagree, the code wins, say so in
+    your report.
+  - >-
+    READ FIRST: src/foss_mcp/indexing/cached_embedding_provider.py and its tests (TC-601),
+    src/foss_mcp/indexing/gateway_embedding_provider.py (`GatewayEmbeddingProvider`, batching,
+    dimension), infra/ingest.py CLI (`--embedding-provider`, `--vector-scope`, `--vector-decimals`),
+    infra/demo-inputs/embeddings/*.json shape and the TC-601 extraction recipe (plans/TC-601.yaml
+    ~l.50-60).
+  - >-
+    Do NOT call any real gateway; do NOT write infra/demo-inputs. Also run
+    tests/infra/test_ingest.py and tests/deploy tests that mention embedding providers to make sure
+    nothing existing changes (report them).
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. If a related test
+    outside write_paths fails because of your change, do not edit it: stop and report it with the
+    exact failure. Never print, log or write a credential value (GPT_OSS_*, GITHUB_TOKEN, gateway
+    keys): refer to environment variable NAMES only.
+actions:
+  - >-
+    Add a cache-then-gateway embedding provider with write-back and expose it as an ingest.py
+    provider choice.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_fallback_embedding_provider.py tests/indexing/test_cached_embedding_provider.py tests/indexing/test_gateway_embedding_provider.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 24
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/cached_embedding_provider.py', 'infra/ingest.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-830/receipt.json
+closeout:
+  - >-
+    Regeneration can reuse cached example vectors and only call the gateway for changed texts,
+    deterministically.
+recovery: Re-run from a clean tree.
