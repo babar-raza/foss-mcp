@@ -672,6 +672,136 @@ def _library_target_framework(library_csproj: Path) -> tuple[str, str]:
     return max(found, key=version), "library"
 
 
+# TC-867: a library that draws through SkiaSharp references only the managed package; the native Linux binary is
+# the separate package below and is not pulled in transitively, so a built candidate that renders (an XLSX saved to
+# PDF) dies at run time with ``DllNotFoundException: libSkiaSharp``. The scaffold adds it at the library's version.
+_SKIASHARP_PACKAGE = "SkiaSharp"
+_SKIASHARP_NATIVE_LINUX_PACKAGE = "SkiaSharp.NativeAssets.Linux"
+_SKIASHARP_NATIVE_ITEM_GROUP = (
+    "  <ItemGroup Condition=\"$([MSBuild]::IsOSPlatform('Linux'))\">\n"
+    '    <PackageReference Include="{package}" Version="{version}" />\n'
+    "  </ItemGroup>\n"
+)
+# ``<PackageReference ...>`` (a project) or ``<PackageVersion ...>`` (Directory.Packages.props), self-closing or
+# with child elements: group 1 the element name, group 2 its attributes, group 3 its children (``Version`` may be one).
+_PACKAGE_ELEMENT_RE = re.compile(
+    r"<(PackageReference|PackageVersion)\b([^>]*?)(?:/>|>(.*?)</\1\s*>)", re.DOTALL
+)
+_XML_ATTRIBUTE_RE = re.compile(r"""([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+_VERSION_CHILD_RE = re.compile(r"<Version>([^<]*)</Version>")
+_PROJECT_REFERENCE_RE = re.compile(r"""<ProjectReference\b[^>]*?\bInclude\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+# A concrete NuGet version: numbers with dots, then an optional pre-release suffix. ``$(Property)`` and ranges are not.
+_NUMERIC_VERSION_RE = re.compile(r"^(\d+(?:\.\d+){0,3})(?:-[0-9A-Za-z.-]+)?$")
+
+
+def _read_xml_text_without_comments(path: Path) -> str:
+    """The text of an XML project file with its comments removed; an unreadable file is empty."""
+    try:
+        return _XML_COMMENT_RE.sub("", path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError):
+        return ""
+
+
+def _skiasharp_versions_declared_in(path: Path) -> list[str]:
+    """The concrete versions of the ``SkiaSharp`` package declared in one csproj or props file."""
+    found: list[str] = []
+    for match in _PACKAGE_ELEMENT_RE.finditer(_read_xml_text_without_comments(path)):
+        attributes = {
+            name: double or single for name, double, single in _XML_ATTRIBUTE_RE.findall(match.group(2))
+        }
+        if attributes.get("Include") != _SKIASHARP_PACKAGE:
+            continue
+        version = attributes.get("Version")
+        if version is None:
+            child = _VERSION_CHILD_RE.search(match.group(3) or "")
+            version = child.group(1) if child is not None else ""
+        version = version.strip()
+        if _NUMERIC_VERSION_RE.match(version) is not None:
+            found.append(version)
+    return found
+
+
+def _project_directories_to_clone_root(project: Path) -> tuple[list[Path], Path | None]:
+    """The directories from the project's own up to the clone root (the first one holding ``.git``), and that root.
+
+    The root is ``None`` when the walk reaches the filesystem root without finding one.
+    """
+    directories: list[Path] = []
+    directory = project.resolve().parent
+    while True:
+        directories.append(directory)
+        if (directory / ".git").exists():
+            return directories, directory
+        if directory.parent == directory:
+            return directories, None
+        directory = directory.parent
+
+
+def _skiasharp_versions_of_project(project: Path) -> tuple[list[str], Path | None]:
+    """``SkiaSharp`` versions the project, and every ``Directory.Build.props``/``Directory.Packages.props`` above it
+    (up to and including the clone root), declare; with the clone root.
+    """
+    found = _skiasharp_versions_declared_in(project)
+    directories, root = _project_directories_to_clone_root(project)
+    for directory in directories:
+        found.extend(_skiasharp_versions_declared_in(directory / "Directory.Build.props"))
+        found.extend(_skiasharp_versions_declared_in(directory / "Directory.Packages.props"))
+    return found, root
+
+
+def _referenced_projects_under(library_csproj: Path, root: Path) -> list[Path]:
+    """The csproj files the library's ``ProjectReference`` items name that exist inside the clone root.
+
+    Upstream writes Windows separators, so ``\\`` is read as ``/``. A reference that resolves outside the clone root,
+    or to a file that is not there, is dropped without being read.
+    """
+    text = _read_xml_text_without_comments(library_csproj)
+    resolved_root = root.resolve()
+    projects: list[Path] = []
+    for first, second in _PROJECT_REFERENCE_RE.findall(text):
+        include = (first or second).strip().replace("\\", "/")
+        if not include.lower().endswith(".csproj"):
+            continue
+        try:
+            target = (library_csproj.resolve().parent / include).resolve()
+            target.relative_to(resolved_root)
+        except (OSError, ValueError):
+            continue
+        if target.is_file() and target not in projects:
+            projects.append(target)
+    return projects
+
+
+def _library_skiasharp_version(library_csproj: Path) -> str | None:
+    """The highest numeric ``SkiaSharp`` version the library declares, or ``None`` when it declares none.
+
+    Read from the library csproj, every ``Directory.Build.props`` and ``Directory.Packages.props`` from its directory
+    up to the clone root (comments ignored), and from the projects it references through ``ProjectReference``, one
+    level deep, that live under the clone root (a sibling project may be the one that draws). Nothing outside the
+    clone root is read.
+    """
+    found, root = _skiasharp_versions_of_project(library_csproj)
+    if root is not None:
+        for referenced in _referenced_projects_under(library_csproj, root):
+            found.extend(_skiasharp_versions_of_project(referenced)[0])
+    if not found:
+        return None
+
+    def numeric(value: str) -> tuple[int, ...]:
+        match = _NUMERIC_VERSION_RE.match(value)
+        assert match is not None
+        return tuple(int(part) for part in match.group(1).split("."))
+
+    return max(found, key=numeric)
+
+
+def _native_assets_item_group(skiasharp_version: str) -> str:
+    """The ItemGroup that gives a candidate project SkiaSharp's native Linux binary, at the library's version."""
+    return _SKIASHARP_NATIVE_ITEM_GROUP.format(
+        package=_SKIASHARP_NATIVE_LINUX_PACKAGE, version=skiasharp_version
+    )
+
+
 def _collapse_whitespace(text: str) -> str:
     return " ".join(text.split())
 
@@ -747,6 +877,12 @@ def verify_dotnet_example(
     csproj_content = _CANDIDATE_CSPROJ_TEMPLATE.format(
         library_csproj=library_csproj, target_framework=target_framework
     )
+    # TC-867: a library that draws through SkiaSharp needs its Linux native binary to run (the managed package has none).
+    skiasharp_version = _library_skiasharp_version(library_csproj)
+    if skiasharp_version is not None:
+        project_end = csproj_content.rindex("</Project>")
+        native_group = _native_assets_item_group(skiasharp_version)
+        csproj_content = f"{csproj_content[:project_end]}{native_group}\n{csproj_content[project_end:]}"
     (project_dir / "candidate.csproj").write_text(csproj_content, encoding="utf-8")
     (project_dir / "Program.cs").write_text(source, encoding="utf-8")
 
@@ -758,6 +894,8 @@ def verify_dotnet_example(
         f"[foss-mcp] assembly: dotnet target-framework={target_framework} ({framework_source}); "
         f"implicit-usings=enable; page-usings-prepended={prepended}"
     )
+    if skiasharp_version is not None:
+        assembly_line += f"; native-assets={_SKIASHARP_NATIVE_LINUX_PACKAGE}@{skiasharp_version}"
     combined = f"{result.stdout}\n{result.stderr}"
     output = f"{assembly_line}\n{_truncate(combined)}"
 
