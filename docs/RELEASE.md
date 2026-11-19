@@ -47,7 +47,7 @@ lean (next section) and why the gate measures memory per container.
 
    The tool is offline and idempotent. Per scope it keeps only the active generation file and only the vector
    points that carry the example marker. Commit the result: the image is built from committed bytes.
-   The committed tree stays under 45 MB (the lean ceiling); the exact budgets are pinned in tests/deploy/test_compact_demo_manifests.py.
+   The committed tree stays under 55 MB (the lean ceiling, raised from 45 MB by OQ-029); the exact budgets are pinned in tests/deploy/test_compact_demo_manifests.py.
 
 2. Build the `demo` stage from a clean tree at the commit you want to ship, with an explicit tag that is not
    `latest`, and label it with the full commit id. The label is mandatory: `gatectl release-record` reads

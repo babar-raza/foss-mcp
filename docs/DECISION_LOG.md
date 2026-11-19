@@ -5108,3 +5108,34 @@ C. the actionable backlog (hermetic-regeneration audit `H1`-`H9`, `pdf/java` `Pr
 what needs only local Docker). Eight read-only investigators were launched in parallel (infra deep dive,
 release backlog, content backlog, five ledger-triage slices); their findings, not this entry, decide the
 card list.
+
+## 2026-11-14 — TC-854: the lean baked-tree ceiling is raised from 45 MB to 55 MB (OQ-029)
+
+**Decision** (`OQ-029`, `PROVISIONAL_ACCEPT`, taken by the supervisor under the standing directive that no
+decision waits for a human): `LEAN_CEILING_BYTES` in `tests/deploy/test_compact_demo_manifests.py` goes from
+`45_000_000` to `55_000_000`, and `docs/RELEASE.md` now says the committed `infra/demo-manifests` tree stays
+under 55 MB. The operator keeps the final say: reverting is a one-constant change plus a regeneration, and
+the only remaining options if the 45 MB ceiling is wanted back are lexical-only example search for about 20
+pilots or a vector-encoding change.
+
+**Why.** Regenerating the demo data with gateway-dimension (4096) vectors makes `find_examples` hybrid
+instead of permanently lexical-only, but every example chunk's vector is then about 33 KB. After
+regenerating cohort C1 (`TC-848`, 11 of 32 pilots) the committed tree is 44.46 MB (the compaction's own
+scope-only total is 41.8 MB). The roughly 21 pilots still on 64-dim hashing vectors hold about 160 example
+points, so the finished tree is about 49.7 MB, which the old ceiling could not hold. The new ceiling leaves
+about 5 MB of headroom over that projection. The data layer is about 10 percent of the 457 MB serving
+image, so the image stays lean.
+
+**Rejected alternatives.**
+
+- *Quantising vectors to fewer decimals*: a unit 4096-dim vector has components near 0.016, so 5 decimals
+  already keep only about 3 significant figures; fewer would damage retrieval.
+- *Changing the on-disk vector encoding*: a format change across the whole serving path for a saving of
+  about 10 MB.
+- *Keeping 64-dim hashing vectors for the remaining pilots*: leaves `find_examples` lexical-only for them
+  permanently, which is the defect the regeneration exists to remove.
+
+**Scope.** `TREE_BYTES_BUDGET` (both test files) is not changed by this card: it stays the measured pin
+`TC-848` set (44_470_000); each later regeneration cohort re-pins it against the new ceiling, and no budget
+may exceed 55_000_000. The ceiling tests keep their relative cases around the new value (55_000_000
+accepted, 55_000_001 rejected, 45_000_001 now accepted).

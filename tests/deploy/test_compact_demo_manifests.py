@@ -64,8 +64,13 @@ LARGEST_FILE_BYTES_BUDGET = 7_390_000
 # re-pinned by TC-536: 810_000 -> 810_000 (median re-measured at 763_382.5 bytes; 763_382.5 x 1.05 = 801_551.6,
 # which still rounds up to 810_000, so the pinned number does not move)
 MEDIAN_FILE_BYTES_BUDGET = 810_000
-# The lean standalone image was agreed with the operator at 45 MB for the baked tree. Only the operator moves it; a worker never does.
-LEAN_CEILING_BYTES = 45_000_000
+# The lean standalone image was agreed with the operator at 45 MB for the baked tree. Raised to 55 MB by TC-854 on 2026-11-14,
+# recorded as OQ-029 (PROVISIONAL_ACCEPT, decided by the supervisor under the standing directive; the operator can still overrule it).
+# Why: gateway-dimension (4096) example vectors make find_examples hybrid instead of permanently lexical-only, at about 33 KB per
+# example point; the committed tree is 44.46 MB after cohort C1 and about 49.7 MB once the ~21 remaining pilots are regenerated.
+# Quantising the vectors and changing their on-disk encoding were rejected (see docs/DECISION_LOG.md). A worker never moves it
+# without such a recorded decision.
+LEAN_CEILING_BYTES = 55_000_000
 # Added by TC-778: the real committed tree legitimately serves TWO distinct vector dimensions, not
 # one universal value - confirmed directly against src/foss_mcp/indexing/hashing_embedding_provider.py's
 # local offline fallback (`dimension: int = 64`, used by 31 of 32 real pilots) and
@@ -383,12 +388,13 @@ def test_the_tree_budgets_stay_under_the_agreed_lean_ceiling() -> None:
         sidecars_test.TREE_BYTES_BUDGET,
         LEAN_CEILING_BYTES,
     )
-    assert LEAN_CEILING_BYTES == 45_000_000
+    assert LEAN_CEILING_BYTES == 55_000_000
 
 
 def test_the_ceiling_helper_rejects_a_budget_above_the_ceiling() -> None:
-    assert budget_is_within_the_lean_ceiling(45_000_000)
-    assert not budget_is_within_the_lean_ceiling(45_000_001)
+    assert budget_is_within_the_lean_ceiling(55_000_000)
+    assert not budget_is_within_the_lean_ceiling(55_000_001)
+    assert budget_is_within_the_lean_ceiling(45_000_001)
     assert not budget_is_within_the_lean_ceiling(60_000_000)
     assert budget_is_within_the_lean_ceiling(1_000, ceiling=1_000)
     assert not budget_is_within_the_lean_ceiling(1_001, ceiling=1_000)
@@ -396,7 +402,7 @@ def test_the_ceiling_helper_rejects_a_budget_above_the_ceiling() -> None:
 
 def test_release_md_names_the_lean_ceiling_and_this_test_file() -> None:
     text = " ".join((REPO_ROOT / "docs" / "RELEASE.md").read_text(encoding="utf-8").split())
-    assert "45 MB" in text
+    assert "55 MB" in text
     assert "test_compact_demo_manifests.py" in text
 
 
