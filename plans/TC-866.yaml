@@ -1,0 +1,101 @@
+id: TC-866
+gate: G3
+lane: verification
+purpose: >-
+  RW-13a / decision gate DG-3 (plan 'Reconciliation (2026-11-18)'): MEASURE, before building
+  anything, how many of an upstream project's own shipped example programs can be turned into
+  verified, published examples, so the example-corpus work (14 pilots below the Appendix C
+  minimum, e.g. cells/python 10 of 30) is sized on data instead of the plan's assumed ~70% yield.
+  First slice: cells/python, whose upstream `examples/` directory at the pinned commit (read the
+  pin from infra/helm/foss-mcp/values.yaml, pilot cells/python) ships about 31 scripts.
+  Deliverables: (1) scripts/release/measure_sample_yield.py, a reusable tool: given a pilot, a
+  checkout directory, the sample file list and an ingestion image, it stages each sample the way
+  the product's own verifier would (read src/foss_mcp/indexing/example_verifier.py,
+  example_runtime.py, example_artifacts.py and example_fixtures.py for the real staging, run step
+  and artifact validators; reuse them by import, never reimplement), runs it in the container with
+  `--network none`, and classifies each sample exactly once as one of:
+  verified-ran-produced-output, verified-ran-exit0, rejected-compile, rejected-missing-fixture
+  (name the missing file), rejected-runtime (first error line),
+  rejected-needs-network-or-credentials, rejected-no-statements; it writes a JSON list and a
+  markdown table. (2) tests/release/test_measure_sample_yield.py: offline tests with a tiny
+  synthetic sample directory and a fake runner (no docker, no network) covering every
+  classification, determinism of the output ordering, and the decision rule function
+  `yield_decision(verified, total)` -> 'proceed' when verified/total >= 0.70 else 'revise'
+  (boundary tested at exactly 0.70 and just below). (3) docs/P4B_YIELD.md: the real measurement
+  for cells/python: pin, date, tool and image versions, per-sample table (name, classification,
+  reason), totals, the yield, the decision per the rule, and - if 'revise' - a proposed, evidenced
+  revised minimum for cells/python (never lower a floor silently: state the number and why). Also
+  record in the same document, for the five next-largest gaps (pdf/java, pdf/net, cells/rust,
+  pdf/go, cells/net), what upstream material exists (sample directory, file count, language,
+  whether a shared helper/data is needed) from a read-only listing of their pinned checkouts - no
+  execution needed there. Do not change any product code, data or other test.
+depends_on:
+  - TC-853
+  - TC-865
+write_paths:
+  - docs/P4B_YIELD.md
+  - scripts/release/measure_sample_yield.py
+  - tests/release/test_measure_sample_yield.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: docs/ROUND2_REVIEW.md workstream D rows for cells/python (RD2-086 neighbourhood,
+    thin corpus), the plan context in plans/TC-837.yaml (authored cap 5 -> 6) and plans/TC-848.yaml
+    (how a container run is driven), scripts/release/regenerate_local.py (image handling, never
+    print the GPT_OSS_*/GITHUB_TOKEN variables), src/foss_mcp/indexing/example_verifier.py and
+    example_runtime.py.
+  - >-
+    ENVIRONMENT: PowerShell; run `.
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first in every
+    command using docker. Docker Desktop is running. Build the ingestion image from YOUR worktree if
+    you need the product verifier inside it: `docker build -f Dockerfile.ingestion -t
+    foss-mcp-ingestion:regen-p4b .`. The worktree has no venv: use
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
+    to your worktree root, src and infra. Clone upstream repositories with the authenticated `gh`
+    CLI or git over https into a scratch directory OUTSIDE the repository and OneDrive; check out
+    the pinned commit exactly. NEVER print GITHUB_TOKEN or GPT_OSS_* values. Run any Python that
+    reads files from a downloaded clone with `-I`.
+  - >-
+    Honesty rules: report the number you measured, not the number the plan assumed. A sample that
+    needs a binary fixture the repo does not provide is `rejected-missing-fixture` with the file
+    name, not skipped. A sample whose licence or bundled asset forbids republication (fonts, images,
+    logos not MIT) is excluded with that reason, counted in the denominator note but not silently
+    dropped. Run the card's check twice, ruff check/format on the two Python files, make exactly ONE
+    commit, leave no container or background process, delete scratch clones, report ONCE with the
+    yield table.
+actions:
+  - >-
+    Build the sample-yield measurement tool, measure cells/python's upstream examples, and record
+    the decision per the 70% rule.
+checks:
+  - command: '{python} -m pytest tests/release/test_measure_sample_yield.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 6
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['scripts/release/measure_sample_yield.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-866/receipt.json
+closeout:
+  - >-
+    The real verification yield of cells/python's upstream examples is measured and the 70% decision
+    (proceed or revise) is recorded in docs/P4B_YIELD.md.
+recovery: Re-run from a clean tree.
