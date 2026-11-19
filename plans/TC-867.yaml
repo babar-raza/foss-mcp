@@ -1,0 +1,119 @@
+id: TC-867
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Found by the TC-849 worker (cohort C2, .NET): every example that saves a workbook, document or
+  page to PDF on cells/net (and any other .NET pilot whose library draws through SkiaSharp) fails
+  in the verifier with System.DllNotFoundException: Unable to load shared library 'libSkiaSharp'.
+  The pinned library Aspose.Cells.FOSS references only the managed SkiaSharp 2.88.8 package; the
+  native Linux binary comes from the separate package SkiaSharp.NativeAssets.Linux and is not
+  pulled in transitively. A user on Linux hits the same failure, so this is a real environment
+  requirement - but our verifier is the only reason the README example 'Convert XLSX to PDF'
+  (cells/net) is today dropped as 'run failed' (TC-802 honest publish), which costs the pilot a
+  forgiveness row and an example. FIX in the verifier's scaffold only: when the library project
+  declares a SkiaSharp package (read the PackageReference Include=SkiaSharp Version, or the
+  central PackageVersion, from the library csproj, every Directory.Build.props and
+  Directory.Packages.props walking up to the clone root exactly like _library_target_framework
+  does; take the highest numeric version; ignore XML comments), the generated candidate.csproj
+  gets one extra ItemGroup with a PackageReference Include=SkiaSharp.NativeAssets.Linux at the
+  same Version, with the MSBuild condition IsOSPlatform('Linux'), and the assembly line gains the
+  suffix '; native-assets=SkiaSharp.NativeAssets.Linux@<version>' (only when added, so every
+  existing assembly-line assertion stays byte-identical). When the library declares no SkiaSharp,
+  the csproj and the assembly line are byte-identical to today. _CANDIDATE_CSPROJ_TEMPLATE itself
+  must NOT change (tests/indexing/test_dotnet_doc_generation_off.py pins it); build the extra
+  group in a helper and insert it before the closing Project tag. Do NOT bump VERIFIER_VERSION (it
+  would orphan every committed cache entry and break
+  tests/indexing/test_round3_example_runtime_truth.py); the supervisor's TC-849 rework drops the
+  stale failed cache entries as data. Deliverables: (1) the helper(s) and wiring in
+  example_verifier.py; (2) tests/indexing/test_dotnet_native_assets.py with at least 6 offline
+  tests using a fake _run exactly like tests/indexing/test_dotnet_verifier_assembly.py: SkiaSharp
+  via the csproj, via Directory.Build.props two levels up, via Directory.Packages.props
+  PackageVersion, highest of two versions wins, a commented-out reference is ignored, no SkiaSharp
+  => csproj and assembly line byte-identical to the template output, and the Linux condition text
+  is present; (3) a real proof (see inputs): the real verifier, on a real container, turns the
+  cells/net README example 'Convert XLSX to PDF' into ran-produced-output. Do not change any other
+  source file, data or test.
+depends_on:
+  - TC-808
+write_paths:
+  - src/foss_mcp/indexing/example_verifier.py
+  - tests/indexing/test_dotnet_native_assets.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: src/foss_mcp/indexing/example_verifier.py (_CANDIDATE_CSPROJ_TEMPLATE,
+    _library_target_framework, _tfms_declared_in, verify_dotnet_example, run_compiled_candidate),
+    tests/indexing/test_dotnet_verifier_assembly.py (the fake _run and how it reads
+    candidate.csproj), tests/indexing/test_dotnet_doc_generation_off.py,
+    tests/indexing/test_published_program_is_verified_program.py (they must stay green unedited).
+  - >-
+    REPRODUCE FIRST: write the tests so the SkiaSharp cases fail before the change. Then prove the
+    real failure and the real fix: build the ingestion image from YOUR worktree (docker build -f
+    Dockerfile.ingestion -t foss-mcp-ingestion:regen-c2 . - reuse the existing tag only if it was
+    built from a tree with the same Dockerfile.ingestion), clone Aspose.Cells-FOSS-for-.NET at the
+    pinned commit 941814fd138dc28cf47123d48194f329f283498d with the authenticated gh CLI into a
+    scratch directory OUTSIDE the repository and OneDrive, and run the product verifier
+    (verify_dotnet_example then run_compiled_candidate, the same functions infra/build_chunks.py
+    uses) on the README example titled 'Convert XLSX to PDF' inside the container: before your
+    change it must fail with libSkiaSharp, after it must end ran-produced-output with a non-empty
+    PDF that passes the TC-808 PDF validator. Put the exact commands and the two outcomes in your
+    report.
+  - >-
+    MEASURE: for each of the six .NET pilots (pdf/net, slides/net, words/net, cells/net, email/net,
+    3d/net) read the pinned commit from infra/helm/foss-mcp/values.yaml, look at the library csproj
+    and every Directory.Build.props / Directory.Packages.props above it read-only, and report which
+    declare SkiaSharp (and at which version, and whether through a ProjectReference to a sibling
+    project instead). If a pilot reaches SkiaSharp only through a ProjectReference, extend the
+    detection to follow ONE level of ProjectReference to csproj files under the clone root and
+    report it; never read outside the clone root.
+  - >-
+    ENVIRONMENT: PowerShell; run `.
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first in every
+    command that uses docker. The worktree has no venv: use
+    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
+    to your worktree root, src and infra. NEVER print GITHUB_TOKEN or GPT_OSS_* values. Run any
+    Python that reads files from a downloaded clone with -I. Delete scratch clones and leave no
+    container or background process.
+  - >-
+    COUNT: the card's check collects 163 existing tests today and min_tests is 169, so you must add
+    at least 6 new tests in tests/indexing/test_dotnet_native_assets.py (add more rather than
+    fewer). Honesty rules: never weaken or skip an existing test; if a pre-existing test pins the
+    old csproj or assembly line for a Skia-using library, report it and stop instead of editing it.
+    Run the card's check twice, ruff check and ruff format on the two Python files, mypy on
+    example_verifier.py (report only errors you introduced), make exactly ONE commit, report ONCE.
+actions:
+  - >-
+    Add the SkiaSharp native Linux asset to the .NET verifier scaffold when the library uses
+    SkiaSharp, prove it on the real cells/net PDF example, and test it offline.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_dotnet_native_assets.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 169
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/example_verifier.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-867/receipt.json
+closeout:
+  - >-
+    A .NET library that draws through SkiaSharp is verified with its Linux native asset, so examples
+    that save to PDF can run in the verifier instead of failing on a missing shared library.
+recovery: Re-run from a clean tree.
