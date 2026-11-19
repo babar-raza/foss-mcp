@@ -67,6 +67,25 @@ write_paths:
   - tests/fixtures/conformance/*
   - tests/mcp/tools/test_post_regen_retrieval_ratchets.py
   - tests/mcp/tools/post_regen_simulation.py
+  - tests/mcp/tools/test_find_examples_generic_title_lead_in.py
+  - tests/mcp/tools/test_find_examples_symbol_aware_matching.py
+  - tests/mcp/tools/test_find_examples_round2_recall_ratchet.py
+  - tests/mcp/tools/test_find_examples_title_anchor.py
+  - tests/mcp/tools/test_find_examples_verification_record.py
+  - tests/mcp/tools/test_forgiveness_acceptance.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py
+  - tests/indexing/test_cached_embedding_provider.py
+  - tests/indexing/test_example_titles_description_derived.py
+  - tests/indexing/test_round3_example_runtime_truth.py
+  - tests/release/test_claims_ledger.py
+  - tests/fixtures/furnished/pdf_typescript/authored_examples.yaml
+  - tests/indexing/test_authored_examples_pdf_typescript.py
+  - tests/fixtures/furnished/cells_typescript/authored_examples.yaml
+  - tests/indexing/test_authored_examples_cells_typescript.py
+  - tests/fixtures/furnished/3d_typescript/authored_examples.yaml
+  - tests/indexing/test_authored_examples_3d_typescript.py
 satisfies:
   - REQ-G3-017
 source_refs:
@@ -156,6 +175,24 @@ inputs:
     the new test. Make exactly ONE commit with FOSS_MCP_WORKER set to your card id (the regenerated
     data, the cache merge, the test pins and the new test). Do not leave any docker container or
     background process running after your report, and report exactly once.
+  - >-
+    LESSONS FROM TC-849 (read before you start): (1) the card check alone is not enough - after
+    regeneration also run tests/mcp, tests/indexing, tests/release, tests/conformance, tests/e2e,
+    tests/config, tests/extraction, tests/infra and tests/test_container_build.py and fix every
+    STALE DATA PIN you find that is in write_paths (census counts, doc-scope document frequencies,
+    the 64-dim pilot set in tests/indexing/test_cached_embedding_provider.py, tree-size budgets,
+    authored-sidecar entry counts, tests/release/test_claims_ledger.py); re-pin each only to a value
+    you confirmed against the real regenerated data, never loosen or delete an assertion, and report
+    old -> new for each. (2) Regeneration correctly stops publishing README examples whose run
+    failed or printed nothing (TC-802); a forgiveness row or recall pair that depended on such an
+    example is a REAL loss: restore it by authoring a running example in the pilot's
+    authored_examples.yaml (cap 6; the exact title of a README candidate is silently dropped by
+    merge_authored_candidates, so use a distinct title that still contains the forgiveness target
+    words) - never lower a floor or edit tests/mcp/tools/test_forgiveness_acceptance.py's tables. A
+    pair may be flipped only with a recorded reason after a real example was added and it still
+    fails. (3) A stale FAILED entry in tests/fixtures/verified_examples/<pilot>.json is replayed
+    instead of re-run: when you fix the cause of a failure, drop only those entries and re-run them.
+    (4) pull_verification_cache writes CRLF into the JSON: convert to LF before committing.
 actions:
   - >-
     Regenerate cohort C4 locally, review per-pilot diffs, land the data with its test pins and a new
