@@ -52,7 +52,12 @@ EXPECTED_SCOPES = 32
 # compaction's own scope-only total is 41_804_884). The usual measurement x 1.05 would be 46_686_703 and would exceed the operator's
 # 45_000_000 lean ceiling, which a worker never raises, so this budget is the measurement rounded up to the next 10_000 and stays
 # under the ceiling with 530_000 bytes of room. Pilots still holding 64-dim vectors will add vector bytes when they are regenerated.
-TREE_BYTES_BUDGET = 44_470_000
+# re-pinned by TC-849: 44_470_000 -> 46_380_000. Cohort C2 (pdf, slides, words, cells, email and 3d, all .NET) was regenerated with
+# gateway 4096-dim example vectors (they were 64-dim hashing vectors, 57 points of 64 floats become 55 points of 4096 floats): the committed
+# tree measured 46_375_638 bytes (46_180_646 before the authored pdf/net and 3d/net examples and the two cells/net PDF examples TC-867 made publishable). Same rule as TC-848: the measurement rounded up to the next 10_000 (the usual x 1.05 would be
+# 48_694_420, which the 55_000_000 ceiling would allow but which would leave the budget loose by 2.3 MB). Pilots still holding 64-dim
+# vectors (cohorts C3 to C5) will add vector bytes when they are regenerated.
+TREE_BYTES_BUDGET = 46_380_000
 # re-pinned by TC-778: 6_060_000 -> 7_390_000 (the largest generation file is pdf/java again, now
 # 7_031_594 bytes, after the supervisor's TC-743/TC-744/TC-748 authored-examples re-ingest finally
 # caught pdf/java's own generation up to the per-member documentation rendering already present on
@@ -63,7 +68,9 @@ TREE_BYTES_BUDGET = 44_470_000
 LARGEST_FILE_BYTES_BUDGET = 7_390_000
 # re-pinned by TC-536: 810_000 -> 810_000 (median re-measured at 763_382.5 bytes; 763_382.5 x 1.05 = 801_551.6,
 # which still rounds up to 810_000, so the pinned number does not move)
-MEDIAN_FILE_BYTES_BUDGET = 810_000
+# re-pinned by TC-849: 810_000 -> 890_000. Cohort C2's regenerated pilots carry 4096-dim example vectors, which moved the median
+# generation file (over the 32 scopes) to 844_338.5 bytes; 844_338.5 x 1.05 = 886_555.4, rounded up to the next 10_000.
+MEDIAN_FILE_BYTES_BUDGET = 890_000
 # The lean standalone image was agreed with the operator at 45 MB for the baked tree. Raised to 55 MB by TC-854 on 2026-11-14,
 # recorded as OQ-029 (PROVISIONAL_ACCEPT, decided by the supervisor under the standing directive; the operator can still overrule it).
 # Why: gateway-dimension (4096) example vectors make find_examples hybrid instead of permanently lexical-only, at about 33 KB per

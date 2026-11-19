@@ -1,6 +1,6 @@
 """Offline checks of the 3d/net authored-example sidecar (TC-766, REQ-G3-014).
 
-``tests/fixtures/furnished/3d_net/authored_examples.yaml`` holds five authored examples written
+``tests/fixtures/furnished/3d_net/authored_examples.yaml`` holds six authored examples written
 against the real public API of ``Aspose.3D FOSS for .NET`` at the pinned commit. 3d/net ships no
 dedicated ``examples/``-style sample directory upstream (Appendix C, class C), so these were seeded
 from the library's own test/API surface and the README's own documented API shape instead, covering
@@ -67,8 +67,9 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
-EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
+# TC-849: 5 -> 6 (one authored example was added to this sidecar to win back an answer a crashing README example lost).
+EXPECTED_EXAMPLES = 6
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5, 6]
 
 #  A true using-DIRECTIVE (``using Namespace;``), never a using-DECLARATION (``using var x = ...;``):
 #  the token right after ``using`` must be a bare dotted identifier followed directly by ``;``.
@@ -114,7 +115,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
@@ -190,7 +191,7 @@ def test_the_title_differs_from_every_readme_candidate_title(number: int) -> Non
     assert _example(number)["title"] not in _readme_titles()
 
 
-_EXAMPLES_WITH_AN_EXPLICIT_ASSERTION = [2, 3, 4, 5]
+_EXAMPLES_WITH_AN_EXPLICIT_ASSERTION = [2, 3, 4, 5, 6]
 
 
 @pytest.mark.parametrize("number", _EXAMPLES_WITH_AN_EXPLICIT_ASSERTION)

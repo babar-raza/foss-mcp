@@ -1,6 +1,6 @@
 """Offline checks of the pdf/net authored-example sidecar (TC-747, REQ-G3-014).
 
-``tests/fixtures/furnished/pdf_net/authored_examples.yaml`` holds five authored examples written
+``tests/fixtures/furnished/pdf_net/authored_examples.yaml`` holds six authored examples written
 against the real public API of ``Aspose.PDF FOSS for .NET`` at the pinned commit
 (``aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET``). The pinned repository ships no ``examples/``- or
 ``samples/``-style directory of runnable sample programs at this commit - only the library source
@@ -65,8 +65,9 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
-EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
+# TC-849: 5 -> 6 (one authored example was added to this sidecar to win back an answer a crashing README example lost).
+EXPECTED_EXAMPLES = 6
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5, 6]
 
 #  A true using-DIRECTIVE (``using Namespace;``), never a using-DECLARATION (``using var x = ...;``):
 #  the token right after ``using`` must be a bare dotted identifier followed directly by ``;``.
@@ -112,7 +113,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}

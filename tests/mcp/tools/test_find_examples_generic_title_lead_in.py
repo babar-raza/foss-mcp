@@ -456,16 +456,22 @@ def test_the_real_corpus_census_of_generic_titled_examples(tmp_path: Path) -> No
     # TC-848 re-pin (cohort C1 regenerated: authored/real titles replaced 12 README placeholders such as "Quick Start (2)" and
     # "Additional Examples (3)" in 8 pilots, and the cohort gained 24 examples): 280 -> 304 examples, 46 -> 34 generic titled,
     # 24 -> 22 pilots (email/python and note/python have none left), 40 -> 28 that can anchor on a short lead-in.
-    assert len(rows) == 304
+    # TC-849 re-pin (cohort C2, the six .NET pilots, regenerated: README examples whose run failed or printed nothing are no
+    # longer published and the pilots' authored examples now carry the run): 304 -> 300 examples (3d/net 5 -> 6, cells/net 13 -> 11,
+    # email/net 9 -> 7, pdf/net 8 -> 8, slides/net 13 -> 12, words/net 9 -> 9), 34 -> 30 generic titled (email/net "Quick Start",
+    # cells/net "Quick Start (2)" and "(3)" and 3d/net "Additional Examples" are gone), 22 -> 20 pilots (email/net and 3d/net have
+    # none left), 28 -> 24 that can anchor on a short lead-in. cells/net then regained its two PDF-export README examples once the .NET
+    # verifier shipped the SkiaSharp native asset (TC-867), so 300 -> 302 examples; the generic-title counts are unchanged.
+    assert len(rows) == 302
     generic = [r for r in rows if is_generic_example_title((extract_fqn(r[2]) or "")[len(EXAMPLE_PREFIX) :])]
-    assert len(generic) == 34
-    assert len({(family, platform) for family, platform, _ in generic}) == 22
+    assert len(generic) == 30
+    assert len({(family, platform) for family, platform, _ in generic}) == 20
     # Every generic-titled example the corpus holds has a lead-in sentence but one (slides/net "Quick start").
     without = [r for r in generic if not example_lead_in(r[2])]
     assert [(f, p) for f, p, _ in without] == [("slides", "net")]
-    # 28 of the 34 (was 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
+    # 24 of the 30 (was 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
     short = [r for r in generic if 0 < len(example_lead_in(r[2]).split()) <= LEAD_IN_MAX_WORDS]
-    assert len(short) == 28
+    assert len(short) == 24
 
 
 QUERIES = (

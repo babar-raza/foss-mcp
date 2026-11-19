@@ -223,10 +223,15 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
     # the independently-determined ground truth - a really-verified candidate's own
     # distinctive code is present, and a really-unverified candidate's own distinctive
     # code is absent. Inverting the verified-guard swaps this correspondence and fails here.
-    all_example_text = "\n".join(c["text"] for c in example_chunks)
+    # TC-849: the pilot's AUTHORED examples (``Provenance: authored``) are a separate publication path with their own
+    # verdicts, and one of them legitimately uses the same type as a README candidate (the authored "Extract Text
+    # Fragments from a Saved Page" example calls TextFragmentAbsorber, as the README example does). The correspondence
+    # below is about the README-derived chunks only, so the authored chunks are excluded ON PURPOSE.
+    authored_example_chunks = [c for c in example_chunks if "\nProvenance: authored\n" in c["text"]]
+    readme_example_text = "\n".join(c["text"] for c in example_chunks if c not in authored_example_chunks)
     for candidate in candidates:
         marker = _DISTINCTIVE_CODE_MARKER[candidate.title]
-        is_published = marker in all_example_text
+        is_published = marker in readme_example_text
         if candidate.title in ground_truth_verified_titles:
             assert is_published, (
                 f"real, independently-verified candidate {candidate.title!r} "
@@ -237,6 +242,21 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
                 f"real, independently-UNVERIFIED candidate {candidate.title!r} "
                 f"(marker {marker!r}) was published anyway"
             )
+
+    # TC-849: the exclusion above is deliberate and visible - an authored chunk really does carry a README-only marker
+    # (so a check over ALL example chunks would wrongly call the unpublished README candidate published), while the README
+    # chunks alone still hold none of an unpublished candidate's marker.
+    unpublished_markers = [
+        _DISTINCTIVE_CODE_MARKER[c.title] for c in candidates if c.title not in ground_truth_verified_titles
+    ]
+    shared = [
+        marker for marker in unpublished_markers if any(marker in c["text"] for c in authored_example_chunks)
+    ]
+    assert not any(marker in readme_example_text for marker in unpublished_markers)
+    assert shared == ["TextFragmentAbsorber"], (
+        "expected exactly the authored text-fragment example to carry a README-only marker; if this fails the "
+        f"authored examples changed and the exclusion above may no longer be needed: {shared}"
+    )
 
     # TC-070/REQ-G2-048: before the '# Example: {title}' heading fix, the example body
     # had no markdown heading, so chunker.py's chunk_document() fell back to

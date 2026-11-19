@@ -235,3 +235,38 @@ examples:
         throw new Exception("report file data mismatch");
     }
   code_sha256: 30cc3d5b4a6c179f7392860ba02034ffc026dddb641dfab2292df7520d431241
+- title: "Extract Text Fragments from a Saved Page"
+  description: "Creates a one-page document, adds two TextFragment lines to Page.Paragraphs, round-trips the document through a byte array, then runs a TextFragmentAbsorber over the reloaded first page with Page.Accept and prints how many fragments it collected and the text of each TextFragment."
+  symbols:
+  - TextFragment
+  - TextFragment.Text
+  - Paragraphs.Add
+  - TextFragmentAbsorber
+  - TextFragmentAbsorber.TextFragments
+  - Page.Accept
+  code: |
+    // Authored example: extract text fragments from a saved page
+    using Aspose.Pdf;
+    using Aspose.Pdf.Text;
+
+    using var doc = Document.Create();
+    var page = doc.Pages.Add();
+    page.Paragraphs.Add(new TextFragment("First line of text"));
+    page.Paragraphs.Add(new TextFragment("Second line of text"));
+    byte[] saved = doc.ToArray();
+
+    using var reloaded = Document.Open(saved);
+    var absorber = new TextFragmentAbsorber();
+    reloaded.Pages[1].Accept(absorber);
+
+    Console.WriteLine("fragment count: " + absorber.TextFragments.Count);
+    foreach (var fragment in absorber.TextFragments)
+    {
+        Console.WriteLine("fragment text: " + fragment.Text);
+    }
+
+    if (absorber.TextFragments.Count != 2)
+    {
+        throw new Exception("expected exactly two text fragments");
+    }
+  code_sha256: e162826beb8e8b369eb119f77dcc45f4f6de0dd48469870d5d23f27e64457963

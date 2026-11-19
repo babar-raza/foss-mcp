@@ -34,7 +34,10 @@ DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "conformance" / "round2_find_examples_recall.json"
 
 # The recall measured by TC-810 (``must_hit`` pairs in the fixture) and the count it started from.
-FROZEN_MUST_HIT = 132
+# TC-849: 132 -> 131. The one pair (3d__net, "additional examples", 3D-NET-002) was answered only by the README example
+# "Additional Examples", which crashed on a missing input.gltf; cohort C2's regeneration correctly stopped publishing it (TC-802).
+# The fixture entry carries flipped_by and reason. No other pair changed (3d__net "glTF" is answered again by an authored example).
+FROZEN_MUST_HIT = 131
 BASELINE_HITS_BEFORE_TC810 = 108
 TOTAL_PAIRS = 316
 

@@ -310,11 +310,14 @@ def test_the_new_fields_reach_the_tools_call_json(tmp_path: Path) -> None:
     examples = _pdf_net_example_titles()
     assert examples
     fqn, text = examples[0]
-    expected_note = (
-        AUTHORED_VERIFICATION_NOTE
-        if "Provenance: authored" in text.splitlines()
-        else README_VERIFICATION_NOTE
-    )
+    # TC-849: a regenerated pilot's chunks carry the verification level the verifier reached, so the served note is the
+    # honest one for THAT chunk ("compiled and ran, produced N bytes (verified with <toolchain>); ..."), no longer the fixed
+    # compiled-only sentence a legacy chunk renders.
+    expected_note = _verification_note(text)
+    assert expected_note.startswith(
+        ("compiled and ran, produced", "Authored for this index; compiled and ran, produced")
+    ), expected_note
+    assert RUNTIME_LABEL_COMPILED_ONLY not in expected_note
     server = create_server(
         DeploymentConfig(family="pdf", platform="net"), manifest_store=GenerationManifestStore(root)
     )

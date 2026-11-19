@@ -156,8 +156,14 @@ def test_workbook_is_a_real_symbol_short_name_in_cells_net(store: GenerationMani
 def test_real_plain_word_class_name_now_anchors_through_the_server_wrapper(
     store: GenerationManifestStore,
 ) -> None:
+    # TC-849: this was "Workbook" until cohort C2 regenerated cells/net. The regenerated examples carry the word
+    # "workbook" (and, once TC-867 made the PDF-export examples publishable, "worksheet") in their own titles, so those
+    # now answer through the title path as well; "Column" is a real class that still rests on the code-anchor path
+    # alone (no example title holds the word, the lookup-disabled run below is an honest miss and the lower-case word
+    # misses).
+    assert "Column" in known_symbol_names(_documents(store, CELLS_NET))
     tool = _tool(store, CELLS_NET)
-    result = tool(query="Workbook")
+    result = tool(query="Column")
 
     assert isinstance(result, list) and result, f"expected real matches, got {result!r}"
     assert {match.match_basis for match in result} == {MATCH_BASIS_CODE_WORD}
@@ -165,11 +171,11 @@ def test_real_plain_word_class_name_now_anchors_through_the_server_wrapper(
         title = match.fqn[len(_EXAMPLE_FQN_PREFIX) :]
         # Neither existing mechanism (title anchor, bounded prefix title match) admits any of
         # these - the admission rests on the new code-anchor path alone.
-        assert title_anchored("Workbook", "cells", title) is False
-        assert title_prefix_anchored("Workbook", "cells", title) is False
+        assert title_anchored("Column", "cells", title) is False
+        assert title_prefix_anchored("Column", "cells", title) is False
     # And the OLD compound-identifier mechanism alone would never have reached code_anchored for
-    # this query at all - "Workbook" is a plain word, not an identifier-shaped run.
-    assert required_terms("Workbook") == frozenset()
+    # this query at all - "Column" is a plain word, not an identifier-shaped run.
+    assert required_terms("Column") == frozenset()
 
 
 def test_before_this_card_the_identical_query_was_an_honest_miss(
@@ -180,7 +186,7 @@ def test_before_this_card_the_identical_query_was_an_honest_miss(
     the honest ``NoExampleFound`` it was on ``main`` before this card - never a confident wrong guess."""
     monkeypatch.setattr(find_examples_module, "known_symbol_names", lambda documents: frozenset())
     tool = _tool(store, CELLS_NET)
-    result = tool(query="Workbook")
+    result = tool(query="Column")
     assert isinstance(result, NoExampleFound), result
 
 
@@ -198,13 +204,13 @@ def test_a_plain_word_naming_no_real_symbol_still_misses(store: GenerationManife
     assert isinstance(result, NoExampleFound), result
 
 
-def test_lowercase_workbook_the_common_word_does_not_anchor_on_the_real_class(
+def test_lowercase_column_the_common_word_does_not_anchor_on_the_real_class(
     store: GenerationManifestStore,
 ) -> None:
     """The design's own case-sensitivity choice: a query typed in lower case is the common English
-    word, not the real class "Workbook" - it must not anchor through this mechanism."""
+    word, not the real class "Column" - it must not anchor through this mechanism."""
     tool = _tool(store, CELLS_NET)
-    result = tool(query="workbook")
+    result = tool(query="column")
     assert isinstance(result, NoExampleFound), result
 
 

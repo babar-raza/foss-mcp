@@ -160,7 +160,7 @@ def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -
     pdf/net pilot (948 chunks, 25 of them documentation). Real measured numbers (TC-835 re-measured
     them on the current 948-chunk generation and moved the scope to documentation chunks only):
 
-    - whole-generation df: "install" 6, "file" 180 (out of 948) - term_weights' own
+    - whole-generation df: "install" 6, "file" 179 (out of 948; 180 before TC-849) - term_weights' own
       ``ln(1 + N / (1 + df))`` SATURATES BOTH at the known ceiling (1.0), so the whole-generation
       gap between them is 0.0 - exactly the LONGQ-001 failure mode (a doc-specific word weighs
       the same as a near-universal symbol-chunk word).
@@ -191,7 +191,10 @@ def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -
         count for token, count in payload["doc_freq"].items() if stem_token(token) == file_stem
     )
     assert whole_generation_install_df == 6
-    assert whole_generation_file_df == 180
+    # TC-849 re-pin 180 -> 179: cohort C2 regenerated pdf/net; its authored "Extract Text Fragments from a Saved Page" example
+    # replaced the README example of the same subject, which read a file ("document.pdf") and so held the word "file"; the
+    # chunk count (948) and the documentation chunks (25) are unchanged.
+    assert whole_generation_file_df == 179
 
     doc_scope_install_df = sum(
         1 for d in doc_example_documents if install_stem in {stem_token(t) for t in d["tokens"]}

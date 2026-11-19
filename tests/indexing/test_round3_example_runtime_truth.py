@@ -426,7 +426,19 @@ def test_every_other_committed_entry_is_unchanged_and_ran_unknown() -> None:
         for entry in build_chunks.parse_verification_cache(path.read_text(encoding="utf-8")):
             if (path.stem, entry["title"]) in pinned and entry["provenance"] == "readme":
                 continue
-            assert "ran" not in entry, (path.stem, entry["title"])
+            if "ran" in entry:
+                # TC-849: a regenerated pilot (cohort C2, the six .NET pilots) holds entries the CURRENT verifier wrote after it
+                # ran the example: they carry the run facts, the stamped level and the verifier version. Every one of them must
+                # say how far it got; none of them is a legacy entry that "ran" by accident.
+                assert entry.get("verifier_version") == build_chunks.VERIFIER_VERSION, (
+                    path.stem,
+                    entry["title"],
+                )
+                assert entry.get("verification_level") or entry.get("exit_code") not in (None, 0), (
+                    path.stem,
+                    entry["title"],
+                )
+                continue
             assert ev.runtime_record_from_entry(entry).status in (RUNTIME_UNKNOWN, RUNTIME_NOT_COMPILED)
             seen_other += 1
     assert seen_other > 100
