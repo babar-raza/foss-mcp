@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-854",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-19T15:49:12Z",
+  "base_rev": "1f3ef930e481cfa67ebb6c3f1b4314eac54add75",
+  "head_rev": "b6f5a6aaf3ad173bd7545360711d594beeaae1cb",
+  "card_sha256": "dac6541aa4adfa14d91498410106e10e6cfb724c068f28304c41c565186d35e4",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/DECISION_LOG.md",
+      "docs/RELEASE.md",
+      "tests/deploy/test_compact_demo_manifests.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 30.09,
+          "stdout_sha256": "f9d496c26bac98c384d561c0ed5a26951c5825fcea9dcd4340f7a3fbad6ea900",
+          "tests": 154,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.669,
+          "stdout_sha256": "f9d496c26bac98c384d561c0ed5a26951c5825fcea9dcd4340f7a3fbad6ea900",
+          "tests": 154,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['docs/RELEASE.md']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "6ce9c0a07c7ffdb6ae7a94c7d7fb40bd8deeb6442dceb45ed29bfd4c2216a12e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docs/RELEASE.md",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
