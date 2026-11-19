@@ -1,0 +1,352 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_dotnet_native_assets.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jhibaao_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+.........................................                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_dotnet_native_assets.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jhibaao_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+.........................................                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_dotnet_native_assets.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jhibaao_\.junit-0.xml"
+--- stdout ---
+FFFFFF.......F.F...FFF.................................................. [ 38%]
+........................................................................ [ 77%]
+.........................................                                [100%]
+================================== FAILURES ===================================
+______ test_skiasharp_in_the_library_csproj_adds_the_linux_native_asset _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_in_the_library_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F6E7DE00>
+
+    def test_skiasharp_in_the_library_csproj_adds_the_linux_native_asset(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        csproj = _library(tmp_path, _skia_reference("2.88.8"))
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "2.88.8")
+
+tests\indexing\test_dotnet_native_assets.py:106: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_skiasharp_in_the_library_0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_in_the_library_0/clone/src/Lib/Lib.csproj')
+version = '2.88.8'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.8" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+___ test_skiasharp_in_a_directory_build_props_two_levels_up_adds_the_asset ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_in_a_directory_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F586CC30>
+
+    def test_skiasharp_in_a_directory_build_props_two_levels_up_adds_the_asset(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        csproj = _library(tmp_path)
+        (csproj.parent.parent.parent / "Directory.Build.props").write_text(
+            f"<Project>\n{_skia_reference('3.119.0')}\n</Project>\n", encoding="utf-8"
+        )
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "3.119.0")
+
+tests\indexing\test_dotnet_native_assets.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_skiasharp_in_a_directory_0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_in_a_directory_0/clone/src/Lib/Lib.csproj')
+version = '3.119.0'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+__ test_skiasharp_package_version_in_directory_packages_props_adds_the_asset __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_package_version0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F5911370>
+
+    def test_skiasharp_package_version_in_directory_packages_props_adds_the_asset(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        csproj = _library(tmp_path)
+        (csproj.parent.parent / "Directory.Packages.props").write_text(
+            "<Project>\n  <ItemGroup>\n"
+            '    <PackageVersion Include="SkiaSharp" Version="2.88.9" />\n'
+            "  </ItemGroup>\n</Project>\n",
+            encoding="utf-8",
+        )
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "2.88.9")
+
+tests\indexing\test_dotnet_native_assets.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_skiasharp_package_version0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_package_version0/clone/src/Lib/Lib.csproj')
+version = '2.88.9'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+________ test_the_highest_numeric_version_of_several_declarations_wins ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_the_highest_numeric_versi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F707D7B0>
+
+    def test_the_highest_numeric_version_of_several_declarations_wins(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # 2.88.8 is numerically higher than 2.9.0 although it sorts lower as text.
+        csproj = _library(tmp_path, _skia_reference("2.9.0"))
+        (csproj.parent.parent / "Directory.Packages.props").write_text(
+            '<Project><ItemGroup><PackageVersion Include="SkiaSharp" Version="2.88.8" /></ItemGroup></Project>',
+            encoding="utf-8",
+        )
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "2.88.8")
+
+tests\indexing\test_dotnet_native_assets.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_the_highest_numeric_versi0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_the_highest_numeric_versi0/clone/src/Lib/Lib.csproj')
+version = '2.88.8'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.8" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+_______________ test_a_version_given_as_a_child_element_is_read _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_a_version_given_as_a_chil0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F707DE10>
+
+    def test_a_version_given_as_a_child_element_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        body = (
+            '  <ItemGroup>\n    <PackageReference Include="SkiaSharp">\n'
+            "      <Version>2.88.8</Version>\n    </PackageReference>\n  </ItemGroup>"
+        )
+        csproj = _library(tmp_path, body)
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "2.88.8")
+
+tests\indexing\test_dotnet_native_assets.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_a_version_given_as_a_chil0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_a_version_given_as_a_chil0/clone/src/Lib/Lib.csproj')
+version = '2.88.8'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.8" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+_______ test_attribute_order_and_a_condition_do_not_hide_the_reference ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_attribute_order_and_a_con0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F7294750>
+
+    def test_attribute_order_and_a_condition_do_not_hide_the_reference(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        body = (
+            "  <ItemGroup Condition=\"'$(TargetFramework)' != 'net462'\">\n"
+            '    <PackageReference Version="3.119.0" Condition="\'$(X)\' == \'y\'" Include="SkiaSharp" />\n'
+            "  </ItemGroup>"
+        )
+        csproj = _library(tmp_path, body)
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "3.119.0")
+
+tests\indexing\test_dotnet_native_assets.py:167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_attribute_order_and_a_con0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_attribute_order_and_a_con0/clone/src/Lib/Lib.csproj')
+version = '3.119.0'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+__________________ test_the_linux_condition_text_is_present ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_the_linux_condition_text_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F72F2D50>
+
+    def test_the_linux_condition_text_is_present(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        csproj = _library(tmp_path, _skia_reference("2.88.8"))
+        written, _ = _build(tmp_path, monkeypatch, csproj)
+>       assert "IsOSPlatform('Linux')" in written
+E       assert "IsOSPlatform('Linux')" in '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_the_linux_condition_text_0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+
+tests\indexing\test_dotnet_native_assets.py:232: AssertionError
+______________ test_skiasharp_one_projectreference_away_is_found ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_one_projectrefe0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000239F5C13CD0>
+
+    def test_skiasharp_one_projectreference_away_is_found(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        reference = (
+            '  <ItemGroup>\n    <ProjectReference Include="..\\Sibling\\Sibling.csproj" />\n  </ItemGroup>'
+        )
+        csproj = _with_sibling(tmp_path, reference, _skia_reference("3.119.0"))
+        written, line = _build(tmp_path, monkeypatch, csproj)
+>       _assert_native_asset(written, line, csproj, "3.119.0")
+
+tests\indexing\test_dotnet_native_assets.py:266: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+written = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-4514\\test_skiasharp_one_projectrefe0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+line = '[foss-mcp] assembly: dotnet target-framework=net8.0 (default); implicit-usings=enable; page-usings-prepended=none'
+csproj = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_skiasharp_one_projectrefe0/clone/src/Lib/Lib.csproj')
+version = '3.119.0'
+
+    def _assert_native_asset(written: str, line: str, csproj: Path, version: str) -> None:
+>       assert written == _template(csproj).replace("</Project>", _native_group(version) + "\n</Project>")
+E       assert '<Project Sdk...n</Project>\n' == '<Project Sdk...n</Project>\n'
+E         
+E         Skipping 370 identical leading characters in diff, use -v to show
+E           emGroup>
+E           
+E         -   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+E         -     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
+E         -   </ItemGroup>
+E         - 
+E           </Project>
+
+tests\indexing\test_dotnet_native_assets.py:91: AssertionError
+___________ test_the_version_helper_reports_none_without_skiasharp ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_the_version_helper_report0')
+
+    def test_the_version_helper_reports_none_without_skiasharp(tmp_path: Path) -> None:
+>       assert example_verifier._library_skiasharp_version(_library(tmp_path)) is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_verifier' has no attribute '_library_skiasharp_version'
+
+tests\indexing\test_dotnet_native_assets.py:314: AttributeError
+_____________ test_the_version_helper_reports_the_highest_version _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4514/test_the_version_helper_report1')
+
+    def test_the_version_helper_reports_the_highest_version(tmp_path: Path) -> None:
+        csproj = _library(tmp_path, _skia_reference("2.88.8"))
+        (csproj.parent / "Directory.Build.props").write_text(
+            f"<Project>\n{_skia_reference('2.88.10')}\n</Project>\n", encoding="utf-8"
+        )
+>       assert example_verifier._library_skiasharp_version(csproj) == "2.88.10"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_verifier' has no attribute '_library_skiasharp_version'
+
+tests\indexing\test_dotnet_native_assets.py:322: AttributeError
+__ test_the_helper_is_called_from_verify_dotnet_example_in_committed_source ___
+
+    def test_the_helper_is_called_from_verify_dotnet_example_in_committed_source() -> None:
+        text = SOURCE_FILE.read_text(encoding="utf-8")
+        body = text[text.index("def verify_dotnet_example(") :]
+        body = body[: body.index("\n# --- cells/cpp")]
+>       assert "_library_skiasharp_version(library_csproj)" in body
+E       assert '_library_skiasharp_version(library_csproj)' in 'def verify_dotnet_example(\n    candidate: CandidateExample,\n    *,\n    library_csproj: Path,\n    workdir: Path,\n... output=output,\n        level=LEVEL_BUILT if verified else "",\n        target_framework=target_framework,\n    )\n\n'
+
+tests\indexing\test_dotnet_native_assets.py:329: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_dotnet_native_assets.py::test_skiasharp_in_the_library_csproj_adds_the_linux_native_asset
+FAILED tests/indexing/test_dotnet_native_assets.py::test_skiasharp_in_a_directory_build_props_two_levels_up_adds_the_asset
+FAILED tests/indexing/test_dotnet_native_assets.py::test_skiasharp_package_version_in_directory_packages_props_adds_the_asset
+FAILED tests/indexing/test_dotnet_native_assets.py::test_the_highest_numeric_version_of_several_declarations_wins
+FAILED tests/indexing/test_dotnet_native_assets.py::test_a_version_given_as_a_child_element_is_read
+FAILED tests/indexing/test_dotnet_native_assets.py::test_attribute_order_and_a_condition_do_not_hide_the_reference
+FAILED tests/indexing/test_dotnet_native_assets.py::test_the_linux_condition_text_is_present
+FAILED tests/indexing/test_dotnet_native_assets.py::test_skiasharp_one_projectreference_away_is_found
+FAILED tests/indexing/test_dotnet_native_assets.py::test_the_version_helper_reports_none_without_skiasharp
+FAILED tests/indexing/test_dotnet_native_assets.py::test_the_version_helper_reports_the_highest_version
+FAILED tests/indexing/test_dotnet_native_assets.py::test_the_helper_is_called_from_verify_dotnet_example_in_committed_source
+
+--- stderr ---
+

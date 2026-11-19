@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-867",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-19T20:05:24Z",
+  "base_rev": "12e098620fb073dc949e2a8eab370b1e89a54497",
+  "head_rev": "ef7b979d884ab20ae57980ac93ad5e8f22a3c60d",
+  "card_sha256": "64c9ea50e95f7234b980bd9825fe8fb5f5acde3c63879bb93b445cf39ed273e8",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/example_verifier.py",
+      "tests/indexing/test_dotnet_native_assets.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_dotnet_native_assets.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 240.122,
+          "stdout_sha256": "ad30a00f8e10de426029e7b777444922aa8c00dfb89d922021fd074dadde5396",
+          "tests": 185,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_dotnet_native_assets.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_round3_example_runtime_truth.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 247.667,
+          "stdout_sha256": "ad30a00f8e10de426029e7b777444922aa8c00dfb89d922021fd074dadde5396",
+          "tests": 185,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/example_verifier.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "42a75c1f920bfbee06e8a89aa0cc1d3dfc522dcbc0cca7d8e21015069faef2f9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
