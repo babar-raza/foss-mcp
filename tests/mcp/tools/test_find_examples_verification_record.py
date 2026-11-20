@@ -357,9 +357,10 @@ def _recorded_runtime_error(family: str, platform: str, title: str) -> str:
     ``tests/fixtures/verified_examples/<family>_<platform>.json`` cache, or ``""`` when the cache
     has no entry for it, the entry was never run, or it ran without error.
 
-    TC-536: this is the ONE case (pdf/cpp's "Open a Password-Protected Document", TC-565's own
-    intended, accepted behaviour) where the cache records ``ran: true`` with a real
-    ``runtime_error``; every other entry of every other pilot has no recorded runtime failure.
+    TC-536: pdf/cpp's README "Open a Password-Protected Document" (TC-565's own intended, accepted
+    behaviour) was the ONE case where the cache records ``ran: true`` with a real ``runtime_error``;
+    TC-852: it is no longer published, so no SERVED example has one (the failing cache entry itself is
+    preserved, under its own title).
     """
     path = VERIFIED_EXAMPLES / f"{family}_{platform}.json"
     if not path.is_file():
@@ -422,12 +423,13 @@ def test_every_served_example_of_every_pilot_carries_language_commit_and_verific
             if runtime_label(text) == RUNTIME_LABEL_COMPILED_ONLY:
                 # The common case (no Runtime-Status line at all) still equals the fixed sentence.
                 assert expected == (AUTHORED_VERIFICATION_NOTE if authored else README_VERIFICATION_NOTE)
-            elif family == "pdf" and platform == "cpp" and "Password-Protected" in fqn:
-                # The one case the dispatch named explicitly: cross-checked against the real recorded
-                # error text in tests/fixtures/verified_examples/pdf_cpp.json, not only against the
-                # production function that also produced `expected` above.
-                cache_error = _recorded_runtime_error("pdf", "cpp", "Open a Password-Protected Document")
-                assert cache_error and cache_error in expected, (expected, cache_error)
+            # TC-852: the one example this used to cross-check against a recorded runtime failure, pdf/cpp's README "Open a
+            # Password-Protected Document" (the cache records ``ran: true`` with the real error "flate: bad zlib header check",
+            # TC-565), is no longer published - TC-802 publishes no example whose run failed - and the authored example that
+            # replaces it ("... With the Owner Password") ran cleanly. The cross-check against the cache therefore now holds for
+            # EVERY served example of every pilot: none of them has a recorded runtime failure in its own verified-examples cache.
+            cache_error = _recorded_runtime_error(family, platform, fqn.removeprefix("Example: "))
+            assert cache_error == "", (family, platform, fqn, cache_error)
             assert match.verification == expected, (family, platform, fqn)
             pilot_seen += 1
         assert pilot_seen >= 1, (family, platform)

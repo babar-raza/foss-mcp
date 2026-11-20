@@ -421,3 +421,114 @@ examples:
     	}
     }
   code_sha256: b9372cf71fdcf98f94893de52860480530d6bf679b55701fc9f72bdffbca3ddd
+- title: Fill AcroForm fields by name in an existing form
+  description: >-
+    Builds a form template with an empty text field, checkbox and radio group, saves it, opens
+    the saved template, targets each field by name to set the text, tick the checkbox and select
+    the second radio option, saves the filled copy, then reopens it and checks the field count and
+    the text, checkbox and radio values read back.
+  symbols:
+  - Document.Form
+  - Form.AddTextField
+  - Form.AddCheckbox
+  - Form.AddRadioGroup
+  - Form.Field
+  - Form.Fields
+  - TextBoxField.SetValue
+  - TextBoxField.Value
+  - CheckboxField.SetChecked
+  - CheckboxField.Checked
+  - RadioButtonField.Options
+  - RadioButtonField.Value
+  - RadioButtonOptionField.SetSelected
+  - Document.Save
+  - Open
+  code: |
+    // Authored example: fill the fields of an existing AcroForm by name, then reopen the filled file and read the values back.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	pdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    )
+
+    func main() {
+    	dir, err := os.MkdirTemp(os.TempDir(), "authored_fill_acroform")
+    	if err != nil {
+    		log.Fatalf("temp dir: %v", err)
+    	}
+    	defer os.RemoveAll(dir)
+    	templatePath := filepath.Join(dir, "template.pdf")
+    	filledPath := filepath.Join(dir, "filled.pdf")
+
+    	// 1. A form template: a text field, a checkbox and a two-option radio group, all still empty.
+    	template := pdf.NewDocumentFromFormat(pdf.PageFormatA4)
+    	form := template.Form()
+    	if _, err := form.AddTextField(1, pdf.Rectangle{LLX: 200, LLY: 650, URX: 545, URY: 675}, "name"); err != nil {
+    		log.Fatalf("name field: %v", err)
+    	}
+    	if _, err := form.AddCheckbox(1, pdf.Rectangle{LLX: 50, LLY: 510, URX: 70, URY: 525}, "subscribe"); err != nil {
+    		log.Fatalf("subscribe field: %v", err)
+    	}
+    	if _, err := form.AddRadioGroup("plan", []pdf.RadioItem{
+    		{PageNum: 1, Rect: pdf.Rectangle{LLX: 200, LLY: 480, URX: 215, URY: 495}, Export: "basic"},
+    		{PageNum: 1, Rect: pdf.Rectangle{LLX: 290, LLY: 480, URX: 305, URY: 495}, Export: "premium"},
+    	}); err != nil {
+    		log.Fatalf("plan field: %v", err)
+    	}
+    	if err := template.Save(templatePath); err != nil {
+    		log.Fatalf("save template: %v", err)
+    	}
+
+    	// 2. Open the template, target each field by name and fill it.
+    	doc, err := pdf.Open(templatePath)
+    	if err != nil {
+    		log.Fatalf("open template: %v", err)
+    	}
+    	text, ok := doc.Form().Field("name").(*pdf.TextBoxField)
+    	if !ok {
+    		log.Fatalf("name is not a text box")
+    	}
+    	if err := text.SetValue("Jane Doe"); err != nil {
+    		log.Fatalf("set name: %v", err)
+    	}
+    	check, ok := doc.Form().Field("subscribe").(*pdf.CheckboxField)
+    	if !ok {
+    		log.Fatalf("subscribe is not a checkbox")
+    	}
+    	check.SetChecked(true)
+    	radio, ok := doc.Form().Field("plan").(*pdf.RadioButtonField)
+    	if !ok {
+    		log.Fatalf("plan is not a radio group")
+    	}
+    	radio.Options()[1].SetSelected(true)
+    	if err := doc.Save(filledPath); err != nil {
+    		log.Fatalf("save filled: %v", err)
+    	}
+
+    	// 3. Reopen the filled file and read every value back.
+    	reopened, err := pdf.Open(filledPath)
+    	if err != nil {
+    		log.Fatalf("reopen filled: %v", err)
+    	}
+    	name := reopened.Form().Field("name").(*pdf.TextBoxField)
+    	subscribe := reopened.Form().Field("subscribe").(*pdf.CheckboxField)
+    	plan := reopened.Form().Field("plan").(*pdf.RadioButtonField)
+    	fmt.Printf("fields: %d, name=%q, subscribed=%v, plan=%q\n",
+    		len(reopened.Form().Fields()), name.Value(), subscribe.Checked(), plan.Value())
+
+    	if name.Value() != "Jane Doe" {
+    		log.Fatalf("expected name %q, got %q", "Jane Doe", name.Value())
+    	}
+    	if !subscribe.Checked() {
+    		log.Fatalf("expected subscribe to be checked")
+    	}
+    	if plan.Value() != "/premium" {
+    		log.Fatalf("expected plan %q, got %q", "/premium", plan.Value())
+    	}
+    }
+  code_sha256: f285fdaf4ad3452aa5098f5d939661642d8faa698b2352c5a8d2634add709683

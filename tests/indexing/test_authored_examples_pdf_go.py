@@ -1,6 +1,6 @@
 """Offline checks of the pdf/go authored-example sidecar (TC-735, REQ-G3-014).
 
-``tests/fixtures/furnished/pdf_go/authored_examples.yaml`` holds up to five real, individually
+``tests/fixtures/furnished/pdf_go/authored_examples.yaml`` holds up to six real, individually
 hand-verified examples adapted from real programs in the upstream ``_examples/`` directory of
 ``aspose-pdf-foss/Aspose-PDF-FOSS-for-Go`` at the pilot's pinned commit, written against the real
 public API of the library. This file proves they are well-formed, labelled, tied to the chart's
@@ -47,8 +47,8 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
-EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
+EXPECTED_EXAMPLES = 6
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5, 6]
 
 _IMPORT_SPEC_RE = re.compile(r'(?m)^\t(?:(\w+)\s+)?"([^"]+)"')
 _SAVE_OR_OPEN_LITERAL_RE = re.compile(r'\b(?:Save|Open|OpenWithPassword)\(\s*"')

@@ -71,7 +71,12 @@ NO_REGISTRY_PLATFORM = "cpp"
 # bytes (generation files, pointers and sidecars; the compaction's own scope-only total is 45_755_665). Same rule as TC-848/TC-849/TC-850:
 # the measurement rounded up to the next 10_000 (the usual x 1.05 would be 50_835_023, which the 55_000_000 ceiling would allow but
 # would leave the budget loose by 2.4 MB). Pilots still holding 64-dim vectors (cohort C5) will add vector bytes when regenerated.
-TREE_BYTES_BUDGET = 48_420_000
+# re-pinned by TC-852: 48_420_000 -> 50_380_000. Cohort C5 (pdf/go, cells/go, cells/rust, pdf/cpp, cells/cpp, slides/cpp and email/cpp), the
+# last cohort, was regenerated with gateway 4096-dim example vectors (they were 64-dim hashing vectors): the committed tree measured
+# 50_376_778 bytes (generation files, pointers and sidecars). Same rule as TC-848..TC-851: the measurement rounded up to the next
+# 10_000 (the usual x 1.05 would be 52_895_617, which the 55_000_000 ceiling would allow but would leave the budget loose by 2.5 MB).
+# No pilot holds 64-dim vectors any more, so no later regeneration adds vector bytes; the margin under the ceiling is 4_623_222 bytes.
+TREE_BYTES_BUDGET = 50_380_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {

@@ -84,17 +84,9 @@ def _pilots_whose_baked_dimension_equals_the_cache_dimension() -> list[str]:
 # 14 -> 10 pilots.
 # TC-851: cohort C4 (the three TypeScript pilots 3d, cells, pdf) was regenerated at 4096 dimensions and left this set:
 # 10 -> 7 pilots.
-_PILOTS_WITH_64_DIM_BAKED_VECTORS = frozenset(
-    {
-        "cells__cpp",
-        "cells__go",
-        "cells__rust",
-        "email__cpp",
-        "pdf__cpp",
-        "pdf__go",
-        "slides__cpp",
-    }
-)
+# TC-852: cohort C5 (go, rust and the four C++ pilots pdf/go, cells/go, cells/rust, pdf/cpp, cells/cpp, slides/cpp, email/cpp), the last cohort,
+# was regenerated at 4096 dimensions and left this set: 7 -> 0 pilots. The set is empty for good.
+_PILOTS_WITH_64_DIM_BAKED_VECTORS: frozenset[str] = frozenset()
 
 
 def test_current_set_of_pilots_with_64_dim_baked_vectors_is_pinned_explicitly() -> None:
@@ -107,8 +99,10 @@ def test_current_set_of_pilots_with_64_dim_baked_vectors_is_pinned_explicitly() 
         pilot for pilot in cache_pilots if _active_generation_points(f"{pilot}__self_extracted")[0] == 64
     }
 
-    assert len(_PILOTS_WITH_64_DIM_BAKED_VECTORS) == 7
-    assert sixty_four == _PILOTS_WITH_64_DIM_BAKED_VECTORS
+    assert len(_PILOTS_WITH_64_DIM_BAKED_VECTORS) == 0
+    assert sixty_four == _PILOTS_WITH_64_DIM_BAKED_VECTORS, "no pilot may hold 64-dimension baked vectors"
+    # the comparison below is not vacuous: every one of the pilots with a cache file is compared with its baked vectors
+    assert len(cache_pilots) == 32
     # every pilot is either 64-dimension or agrees with the cache (nothing is a third dimension)
     assert set(cache_pilots) - sixty_four == set(_pilots_whose_baked_dimension_equals_the_cache_dimension())
 

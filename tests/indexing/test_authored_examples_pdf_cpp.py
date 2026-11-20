@@ -1,6 +1,6 @@
 """Offline checks of the pdf/cpp authored-example sidecar (TC-742, REQ-G3-014).
 
-``tests/fixtures/furnished/pdf_cpp/authored_examples.yaml`` holds five minimal, labelled
+``tests/fixtures/furnished/pdf_cpp/authored_examples.yaml`` holds six minimal, labelled
 examples written against the real public API of ``aspose_pdf_foss`` at the pinned commit
 (``aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp``). The real upstream repository's own ``examples/``
 directory carries roughly a dozen real programs that each open an *existing* input PDF by path
@@ -11,7 +11,7 @@ distinct part of the public surface: positioned text via ``TextFragmentAbsorber`
 ``Page::Annotations()``, a bookmark via ``Document::Outlines()``, and AES-256 encryption via
 ``Document::Encrypt``/the password-taking ``Document`` constructor.
 
-This file proves the five are well-formed, labelled, tied to the chart's pinned commit and use
+This file proves the six are well-formed, labelled, tied to the chart's pinned commit and use
 only symbols that resolve in the pilot's extraction. Whether they compile or run is decided later
 by the ingestion verifier, never here: nothing in this file imports the library, compiles a
 translation unit, runs an example, or reaches a network.
@@ -52,7 +52,7 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
+EXPECTED_EXAMPLES = 6
 EXAMPLE_INDEXES = list(range(EXPECTED_EXAMPLES))
 
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]', re.MULTILINE)
@@ -95,7 +95,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_as_five_authored_candidates() -> None:
+def test_the_sidecar_loads_as_six_authored_candidates() -> None:
     candidates = _load()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}

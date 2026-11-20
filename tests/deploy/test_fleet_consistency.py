@@ -133,6 +133,10 @@ COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # TC-851 (2026-11-20): cohort C4 (scripts/release/regenerate_local.py) re-baked pdf/typescript, cells/typescript and 3d/typescript
 # from the current fixtures with gateway 4096-dim vectors. None of the three was listed (their fixtures never moved), so the tables
 # stay empty; tests/deploy/test_regenerated_cohort_c4.py pins that they are not listed.
+# TC-852 (2026-11-20): cohort C5 (scripts/release/regenerate_local.py), the last cohort, re-baked pdf/go, cells/go, cells/rust, pdf/cpp,
+# cells/cpp, slides/cpp and email/cpp from the current fixtures with gateway 4096-dim vectors. None of the seven was listed, so the
+# tables stay empty (and must stay empty); tests/deploy/test_regenerated_cohort_c5.py pins that they are not listed, and
+# test_every_baked_pilot_holds_gateway_dimension_vectors below pins that all 32 baked pilots are 4096-dim.
 STALE_BAKED_PILOTS: dict[str, str] = {}
 # TC-536: emptied with STALE_BAKED_PILOTS above (every member-stale pilot is resolved). Kept defined, not removed, because
 # baked_is_stale() below still names it and tests/deploy/test_served_coverage_matches_fixtures.py reaches baked_is_stale
@@ -646,6 +650,21 @@ def test_fixture_commit_equals_the_pin_equals_every_source_commit_line(key: str)
         assert problems, f"{key} is consistent now; delete the exception"
         return
     assert not problems, problems
+
+
+@pytest.mark.parametrize("key", PILOT_KEYS)
+def test_every_baked_pilot_holds_gateway_dimension_vectors(key: str) -> None:
+    """TC-852: with cohort C5 no baked pilot is left on 64-dim hashing vectors, which make find_examples permanently lexical-only.
+
+    Every vector index of every baked pilot is 4096-dimensional and every point of it has exactly that many components."""
+    vector_index = active_generation(key)["payload"]["vector_index"]
+    assert vector_index["dimension"] == 4096, f"{key}: vector index dimension {vector_index['dimension']}"
+    points = vector_index["points"]
+    assert points, f"{key}: the vector index has no points"
+    assert {len(point["vector"]) for point in points} == {4096}, f"{key}: a point is not 4096-dim"
+    assert not STALE_BAKED_PILOTS and not STALE_BY_MEMBERS, (
+        "every pilot is regenerated: the stale tables stay empty"
+    )
 
 
 @pytest.mark.parametrize("key", PILOT_KEYS)

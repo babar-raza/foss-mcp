@@ -320,3 +320,49 @@ examples:
         return 0;
     }
   code_sha256: 32d48a3e8b655de00a59508ee658edb3eb79e2488b31d4f3ca6ca88b84375f90
+- title: Open a Password-Protected Document With the Owner Password
+  description: Builds a three-page from-scratch document, encrypts it with Document::Encrypt and CryptoAlgorithm::AESx256 under separate user and owner passwords, saves it, then opens the saved file with the owner password and checks IsEncrypted and that all three pages are readable.
+  symbols:
+  - Document.Encrypt
+  - Document.IsEncrypted
+  - Document.Pages
+  - PageCollection.Add
+  - PageCollection.Count
+  - Page.SetPageSize
+  - Permissions
+  - CryptoAlgorithm.AESx256
+  code: |
+    // Authored example: open a password-protected document with its owner password and read it.
+    #include <cassert>
+    #include <iostream>
+    #include <string>
+
+    #include <aspose/pdf/crypto_algorithm.hpp>
+    #include <aspose/pdf/document.hpp>
+    #include <aspose/pdf/page.hpp>
+    #include <aspose/pdf/page_collection.hpp>
+    #include <aspose/pdf/permissions.hpp>
+
+    using namespace Aspose::Pdf;
+
+    int main() {
+        const std::string path = "authored_open_protected.pdf";
+
+        {
+            Document doc;
+            for (int i = 0; i < 3; ++i) {
+                Page page = doc.Pages().Add();
+                page.SetPageSize(595.0, 842.0);
+            }
+            doc.Encrypt("user-secret", "owner-secret", Permissions(), CryptoAlgorithm::AESx256);
+            doc.Save(path);
+        }
+
+        Document opened(path, "owner-secret");
+        std::cout << "is encrypted: " << std::boolalpha << opened.IsEncrypted() << '\n';
+        std::cout << "pages: " << opened.Pages().Count() << '\n';
+        assert(opened.IsEncrypted());
+        assert(opened.Pages().Count() == 3);
+        return 0;
+    }
+  code_sha256: dd7d118c966c7c22135500c19c44e0a38b50dd3c715c421ba651e86142a6a202

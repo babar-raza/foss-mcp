@@ -347,12 +347,18 @@ def test_go_example_snippets_are_code_only(go_store: GenerationManifestStore) ->
 
 
 def test_go_fill_acroform_snippet_is_exactly_the_code(go_store: GenerationManifestStore) -> None:
-    result = find_examples(go_store, PDF_GO, "Example: Fill AcroForm Fields")
+    # TC-852: the README "Fill AcroForm Fields" example (it opened a template.pdf the verifier sandbox does not have) is no
+    # longer published (TC-802), so this pin now reads the authored pdf/go example that replaces it.
+    result = find_examples(go_store, PDF_GO, "Example: Fill AcroForm fields by name in an existing form")
 
     assert isinstance(result, list) and len(result) == 1
     assert result[0].source == "exact"
-    assert result[0].snippet.startswith('doc, _ := pdf.Open("template.pdf")')
-    assert result[0].snippet.endswith('doc.Save("filled.pdf")')
+    assert result[0].snippet.startswith(
+        "// Authored example: fill the fields of an existing AcroForm by name"
+    )
+    assert result[0].snippet.endswith("}")
+    assert not result[0].snippet.startswith(("Example", "Kind:", "FQN:"))
+    assert "Source-Commit:" not in result[0].snippet
 
 
 def test_slides_python_example_snippets_are_code_only(slides_store: GenerationManifestStore) -> None:
