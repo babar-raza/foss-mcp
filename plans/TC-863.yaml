@@ -1,113 +1,50 @@
 id: TC-863
 gate: G3
 lane: verification
-purpose: >-
-  R7 (final ledger closure) (plan 'Reconciliation (2026-11-18)', R7 part 3 of 5, REQ-G3-013):
-  ledger closure pass over 18 still-OPEN rows of `docs/ROUND2_REVIEW.md`, continuing the method of
-  TC-777/TC-780/TC-781/TC-782 (read `docs/DECISION_LOG.md`'s four 2026-11-13 entries for the
-  shape). Your rows (re-measure; the register may have shifted): RD2-005 (P1, 3d/java); RD2-015
-  (P1, 3d/net); RD2-021 (P2, 3d/net); RD2-049 (P3, barcode/python); RD2-050 (P3, barcode/python);
-  RD2-053 (P1, cells/cpp); RD2-056 (P1, cells/cpp); RD2-062 (P1, cells/go); RD2-068 (P2,
-  cells/go); RD2-069 (P2, cells/go); RD2-074 (P2, cells/java); RD2-083 (P1, cells/python); RD2-084
-  (P1, cells/python); RD2-092 (P3, cells/python); RD2-103 (P3, cells/rust); RD2-111 (P2,
-  cells/typescript); RD2-116 (P2, cells/typescript); RD2-122 (P2, email/cpp). Workstream G rows
-  are reference-content truth (`get_product_reference` sections, README projection, install, agent
-  guidance, false README claims). Call the real function for the row's pilot and section, compare
-  with the real upstream repository content at the pinned commit (the committed
-  `tests/fixtures/round3_readmes/<pilot>/` copy is the README evidence; do not re-fetch unless the
-  row concerns something not in it), and cite the card that fixed it where the Cards column names
-  one (C1-C12, KD4).
+purpose: 'R7 (final ledger closure) (plan ''Reconciliation (2026-11-18)'', R7 part 3 of 5, REQ-G3-013): ledger closure pass over 18 still-OPEN rows of `docs/ROUND2_REVIEW.md`, continuing the method of TC-777/TC-780/TC-781/TC-782 (read `docs/DECISION_LOG.md`''s four 2026-11-13 entries for the shape). Your rows (re-measure; the register may have shifted): RD2-005 (P1, 3d/java); RD2-015 (P1, 3d/net); RD2-021 (P2, 3d/net); RD2-049 (P3, barcode/python); RD2-050 (P3, barcode/python); RD2-053 (P1, cells/cpp); RD2-056 (P1, cells/cpp); RD2-062 (P1, cells/go); RD2-068 (P2, cells/go); RD2-069 (P2, cells/go); RD2-074 (P2, cells/java); RD2-083 (P1, cells/python); RD2-084 (P1, cells/python); RD2-092 (P3, cells/python); RD2-103 (P3, cells/rust); RD2-111 (P2, cells/typescript); RD2-116 (P2, cells/typescript); RD2-122 (P2, email/cpp). Workstream G rows are reference-content truth (`get_product_reference` sections, README projection, install, agent guidance, false README claims). Call the real function for
+  the row''s pilot and section, compare with the real upstream repository content at the pinned commit (the committed `tests/fixtures/round3_readmes/<pilot>/` copy is the README evidence; do not re-fetch unless the row concerns something not in it), and cite the card that fixed it where the Cards column names one (C1-C12, KD4).'
 depends_on:
-  - TC-853
-  - TC-855
-  - TC-856
-  - TC-862
+- TC-853
+- TC-855
+- TC-856
+- TC-862
+- TC-870
 write_paths:
-  - docs/ROUND2_REVIEW.md
-  - docs/RELEASE.md
+- docs/ROUND2_REVIEW.md
+- docs/RELEASE.md
 satisfies:
-  - REQ-G3-013
+- REQ-G3-013
 source_refs:
-  - file: docs/DECISION_LOG.md
-    anchor: >-
-      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
-    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
 inputs:
-  - >-
-    READ FIRST: `docs/ROUND2_REVIEW.md` (find your rows by id; the register has 286 rows, Status is
-    the last column), `tests/deploy/test_round2_ledger.py` (the permanent enum check
-    `test_every_row_status_is_a_real_disposition_value`: your dispositions must be exactly one of
-    OPEN / FIXED / DISCLOSED / NOT_REPRODUCED / DEFINITIONAL / ACCEPTED(P3) / BLOCKED_UPSTREAM),
-    `docs/RELEASE.md` section 8 for the limitation-entry format, `docs/DECISION_LOG.md` (last 6
-    sections), and `plans/TC-782.yaml` / `plans/TC-780.yaml` (the precedent closure passes: same
-    method, same honesty rules).
-  - >-
-    For EACH row listed in this card: re-verify the finding's CURRENT status yourself, live, against
-    the real committed 32-pilot corpus (`infra/demo-manifests`, now regenerated at 4096-dim) by
-    calling the real tool functions in-process (`search_symbols`, `get_symbol`, `list_members`,
-    `find_examples`, `search_docs`, `lookup`, `get_product_reference`, `report_index_freshness`)
-    with the row's own repro from `docs/round2/issues.json` as the starting point (the row's
-    `Evidence` column and the issue's `repro`/`expected`/`actual` fields). If the old repro no
-    longer applies, derive a fresh one. Never transcribe old prose as evidence. The exact in-process
-    loading pattern is in `tests/mcp/tools/post_regen_simulation.py` and
-    `tests/mcp/tools/test_round3_retrieval_corpus.py`.
-  - >-
-    Disposition rule (the plan's own): rows P0-P2 may end only FIXED (name the card or commit that
-    fixed it and the live evidence), DISCLOSED (name the registry entry id or the `L-` limitation id
-    and show the served disclosure live), NOT_REPRODUCED (show the exact probe and its current
-    output) or DEFINITIONAL (cite the written definition); ACCEPTED(P3) only for genuinely
-    low-severity P3 rows; BLOCKED_UPSTREAM only for a defect only the upstream project can fix and
-    that the served answer already discloses. If a row cannot be honestly dispositioned, LEAVE IT
-    OPEN and state the concrete reason and the next action in the row (precedent: TC-777 left 39 of
-    73 open, TC-780 38 of 57). Do not force a disposition to make a count look complete. A row that
-    you find STILL BROKEN and fixable inside this card's write_paths is fixed here (with a test);
-    one that needs a different file is left OPEN and reported by id with the file it needs.
-  - >-
-    No pilot ever gets worse (AGENTS.md): never remove or downgrade a disclosure, registry entry or
-    limitation text unless you have re-verified, live and on the real package where the row concerns
-    an upstream defect, that it is fixed upstream AND that the fix reaches the served/indexed
-    version. Never weaken, skip or xfail a check. Do not touch production source files, baseline
-    JSON files or any test outside write_paths.
-  - >-
-    Before committing run the card's check twice (it re-runs the ledger enum test,
-    `tests/conformance/` and the known-defects completeness lock) plus ruff check / ruff format
-    --check on any Python file you changed. Make exactly ONE commit, leave no background process,
-    report ONCE with a table: row id, old status, new status, evidence (one line each), and the list
-    of rows left OPEN with their reasons.
-  - >-
-    ENVIRONMENT: PowerShell; run `.
-    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first where a
-    toolchain is needed (mvn/javap/dotnet/go/cargo/node/pip for live re-verification of
-    upstream-defect rows; download packages into scratch directories OUTSIDE the repository and
-    OneDrive, run Python that reads downloaded files with `-I`). The worktree has no venv: use
-    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
-    to your worktree root, src and infra. Never print GITHUB_TOKEN/GH_TOKEN/GPT_OSS_* values.
+- 'READ FIRST: `docs/ROUND2_REVIEW.md` (find your rows by id; the register has 286 rows, Status is the last column), `tests/deploy/test_round2_ledger.py` (the permanent enum check `test_every_row_status_is_a_real_disposition_value`: your dispositions must be exactly one of OPEN / FIXED / DISCLOSED / NOT_REPRODUCED / DEFINITIONAL / ACCEPTED(P3) / BLOCKED_UPSTREAM), `docs/RELEASE.md` section 8 for the limitation-entry format, `docs/DECISION_LOG.md` (last 6 sections), and `plans/TC-782.yaml` / `plans/TC-780.yaml` (the precedent closure passes: same method, same honesty rules).'
+- 'For EACH row listed in this card: re-verify the finding''s CURRENT status yourself, live, against the real committed 32-pilot corpus (`infra/demo-manifests`, now regenerated at 4096-dim) by calling the real tool functions in-process (`search_symbols`, `get_symbol`, `list_members`, `find_examples`, `search_docs`, `lookup`, `get_product_reference`, `report_index_freshness`) with the row''s own repro from `docs/round2/issues.json` as the starting point (the row''s `Evidence` column and the issue''s `repro`/`expected`/`actual` fields). If the old repro no longer applies, derive a fresh one. Never transcribe old prose as evidence. The exact in-process loading pattern is in `tests/mcp/tools/post_regen_simulation.py` and `tests/mcp/tools/test_round3_retrieval_corpus.py`.'
+- 'Disposition rule (the plan''s own): rows P0-P2 may end only FIXED (name the card or commit that fixed it and the live evidence), DISCLOSED (name the registry entry id or the `L-` limitation id and show the served disclosure live), NOT_REPRODUCED (show the exact probe and its current output) or DEFINITIONAL (cite the written definition); ACCEPTED(P3) only for genuinely low-severity P3 rows; BLOCKED_UPSTREAM only for a defect only the upstream project can fix and that the served answer already discloses. If a row cannot be honestly dispositioned, LEAVE IT OPEN and state the concrete reason and the next action in the row (precedent: TC-777 left 39 of 73 open, TC-780 38 of 57). Do not force a disposition to make a count look complete. A row that you find STILL BROKEN and fixable inside this card''s write_paths is fixed here (with a test); one that needs a different file is left OPEN and reported by id with the file it needs.'
+- 'No pilot ever gets worse (AGENTS.md): never remove or downgrade a disclosure, registry entry or limitation text unless you have re-verified, live and on the real package where the row concerns an upstream defect, that it is fixed upstream AND that the fix reaches the served/indexed version. Never weaken, skip or xfail a check. Do not touch production source files, baseline JSON files or any test outside write_paths.'
+- 'Before committing run the card''s check twice (it re-runs the ledger enum test, `tests/conformance/` and the known-defects completeness lock) plus ruff check / ruff format --check on any Python file you changed. Make exactly ONE commit, leave no background process, report ONCE with a table: row id, old status, new status, evidence (one line each), and the list of rows left OPEN with their reasons.'
+- 'ENVIRONMENT: PowerShell; run `. E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first where a toolchain is needed (mvn/javap/dotnet/go/cargo/node/pip for live re-verification of upstream-defect rows; download packages into scratch directories OUTSIDE the repository and OneDrive, run Python that reads downloaded files with `-I`). The worktree has no venv: use E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set to your worktree root, src and infra. Never print GITHUB_TOKEN/GH_TOKEN/GPT_OSS_* values.'
 actions:
-  - >-
-    Disposition the 18 listed ledger rows to their individually re-verified current status; add any
-    limitation or registry entry the evidence requires.
+- Disposition the 18 listed ledger rows to their individually re-verified current status; add any limitation or registry entry the evidence requires.
 checks:
-  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
-    expect: 'exit 0'
-    timeout_seconds: 900
-    junitxml: true
-    proves:
-      - REQ-G3-013
+- command: '{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-013
 min_tests: 60
 requires:
-  - python
+- python
 network: true
 negative_control:
-  mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-005 |'; assert s.count(old) == 1, 'row marker not found exactly once'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; p.write_text(s[:idx] + corrupted + s[line_end:], encoding='utf-8')"
-  rationale: >-
-    Corrupts row RD2-005's Status cell to a value that is not any real disposition, which must make
-    the permanent test_every_row_status_is_a_real_disposition_value check fail - a pure data
-    mutation, immune to the lockstep-rename vacuousness class, and it never touches any code path.
+  mutate: 'python -X utf8 -c "import pathlib; p = pathlib.Path(''docs/ROUND2_REVIEW.md''); s = p.read_text(encoding=''utf-8''); old = ''| RD2-005 |''; assert s.count(old) == 1, ''row marker not found exactly once''; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit(''|'', 2); assert len(parts) == 3; corrupted = parts[0] + ''|BOGUS_STATUS'' + ''|'' + parts[2]; p.write_text(s[:idx] + corrupted + s[line_end:], encoding=''utf-8'')"
+
+    '
+  rationale: Corrupts row RD2-005's Status cell to a value that is not any real disposition, which must make the permanent test_every_row_status_is_a_real_disposition_value check fail - a pure data mutation, immune to the lockstep-rename vacuousness class, and it never touches any code path.
 evidence:
-  - evidence/build/G3/TC-863/receipt.json
+- evidence/build/G3/TC-863/receipt.json
 closeout:
-  - >-
-    R7 part 3: every listed G row is dispositioned on live evidence, or left OPEN with a concrete
-    reason.
+- 'R7 part 3: every listed G row is dispositioned on live evidence, or left OPEN with a concrete reason.'
 recovery: Re-run from a clean tree.
