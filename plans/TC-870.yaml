@@ -1,0 +1,101 @@
+id: TC-870
+gate: G3
+lane: storage-retrieval
+purpose: 'Found by TC-853''s worker (2026-11-20): src/foss_mcp/normalization/chunker.py _heading_sections() cuts a document body at its ''#'' headings and DISCARDS every character before the first heading, so a candidate whose body is a preamble followed by a sub-heading loses the preamble from the served index. On the regenerated tex/python furnished page two blocks lose real, true text: ''Installation'' (the 287-character ''Install the package from PyPI: pip install aspose-tex-foss ... mcp extra'' preamble before its first ### heading) and ''API Reference'' (the 227-character intro ''The primary entry point is TeXJob ...''); the worker measured all 32 furnished pages and found only these two candidates affected, but the document/README candidates of every pilot were not measured. This is a silent-data-loss class (AGENTS.md: never acceptable). MEASURE FIRST, then fix: (1) count, for every one of the 32 pilots, the doc candidates (build_chunks doc sections, furnished pages, README sections)
+  whose body has non-whitespace text before its first heading, and the characters lost; report the table. (2) Fix _heading_sections so that text before the first heading becomes its own section (heading '''' so chunk_document labels it with the document title as it does for heading-less bodies), keeping every other behaviour byte-identical for bodies that have no preamble (fence-aware heading detection, empty-section handling, section order). (3) Add tests: a preamble is kept, a preamble-less body is unchanged, a preamble followed by a fenced ''#'' comment is handled, whitespace-only preamble yields no section, order is preamble then headings. (4) Regeneration: if the measured impact is exactly the two tex/python blocks, regenerate tex_python with scripts/release/regenerate_local.py --only tex_python (image built from the worktree) so the committed generation serves the lost text and re-pin the tex tests to the real new chunk count. If the measurement shows OTHER pilots lose a preamble,
+  do NOT regenerate them in this card: report the per-pilot table and the changed in-process chunk counts, keep the committed data of those pilots as it is, and make sure no committed-data-vs-simulation test (tests/mcp/tools/post_regen_simulation.py users, tests/deploy chunk-identity tests) breaks; if one would, STOP and report so the supervisor can schedule a fleet regeneration. No pilot may get worse: answer_diff for tex_python must show lost 0.'
+depends_on:
+- TC-537
+- TC-575
+- TC-576
+- TC-579
+- TC-597
+- TC-602
+- TC-615
+- TC-678
+- TC-695
+- TC-698
+- TC-699
+- TC-714
+- TC-718
+- TC-719
+- TC-730
+- TC-731
+- TC-774
+- TC-776
+- TC-777
+- TC-778
+- TC-792
+- TC-799
+- TC-808
+- TC-809
+- TC-813
+- TC-820
+- TC-828
+- TC-829
+- TC-831
+- TC-832
+- TC-839
+- TC-841
+- TC-842
+- TC-846
+- TC-848
+- TC-849
+- TC-850
+- TC-851
+- TC-852
+- TC-853
+- TC-868
+write_paths:
+- src/foss_mcp/normalization/chunker.py
+- tests/indexing/test_doc_chunking.py
+- tests/normalization/*
+- infra/demo-manifests/tex__python__self_extracted/**
+- tests/fixtures/verified_examples/tex_python.json
+- infra/demo-inputs/embeddings/tex__python.json
+- tests/deploy/test_regenerated_tex_python_repin.py
+- tests/deploy/*
+- tests/conformance/*
+- tests/fixtures/conformance/*
+- tests/mcp/tools/test_post_regen_retrieval_ratchets.py
+- tests/mcp/tools/post_regen_simulation.py
+- tests/mcp/tools/test_product_reference_install_section.py
+- tests/mcp/tools/test_round3_install_truth.py
+- tests/infra/test_round3_install_sections.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_chunk_builder_coverage_line.py
+satisfies:
+- REQ-G3-013
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+- 'READ FIRST: src/foss_mcp/normalization/chunker.py (_fence_spans, _heading_sections, _sections, chunk_document), tests/indexing/test_doc_chunking.py, infra/build_chunks.py (extract_doc_sections users and how a candidate body becomes a NormalizedDocument), src/foss_mcp/indexing/doc_candidates.py, tests/deploy/test_regenerated_tex_python_repin.py (TC-853: pins the tex generation you will regenerate), plans/TC-853.yaml and plans/TC-852.yaml (regeneration recipe, lessons).'
+- 'REPRODUCE FIRST: with the committed tex_python furnished page tests/fixtures/furnished/tex_python/pages/_index.md show that the Installation and API Reference preambles are absent from every doc chunk of the committed generation, and pin that as a failing test before the fix. Report the measurement table (pilot, candidate, characters lost) for all 32 pilots.'
+- 'ENVIRONMENT: PowerShell, dot-source scripts/toolchain/activate.ps1 in the same command as any docker/helm/test run (bash activation is a no-op). The worktree has no venv: use the main checkout .venv python (E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.venv/Scripts/python.exe) with PYTHONPATH set to your worktree root, src and infra. Build the ingestion image from your worktree (docker build -f Dockerfile.ingestion -t foss-mcp-ingestion:regen-chunk .) and remove it afterwards. GITHUB_TOKEN / GPT_OSS_* exist in the environment: never print, echo or write them.'
+- 'LESSONS FROM TC-849..TC-853: re-run tests/mcp tests/indexing tests/extraction tests/conformance tests/config tests/release tests/infra tests/test_container_build.py and tests/e2e (e2e alone and last) after regeneration and fix every stale data pin that is in write_paths to the confirmed real value, never loosening, deleting or skipping an assertion; anything outside write_paths that breaks is reported with file + test + what it pins and you stop. Baked-tree budgets in tests/deploy/test_compact_demo_manifests.py re-pin only upward to the measured value rounded up to the next 10k (LEAN_CEILING_BYTES 55_000_000 is never raised by a worker; report the margin). DG-1 baselines: only prefix-3 / probe-artefact / sentence-wrapped sample-key churn with 0 pass->fail, tc870_rationale key, strict unchanged. The image bakes tests/fixtures/verified_examples at build time. ManifestImmutableError on a re-run means restore the pilot scope from HEAD first. Authored examples cap 6.'
+- 'Make exactly ONE commit with FOSS_MCP_WORKER=TC-870 set, subject type(scope): what (G3/TC-870), ending with the trailer Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>. Run the card check twice. Report once: the measurement table, the fix, the tex before/after chunk counts and answer_diff result, test results. Name the variable holding the text before the first heading ''preamble'' inside _heading_sections (the card''s falsifier relies on that identifier).'
+actions:
+- Stop the chunker discarding text before a document's first heading, with tests, and regenerate tex_python so it serves the recovered text.
+checks:
+- command: '{python} -m pytest tests/indexing/test_doc_chunking.py tests/normalization tests/deploy tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-013
+min_tests: 500
+requires:
+- python
+network: true
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib; p = pathlib.Path(''src/foss_mcp/normalization/chunker.py''); s = p.read_text(encoding=''utf-8''); assert ''def _heading_sections'' in s; i = s.index(''def _heading_sections''); j = s.index(''def _paragraph_sections''); body = s[i:j]; assert ''preamble'' in body, ''the fix is missing''; new = body.replace(''preamble'', ''preamble_dropped''); assert new != body; p.write_text(s[:i] + new + s[j:], encoding=''utf-8'')"
+
+    '
+  rationale: Renames the fix's own identifier inside _heading_sections, so the preamble tests and the tex generation pins must fail. The mutate asserts the word preamble occurs in the function so a fix that does not use it is reported as missing rather than passing vacuously. The worker is told to name the variable preamble.
+evidence:
+- evidence/build/G3/TC-870/receipt.json
+closeout:
+- The chunker keeps text before a document's first heading; tex_python serves the previously lost Installation and API Reference text.
+recovery: Re-run from a clean tree.
