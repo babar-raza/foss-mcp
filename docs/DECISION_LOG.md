@@ -5139,3 +5139,56 @@ image, so the image stays lean.
 `TC-848` set (44_470_000); each later regeneration cohort re-pins it against the new ceiling, and no budget
 may exceed 55_000_000. The ceiling tests keep their relative cases around the new value (55_000_000
 accepted, 55_000_001 rejected, 45_000_001 now accepted).
+
+## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)
+
+The 2026-11-14..19 remaining-work programme made several decisions that were never written down. This entry
+records them; it changes no product behaviour. Each paragraph is one decision.
+
+**(a) Retired cards.** `TC-834` was retired because `TC-835` supersedes it: it was the first fix attempt for the
+`LONGQ-001` regression. `TC-843` and `TC-845` were retired as no-ops: the go, rust and cpp extraction fixtures are
+byte-identical on regeneration, verified by the `TC-841` and `TC-842` workers. For all three the plan files were
+removed and nothing was integrated.
+
+**(b) Metadata note on `TC-713` and `TC-715`.** `plans/TC-713.yaml` and `plans/TC-715.yaml` carry `satisfies:
+REQ-G3-017` although their work is disclosure-ledger work (`REQ-G3-015`). They are left unchanged because a card is
+immutable after acceptance.
+
+**(c) Regeneration route.** Plan stage `H6` was re-scoped from a `regenerate_demo.py` to
+`scripts/release/regenerate_local.py` (`helm template` plus `docker run` in the ingestion image, no cluster;
+`TC-829`). The served-answer comparator `scripts/release/answer_diff.py` (`TC-831`) is the "no pilot gets worse"
+gate, and the replay-only cached embedding provider was restored (`TC-830`). `docs/RELEASE.md` now carries the
+how-to.
+
+**(d) OQ-029, the lean baked-tree ceiling.** The ceiling moves from 45 MB to 55 MB as a `PROVISIONAL_ACCEPT`
+(`TC-854`). Numbers: 44.46 MB after cohort C1, and about 49.7 MB projected when all 32 pilots carry 4096-dim
+vectors. Rejected: fewer vector decimals, a new vector encoding, and keeping 45 MB with 20 lexical-only pilots. The
+operator still resolves `OQ-029` before gate exit.
+
+**(e) DG-1, baseline re-record.** On 2026-11-19 the operator authorised re-recording
+`baseline_symbol_self_retrieval.json` and `baseline_sentence_wrapped_retrieval.json` for cohort C1 under hard
+guards: only the prefix-3 and probe-artefact classes may gain entries, no non-cohort pilot may change, and strict
+stays true. The same guard applies to the later cohorts.
+
+**(f) RD2-286 (`LONGQ-001`).** It stays `OPEN` by the operator's 2026-11-01 deferral.
+
+**(g) TC-802 honest-publish losses accepted during regeneration.** slides/java "Save a Presentation" went from
+confident to loose (`TC-850`). 3d/typescript "Quick Start", pdf/typescript "Edit Pages and Metadata, Then Save"
+and cells/typescript "Export a Workbook to HTML" were lost (`TC-851`). cells/go "Quick Start (2)" was lost, and the
+README examples pdf/go "Fill AcroForm Fields" and pdf/cpp "Open a Password-Protected Document" were both replaced
+by authored examples (`TC-852`). The tex/python README example "Messages and Logging" was lost (`TC-853`). Each
+is accepted because its run failed or printed nothing in the sandbox; none lowered a floor or forgiveness row.
+
+**(h) TC-853, tex/python re-pin.** tex/python was re-pinned from `181015d2` (35 of 45 files unparseable) to the
+upstream tag 26.11.1 (`07db3203`, 0 of 59 failures, imports clean, PyPI `aspose-tex-foss` 26.11.1). Known defect
+`TEX-PYTHON-001` was retired after re-verifying it fixed at the new pin. The old extraction is kept as the frozen
+fixture `tests/fixtures/tex_python/api_surface_181015d2_repaired.json`.
+
+**(i) Baked-tree size after TC-852.** All 32 baked pilots carry 4096-dim vectors. The baked tree is about 50.7 MB,
+about 4.3 MB under the 55 MB ceiling.
+
+**(j) imaging/net.** imaging/net (cohort C0) was the one pilot no cohort card re-baked, and it still has README
+examples without a Verification-Level line. `TC-868` regenerates it.
+
+**(k) Chunker preamble loss.** The chunker discards text before a document's first heading. It was found by the
+`TC-853` worker on tex/python; `TC-870` measures and fixes it.

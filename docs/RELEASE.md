@@ -63,6 +63,33 @@ lean (next section) and why the gate measures memory per container.
    (not `demo`) and the ingestion image, so it does not produce the demo image on its own. Use it for those two;
    use the `docker build -f Dockerfile.serving --target demo` command above, with a clean tree, for the demo image.
 
+### Regenerating the demo data without a cluster
+
+The committed `infra/demo-manifests` data is regenerated locally, with no Kubernetes cluster, by one tool:
+
+```powershell
+python scripts/release/regenerate_local.py --cohort C1[,C2...]
+python scripts/release/regenerate_local.py --only <pilot>
+```
+
+It needs Docker, `helm`, the embedding-gateway variables and an ingestion image built from the same tree (default
+tag `foss-mcp-ingestion:regen`; build it with `scripts/release/build_images.py`). The gateway variables are read
+from the environment by name and their values are never printed, logged or written. For each selected pilot it
+renders the ingestion Job with `helm template`, runs the build and ingest part in the ingestion image against a work
+directory outside the repository, and copies back only the active pointer and the active generation file. It refuses
+to publish a generation unless every vector index it wrote is 4096-dimensional, because 64-dimension hashing vectors
+make `find_examples` permanently lexical-only. `--dry-run` prints every command and changes nothing.
+
+Two comparators decide whether a regeneration is acceptable. `scripts/release/generation_diff.py` compares the data
+two manifest trees hold (symbols, members, signature lines, documentation and example chunks per pilot).
+`scripts/release/answer_diff.py` compares what the in-process tool functions would serve from the two trees, with a
+seeded query set per pilot, and exits 1 on a lost answer that no `--allow-lost` entry covers. That second one is the "no pilot ever gets
+worse" gate: a regeneration can keep every symbol and still stop answering a question a caller used to get a
+confident answer to.
+
+Sidecars (the product-reference and recent-releases files in `infra/demo-manifests`) are committed history. The
+regeneration tool never rewrites them; they change only through a deliberate data commit.
+
 ## 3. The pre-deployment gate
 
 `scripts/release/image_workflow_gate.py` runs the exact image that would ship, one container per pilot, under an
