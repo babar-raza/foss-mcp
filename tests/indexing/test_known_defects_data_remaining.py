@@ -72,6 +72,16 @@ reads 0 both before and after ``save()``. This module's own ``_ADDITIONAL_DISCLO
 widened the same deliberate, additive way, now seeded with ``{"PAGE-PYTHON-011", "WORDS-PY-013"}``.
 The real new union count is 18 (not 17); the real written entry count for words/python is now 2
 (not 1).
+
+**Widened again (G3/TC-856, 2026-11-21):** ``WORDS-PY-004`` (round-2 finding, category ``"honesty"``,
+ledger row RD2-278: ``DocumentBuilder`` on words/python surfaces only the internal Markdown-import
+helpers while words/net has a real ``Aspose.Words.DocumentBuilder``) is a real, committed audit
+finding this module's category-filtered id source never admits; it is added to
+``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way. Re-verified on 2026-11-21 by a
+static ``ast.parse`` read of the real upstream source at the indexed commit ``2d2efee2``
+(``aspose-words-foss`` 26.7.0, not on PyPI): no ``DocumentBuilder`` is defined anywhere. The real
+union count after TC-853's retirement of ``TEX-PYTHON-001`` (17) is now 18, and the real written
+entry count for words/python is now 3 (not 2).
 """
 
 from __future__ import annotations
@@ -104,7 +114,7 @@ ROUND3_ISSUES_PATH = REPO_ROOT / "docs" / "round3" / "issues.json"
 # G3/TC-853 (RD2-258): ("tex", "python") was REMOVED from this table. tex/python was re-pinned at the upstream release 26.11.1
 # (07db3203), where every source file parses and `import aspose_tex` works, so its only entry (TEX-PYTHON-001, "the library cannot be
 # imported") was re-verified fixed and retired; config/known_defects/tex__python.yaml no longer exists (pinned below). The module now
-# covers seven pilots and 17 entries (was eight and 18).
+# covers seven pilots and 17 entries (was eight and 18); TC-856 added WORDS-PY-004, so 18 entries.
 # The eight (family, platform) pilots this card writes, and the real registry filename for each -
 # confirmed against known_defects.registry_path_for's own ``<family>__<platform>.yaml`` pattern.
 _PILOTS: tuple[tuple[str, str], ...] = (
@@ -120,7 +130,8 @@ _PILOTS: tuple[tuple[str, str], ...] = (
 # The real entry count actually WRITTEN per pilot (1+3+1+5+2+3+1+2 = 18): the 15 real round-2
 # findings TC-647 wrote, plus TC-656's own PAGE-PYTHON-010 (page/python 1 -> 2), plus TC-767's own
 # project-minted PAGE-PYTHON-011 (page/python 2 -> 3), plus TC-772's own project-minted
-# WORDS-PY-013 (words/python 1 -> 2).
+# WORDS-PY-013 (words/python 1 -> 2), plus (after TC-853 removed tex/python, 18 -> 17) TC-856's own
+# WORDS-PY-004 (words/python 2 -> 3; 17 -> 18).
 _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("barcode", "python"): 1,
     ("email", "cpp"): 3,
@@ -128,7 +139,7 @@ _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("imaging", "net"): 5,
     ("note", "python"): 2,
     ("page", "python"): 3,
-    ("words", "python"): 2,
+    ("words", "python"): 3,
 }
 
 IMAGING_NET_COMMIT = "c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa"
@@ -153,7 +164,13 @@ IMAGING_NET_COMMIT = "c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa"
 #   confirmed, fresh, via a 400-paragraph document that genuinely renders to a real 26-page PDF
 #   per ``pypdf``). No round-2/round-3 audit record names this id; it is a project-minted
 #   disclosure, not a reclassified audit finding.
-_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"PAGE-PYTHON-011", "WORDS-PY-013"})
+# - ``WORDS-PY-004`` (G3/TC-856): the round-2 finding (category ``"honesty"``, RD2-278) that
+#   ``DocumentBuilder`` does not exist in the real pinned ``aspose-words-foss`` 26.7.0 package; re-verified
+#   2026-11-21 by an ``ast.parse`` scan of the real upstream source at the indexed commit ``2d2efee2`` (no
+#   class, function or assignment of that name; the only ``document_builder`` module holds the internal
+#   ``MarkdownDocumentBuilder``/``HtmlInsertOptions``). A missing class, not a bug, so the audit never filed it
+#   as ``"upstream-library-bug"``.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"PAGE-PYTHON-011", "WORDS-PY-013", "WORDS-PY-004"})
 
 
 def _registry_path(family: str, platform: str) -> Path:
@@ -242,8 +259,8 @@ def test_sixteen_entries_total_across_all_eight_pilots() -> None:
     # Name kept for the record (TC-767 added a 17th entry additively, TC-772 an 18th; renaming
     # would obscure the history of this module's own counts the way every other widening comment
     # here documents).
-    # re-pinned by TC-853: 18 -> 17 (TEX-PYTHON-001 retired, see _PILOTS).
-    assert len(_all_written_defects()) == 17
+    # re-pinned by TC-853: 18 -> 17 (TEX-PYTHON-001 retired, see _PILOTS); by TC-856: 17 -> 18 (WORDS-PY-004).
+    assert len(_all_written_defects()) == 18
 
 
 def test_tex_python_has_no_registry_file_any_more() -> None:
@@ -281,17 +298,17 @@ def test_every_real_upstream_library_bug_finding_has_a_written_entry() -> None:
         f"{expected_ids - written_ids}"
     )
     # re-pinned by TC-853: 18 -> 17 (the tex/python pilot left this module's table, see _PILOTS).
-    # Both sets equal, and both have exactly 17 members (18 before TC-853) - the real union count as of G3/TC-772
-    # (2026-11-12): 17 as of TC-767 (16 as of TC-656, plus TC-767's own project-minted
-    # ``PAGE-PYTHON-011``), plus TC-772's own project-minted ``WORDS-PY-013``.
+    # Both sets equal, and both have exactly 18 members (17 after TC-853, plus TC-856's own ``WORDS-PY-004``) - the
+    # real union count as of G3/TC-772 (2026-11-12): 17 as of TC-767 (16 as of TC-656, plus TC-767's own
+    # project-minted ``PAGE-PYTHON-011``), plus TC-772's own project-minted ``WORDS-PY-013``.
     assert expected_ids == written_ids
-    assert len(expected_ids) == 17
+    assert len(expected_ids) == 18
 
 
 def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
     """The exact 18 ids this module's own history named (the 15 original round-2 ids, plus
     TC-656's own ``PAGE-PYTHON-010``, plus TC-767's own project-minted ``PAGE-PYTHON-011``, plus
-    TC-772's own project-minted ``WORDS-PY-013``; test name kept for the record rather than
+    TC-772's own project-minted ``WORDS-PY-013``, plus TC-856's own ``WORDS-PY-004``; test name kept for the record rather than
     renamed, the same way every other widening in this module's sibling
     ``test_known_defects_completeness.py`` keeps its own prior counts visible in
     comments/docstrings rather than rewriting history) - a second, independent cross-check
@@ -313,6 +330,7 @@ def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
         "PAGE-PYTHON-006",
         "PAGE-PYTHON-010",
         "PAGE-PYTHON-011",
+        "WORDS-PY-004",
         "WORDS-PY-008",
         "WORDS-PY-013",
     }

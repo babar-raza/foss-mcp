@@ -211,6 +211,10 @@ def _looks_like_a_task_question(query: str) -> bool:
 # reached only through a synonym (``transition`` -> ``EffectFormat`` via "effect") is deliberately NOT re-judged
 # here: the same mechanism is what answers "add a cube" with ``Box`` on the 3d pilots, and the retrieval corpus
 # shows that degrading it changes the label of correct answers (it flipped "add a slide" on four slides pilots).
+# G3/TC-856 (RD2-230) measured every narrower provenance rule on the 729-case corpus and found none that keeps
+# the correct answers (``deck`` -> ``Presentation``, ``picture`` -> ``Image``, ``add a link`` -> ``Hyperlink``,
+# ``add a cube`` -> ``Box`` share the signature of ``transition`` -> ``EffectFormat``): the label stays, as a
+# measured limitation pinned by ``tests/mcp/tools/test_exact_label_synonym_only.py``.
 _LOOSE_TIERS = frozenset({"bag_of_words", "evidence_sentence"})
 _IDENTIFIER_RUN = re.compile(r"[A-Za-z0-9_]+")
 _LOWER_THEN_CAPITAL = re.compile(r"[a-z][A-Z]")

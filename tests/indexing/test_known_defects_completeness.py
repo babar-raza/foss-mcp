@@ -216,6 +216,18 @@ the real upstream source (``b7172877``, and tags ``v26.10.0``/``v26.11.0``) and 
 ``Aspose.PDF.FOSS`` 26.9.0/26.10.0/26.11.0 NuGet packages. The real new union count is 68 (not 67):
 both equality assertions above still hold exactly, just against this slightly wider set; the real
 registry file count is unchanged at 27 (the entry lands in the already-existing ``pdf__net.yaml``).
+
+**Widened again (G3/TC-856, 2026-11-21):** ``WORDS-PY-004`` (round-2, category ``"honesty"``; ledger row
+RD2-278: ``DocumentBuilder`` on words/python surfaces only the internal Markdown-import helpers
+``MarkdownDocumentBuilder`` / ``HtmlInsertOptions`` while the sibling words/net pilot has a real
+``Aspose.Words.DocumentBuilder``) is a real, cited, committed audit finding this module's own
+category-filtered id source would otherwise never admit; it is added to ``_ADDITIONAL_DISCLOSABLE_IDS`` the
+same deliberate, additive way. Re-verified on 2026-11-21 by reading the real upstream source at the indexed
+commit ``2d2efee2`` (``aspose-words-foss`` 26.7.0, which is not on PyPI: ``pip download`` finds no
+distribution): no class, function or assignment named ``DocumentBuilder`` exists anywhere under ``aspose/``.
+The real new union count is 68 after ``TC-853``'s retirement of ``TEX-PYTHON-001`` took it to 67: both
+equality assertions above still hold exactly, just against this slightly wider set; the real registry file
+count is unchanged at 26 (the entry lands in the already-existing ``words__python.yaml``).
 """
 
 from __future__ import annotations
@@ -402,6 +414,14 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   ``Forms/Signature.cs`` states revocation validation (OCSP/CRL) is not implemented in this FOSS
 #   build; reflection over the published 26.9.0/26.10.0/26.11.0 packages confirms the properties
 #   exist. A silently ignored configuration. Disclosure-only.
+# - ``WORDS-PY-004`` (G3/TC-856, REQ-G3-015, round-2 audit finding, category ``"honesty"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-278): re-verified on 2026-11-21 by an ``ast.parse`` scan of every
+#   ``.py`` file of the real upstream ``Aspose.Words-FOSS-for-Python`` at the indexed commit ``2d2efee2``
+#   (``aspose-words-foss`` 26.7.0): no class, function or assignment named ``DocumentBuilder`` exists, and
+#   ``aspose.words_foss.__all__`` does not export one; the only ``document_builder`` module holds the internal
+#   Markdown-import cursor ``MarkdownDocumentBuilder`` and ``HtmlInsertOptions``. A missing class, not a bug
+#   in an existing one, so the audit never filed it as ``"upstream-library-bug"``. Disclosure-only, attached to
+#   those two look-alike symbols that ``lookup``/``search_symbols`` return for a ``DocumentBuilder`` query.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -419,6 +439,7 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "3D-PYTHON-009",
         "WORDS-NET-005",
         "PDF-NET-009",
+        "WORDS-PY-004",
     }
 )
 
@@ -529,7 +550,8 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-853 (2026-11-20) this real count is
+    # Sanity anchor only, not a floor on the future: as of G3/TC-856 (2026-11-21) this real count is
+    # 68 (67 as of TC-853, plus TC-856's own additive ``WORDS-PY-004``); earlier, as of G3/TC-853 (2026-11-20) it was
     # 67 (68 as of TC-828, minus the retired ``TEX-PYTHON-001``, see ``_RETIRED_FIXED_UPSTREAM_IDS``); earlier, as of
     # G3/TC-828 (2026-11-14) this real union
     # count was 68 (67 as of TC-815, plus TC-828's own additive ``PDF-NET-009``); earlier, as of
@@ -550,7 +572,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 67
+    assert len(upstream_issue_ids) == 68
 
 
 # --------------------------------------------------------------------------------------------

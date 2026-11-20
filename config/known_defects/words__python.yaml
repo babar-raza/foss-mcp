@@ -58,3 +58,40 @@ defects:
       version: 26.7.0
       date: '2026-11-12'
   status: open
+- id: WORDS-PY-004
+  subject:
+    kind: class
+    refs:
+    - aspose.words_foss.md_import.document_builder.MarkdownDocumentBuilder
+    - aspose.words_foss.md_import.MarkdownDocumentBuilder
+    - aspose.words_foss.md_import.document_builder.HtmlInsertOptions
+    - aspose.words_foss.md_import.HtmlInsertOptions
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: aspose-words-foss 26.7.0 has no DocumentBuilder class (the .NET/Java authoring entry point);
+    MarkdownDocumentBuilder and HtmlInsertOptions are internal Markdown-import helpers, not a general
+    document-authoring API.
+  user_action: Do not look for DocumentBuilder in the Python edition. Load an existing file with Document(path)
+    and edit it, or build content as light_document_model objects (Document, Section, Paragraph, Run,
+    Table) and write them with aspose.words_foss.docx_writer.LdmDocxWriter; Document() with no source
+    holds no model (its light_document_model raises ValueError).
+  evidence:
+    repro: 'Package check: pip download aspose-words-foss==26.7.0 finds no distribution on PyPI, so the
+      source was read from the upstream repository at the indexed commit 2d2efee2 (pyproject.toml and
+      aspose.words_foss.__version__ both say 26.7.0). An ast.parse scan of every .py file under aspose/
+      finds no class, function or assignment named DocumentBuilder, and no file is named for it; aspose.words_foss.__all__
+      is Document, SaveFormat, LoadFormat, LoadOptions, MarkdownLoadOptions, NodeType, loading, saving.
+      The only matches for the word are md_import/document_builder.py, whose docstring calls MarkdownDocumentBuilder
+      a "minimal LDM-facing analogue" of Aspose.Words'' DocumentBuilder used by MarkdownReaderContext
+      (a cursor with write/writeln/insert_image over a fresh ldm.Document), and its HtmlInsertOptions
+      flags. Document.__init__ with no source leaves _document None and light_document_model then raises
+      ValueError("No document loaded. Provide a filepath to Document()."); Document._save_as_docx writes
+      through LdmDocxWriter(options).write(ldm.Document, path). Static source read only - the upstream
+      code was not executed. The sibling words/net pilot does ship a real Aspose.Words.DocumentBuilder
+      (round-2 WORDS-PY-004 / RD2-278).'
+    verified_on:
+      package: aspose-words-foss
+      version: 26.7.0
+      date: '2026-11-21'
+  status: open
