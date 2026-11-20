@@ -1,0 +1,80 @@
+id: TC-869
+gate: G3
+lane: verification
+purpose: 'RW-09: after the last regeneration cohorts (TC-852 C5, TC-853 tex/python, TC-868 imaging/net C0) every one of the 32 baked pilots serves 4096-dimension gateway vectors, so the two tolerances that still accept the old 64-dim hashing fallback must go: tests/deploy/test_compact_demo_manifests.py LEGITIMATE_VECTOR_DIMENSIONS = {64, 4096} (TC-778) becomes {4096} with its comment rewritten, and tests/mcp/tools/test_example_search_mode.py test_a_committed_pilot_generation_stores_the_dimension_of_its_own_vectors accepts only 4096 (TC-810). Also re-pin the final tree budgets TREE_BYTES_BUDGET (tests/deploy/test_compact_demo_manifests.py and tests/deploy/test_demo_manifests_sidecars.py) and MEDIAN_FILE_BYTES_BUDGET to the measured baked-tree size rounded up to the next 10k (never above LEAN_CEILING_BYTES 55_000_000, never lowered below what the committed tree needs) and report the margin. Change nothing under infra/ or docs/. No assertion is deleted or weakened; each is made stricter.'
+depends_on:
+- TC-537
+- TC-575
+- TC-576
+- TC-579
+- TC-597
+- TC-602
+- TC-615
+- TC-678
+- TC-695
+- TC-698
+- TC-699
+- TC-730
+- TC-731
+- TC-774
+- TC-776
+- TC-777
+- TC-778
+- TC-780
+- TC-781
+- TC-782
+- TC-792
+- TC-799
+- TC-808
+- TC-809
+- TC-813
+- TC-820
+- TC-829
+- TC-831
+- TC-839
+- TC-841
+- TC-842
+- TC-846
+- TC-848
+- TC-852
+- TC-853
+- TC-854
+- TC-868
+write_paths:
+- tests/deploy/test_compact_demo_manifests.py
+- tests/deploy/test_demo_manifests_sidecars.py
+- tests/deploy/test_fleet_consistency.py
+- tests/mcp/tools/test_example_search_mode.py
+satisfies:
+- REQ-G3-017
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+- 'READ FIRST: tests/deploy/test_compact_demo_manifests.py (LEGITIMATE_VECTOR_DIMENSIONS and the test using it, the tree and median budgets, LEAN_CEILING_BYTES), tests/deploy/test_demo_manifests_sidecars.py, tests/deploy/test_fleet_consistency.py (the all-32-pilots-4096-dim test added by TC-852), tests/mcp/tools/test_example_search_mode.py (the dimension test near line 690). Grep the whole repo (tests, scripts, src, infra, docs) for other places that accept 64 as a legitimate stored dimension and report any outside write_paths instead of editing them.'
+- 'MEASURE FIRST: confirm from the committed infra/demo-manifests tree that every active generation''s vector_index.dimension is 4096 and that every point vector has that length (the fleet-consistency test does this); if any pilot is still not 4096 STOP and report it (an earlier cohort card is then incomplete). Measure the baked tree total and the median file size with the same functions the budget tests use and report the numbers.'
+- Run the card check twice, ruff check and ruff format --check on the touched files, and make exactly ONE commit with FOSS_MCP_WORKER=TC-869 set. In a worktree without a venv use the main checkout .venv python (E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.venv/Scripts/python.exe) with PYTHONPATH set to your worktree root, src and infra; run under PowerShell after dot-sourcing scripts/toolchain/activate.ps1. Never print credentials. Report once.
+actions:
+- Make the vector-dimension tolerances strict (4096 only) and re-pin the final tree and median budgets to measured values.
+checks:
+- command: '{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_fleet_consistency.py tests/mcp/tools/test_example_search_mode.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1500
+  junitxml: true
+  proves:
+  - REQ-G3-017
+min_tests: 60
+requires:
+- python
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import json, pathlib; f = sorted(pathlib.Path(''infra/demo-manifests/imaging__net__self_extracted'').glob(''generation__*.json''))[0]; d = json.loads(f.read_text(encoding=''utf-8'')); assert d[''payload''][''vector_index''][''dimension''] == 4096; d[''payload''][''vector_index''][''dimension''] = 64; f.write_text(json.dumps(d), encoding=''utf-8'')"
+
+    '
+  rationale: Marks one pilot's committed generation as a 64-dimension hashing-fallback index (the exact state the strict tests now forbid); the all-pilots-4096 and dimension tests must fail. Anchored on the real committed file and asserts the premise first, so it cannot be vacuous.
+evidence:
+- evidence/build/G3/TC-869/receipt.json
+closeout:
+- No test accepts a 64-dimension baked pilot any more, and the tree budgets are pinned to the final measured tree.
+recovery: Re-run from a clean tree.
