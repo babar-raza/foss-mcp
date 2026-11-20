@@ -102,3 +102,68 @@ def test_with_validation_returns_a_new_chunk_with_only_validation_updated() -> N
     assert updated.evidence_refs == chunk.evidence_refs
     # The original chunk itself is untouched - with_validation never mutates in place.
     assert chunk.validation == NOT_CHECKED
+
+
+# ---- TC-870: text before a document's first heading is its own section, never discarded ----------
+#
+# ``_heading_sections`` used to cut a body at its ``#`` headings and drop every character before the
+# first one. The tex/python furnished page lost two real blocks that way (the 287-character
+# "Install the package from PyPI" preamble of its Installation block and the 227-character
+# "The primary entry point is TeXJob" intro of its API Reference block).
+
+PREAMBLE_TEXT = "Install the package from PyPI: pip install aspose-tex-foss."
+
+
+def test_text_before_the_first_heading_is_kept_as_its_own_section() -> None:
+    body = f"{PREAMBLE_TEXT}\n\n### From source\n\n```bash\ngit clone x\n```\n"
+    chunks = chunk_document(_document(body))
+    assert [c.section_title for c in chunks] == ["", "From source"]
+    assert chunks[0].text == PREAMBLE_TEXT
+    assert "git clone x" in chunks[1].text
+
+
+def test_a_body_without_a_preamble_is_unchanged() -> None:
+    chunks = chunk_document(_document(MULTI_SECTION_BODY))
+    assert [c.section_title for c in chunks] == [
+        "Aspose.PDF FOSS for .NET v26.9.0",
+        "New APIs",
+        "Rendering",
+        "Text and fonts",
+    ]
+    assert chunks[0].text == "A rendering and cross-platform release."
+    assert all(c.section_title for c in chunks)
+
+
+def test_a_preamble_followed_by_a_fenced_hash_comment_keeps_the_fence_whole() -> None:
+    body = (
+        f"{PREAMBLE_TEXT}\n\n"
+        "### Usage\n\n"
+        "```python\n"
+        "# a comment at column 0 is not a heading\n"
+        "import aspose_tex\n"
+        "```\n"
+    )
+    chunks = chunk_document(_document(body))
+    assert [c.section_title for c in chunks] == ["", "Usage"]
+    assert chunks[0].text == PREAMBLE_TEXT
+    assert "# a comment at column 0 is not a heading" in chunks[1].text
+    assert "import aspose_tex" in chunks[1].text
+
+
+def test_a_fence_in_the_preamble_hides_its_hash_comment_from_the_heading_scan() -> None:
+    body = "Run this first:\n\n```bash\n# not a heading\npip install x\n```\n\n## Next\n\nMore."
+    chunks = chunk_document(_document(body))
+    assert [c.section_title for c in chunks] == ["", "Next"]
+    assert "# not a heading" in chunks[0].text and "pip install x" in chunks[0].text
+
+
+def test_a_whitespace_only_preamble_yields_no_section() -> None:
+    chunks = chunk_document(_document("   \n\t\n## Only heading\n\nBody text."))
+    assert [c.section_title for c in chunks] == ["Only heading"]
+
+
+def test_sections_come_out_in_body_order_preamble_first() -> None:
+    body = f"{PREAMBLE_TEXT}\n\n## First\n\nOne.\n\n## Second\n\nTwo."
+    chunks = chunk_document(_document(body))
+    assert [c.section_title for c in chunks] == ["", "First", "Second"]
+    assert [c.text for c in chunks] == [PREAMBLE_TEXT, "One.", "Two."]

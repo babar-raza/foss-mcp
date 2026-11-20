@@ -17,6 +17,10 @@ import infra.build_chunks as build_chunks
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TEX = REPO_ROOT / "tests/fixtures/tex_python/api_surface.json"
+# TC-870: the notice / headline mechanisms are pinned on the frozen 181015d2 extraction (parse_failures
+# 11 of 45 after the repair, 35 of 45 as written, two repaired files); the committed fixture is the
+# 26.11.1 re-pin (07db3203): 0 of 59, nothing repaired, 31 symbol chunks.
+TEX_REPAIRED = REPO_ROOT / "tests/fixtures/tex_python/api_surface_181015d2_repaired.json"
 EXAMPLES = [f"src/p/m{index}.py:{index + 2}: bad block {index}" for index in range(5)]
 
 
@@ -76,7 +80,7 @@ def test_a_tree_sitter_fixture_over_its_higher_threshold_gets_the_notice() -> No
 
 
 def test_tex_without_parse_failures_is_still_one_chunk_without_a_headline() -> None:
-    fixture = json.loads(TEX.read_text(encoding="utf-8"))
+    fixture = json.loads(TEX_REPAIRED.read_text(encoding="utf-8"))
     # TC-555: the committed fixture now carries the measured parse_failures (11 of 45 after the repair); the old
     # "without parse_failures" shape is the same fixture with that key removed. Its notice no longer
     # names a syntax error (line 108) but the repaired file (line 107).
@@ -88,7 +92,7 @@ def test_tex_without_parse_failures_is_still_one_chunk_without_a_headline() -> N
 
 
 def test_tex_with_parse_failures_keeps_one_chunk_and_leads_with_the_headline() -> None:
-    fixture = json.loads(TEX.read_text(encoding="utf-8"))
+    fixture = json.loads(TEX_REPAIRED.read_text(encoding="utf-8"))
     fixture["parse_failures"] = _failures(35, 45)
     chunks = build_chunks._extraction_notice_chunks(fixture)
     assert len(chunks) == 1
@@ -98,17 +102,17 @@ def test_tex_with_parse_failures_keeps_one_chunk_and_leads_with_the_headline() -
     assert "src/aspose_tex/presentation/__init__.py line 107" in chunks[0].text
 
 
-def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line(
+def test_main_on_the_frozen_repaired_tex_fixture_ends_symbol_chunks_with_the_coverage_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     out = tmp_path / "chunks.json"
     monkeypatch.setattr(
         sys,
         "argv",
-        ["build_chunks.py", "--api-surface", str(TEX), "--title", "Tex", "--out", str(out)],
+        ["build_chunks.py", "--api-surface", str(TEX_REPAIRED), "--title", "Tex", "--out", str(out)],
     )
     build_chunks.main()
-    fixture = json.loads(TEX.read_text(encoding="utf-8"))
+    fixture = json.loads(TEX_REPAIRED.read_text(encoding="utf-8"))
     chunks = json.loads(out.read_text(encoding="utf-8"))["chunks"]
     symbols = [c for c in chunks if c["text"].startswith("FQN: ") and not c["text"].startswith("FQN: Doc:")]
     # TC-555: 4 -> 23 symbol chunks (21 types and 2 functions); the line carries the measured
@@ -128,6 +132,30 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     # TC-841: the regenerated fixture records parse_failures.as_written_failed (TC-561), and build_chunks.main renders the
     # AS-WRITTEN count (35 of 45 do not parse as written) in the coverage line, not the 11 left after the repair.
     expected = "API-Coverage: 16 of 16 types; 2 of 2 functions; 35 of 45 source files could not be parsed"
+    for chunk in symbols:
+        lines = chunk["text"].splitlines()
+        assert lines[-2] == expected
+        assert lines[-1] == f"Source-Commit: {fixture['source_commit']}"
+
+
+def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # TC-870: the committed 26.11.1 fixture (07db3203) parses cleanly (0 of 59), so the line carries no
+    # parse-failure clause; 31 symbol chunks (16 types counted, 8 functions counted).
+    out = tmp_path / "chunks.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["build_chunks.py", "--api-surface", str(TEX), "--title", "Tex", "--out", str(out)],
+    )
+    build_chunks.main()
+    fixture = json.loads(TEX.read_text(encoding="utf-8"))
+    chunks = json.loads(out.read_text(encoding="utf-8"))["chunks"]
+    symbols = [c for c in chunks if c["text"].startswith("FQN: ") and not c["text"].startswith("FQN: Doc:")]
+    assert len(symbols) == 31
+    assert not any(c["text"].startswith("FQN: Doc: Extraction notice") for c in chunks)
+    expected = "API-Coverage: 16 of 16 types; 8 of 8 functions"
     for chunk in symbols:
         lines = chunk["text"].splitlines()
         assert lines[-2] == expected

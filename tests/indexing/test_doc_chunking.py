@@ -242,3 +242,35 @@ def test_a_final_tiny_buffer_joins_the_previous_chunk() -> None:
     chunks = _chunks(f"{big}\n\n{_paragraph('Second', 3000)}\n\ntail")
     assert len(chunks) == 2
     assert chunks[1].text.endswith("tail\nPart: 2 of 2")
+
+
+# ---- TC-870: the text before a candidate's first heading reaches a chunk ---------------------------
+
+
+def test_a_candidate_that_opens_with_prose_before_its_first_heading_keeps_that_prose() -> None:
+    prose = "Install the package from PyPI: pip install aspose-tex-foss."
+    body = f"{prose}\n\n### From source\n\n```bash\ngit clone x\n```\n"
+    chunks = _chunks(body, title="Installation")
+    text = "\n".join(chunk.text for chunk in chunks)
+    assert prose in text
+    assert text.index(prose) < text.index("git clone x")
+
+
+def test_the_committed_tex_page_keeps_the_installation_and_api_reference_preambles() -> None:
+    from pathlib import Path
+
+    from foss_mcp.indexing.doc_candidates import extract_doc_sections
+    from infra.build_chunks import _load_furnished_page
+
+    page_path = (
+        Path(__file__).resolve().parents[1] / "fixtures" / "furnished" / "tex_python" / "pages" / "_index.md"
+    )
+    candidates = {c.title: c for c in extract_doc_sections(_load_furnished_page(page_path))}
+    for title, first_words in (
+        ("Installation", "Install the package from PyPI"),
+        ("API Reference", "The primary entry point is `TeXJob`"),
+    ):
+        candidate = candidates[title]
+        assert first_words in candidate.body
+        served = "\n".join(chunk.text for chunk in _chunks(candidate.body, title=title))
+        assert first_words in served, title

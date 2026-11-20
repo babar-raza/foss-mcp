@@ -21,6 +21,10 @@ from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = REPO_ROOT / "tests/fixtures"
 TEX = FIXTURES / "tex_python/api_surface.json"
+# TC-870: the notice / repair mechanisms are pinned on the frozen 181015d2 extraction (two files parsed
+# only after the indentation repair, 35 of 45 did not parse as written); the committed fixture is the
+# 26.11.1 re-pin (07db3203), which parses cleanly and carries no notice.
+TEX_REPAIRED = FIXTURES / "tex_python/api_surface_181015d2_repaired.json"
 PDF = FIXTURES / "pdf_python/api_surface.json"
 
 BROKEN_PRESENTATION = "src/aspose_tex/presentation/__init__.py"
@@ -185,14 +189,36 @@ def test_a_repaired_file_gets_an_honest_sentence_in_the_notice() -> None:
     assert "`" not in chunk.text and "\n\n" not in chunk.text
 
 
-def test_the_committed_tex_fixture_discloses_its_two_repaired_files() -> None:
-    fixture = _fixture(TEX)
+def test_the_frozen_repaired_tex_fixture_discloses_its_repaired_files() -> None:
+    fixture = _fixture(TEX_REPAIRED)
     (chunk,) = build_chunks._extraction_notice_chunks(fixture)
     assert f"{BROKEN_PRESENTATION} line 107: 36 header lines closed with pass" in chunk.text
     assert "src/aspose_tex/_input/reader.py line 52: 42 header lines closed with pass" in chunk.text
     assert "do not parse as valid source" not in chunk.text
     assert "Public names that could not be extracted" not in chunk.text
     assert f"{fixture['source_repository']}@{fixture['source_commit']}" in chunk.text
+
+
+def test_the_committed_tex_fixture_26_11_1_discloses_nothing_because_every_file_parses() -> None:
+    # TC-853 re-pinned tex/python to release 26.11.1 (07db3203): 0 of 59 files fail to parse, nothing
+    # is repaired, so the extraction notice is not published.
+    fixture = _fixture(TEX)
+    assert fixture["source_commit"] == "07db320334a0a58e11107b6ca8092b2e5047c1f8"
+    assert fixture["parse_failures"]["failed"] == 0
+    assert fixture["parse_failures"]["total"] == 59
+    assert not any(":repaired-syntax:" in entry for entry in fixture.get("unresolved", []))
+    assert build_chunks._extraction_notice_chunks(fixture) == []
+
+
+def test_main_on_the_committed_tex_fixture_writes_no_notice_and_31_symbol_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunks = _run_main(monkeypatch, tmp_path, TEX)
+    assert not any(
+        "Extraction notice" in c["section_title"] or "Extraction notice" in c["text"] for c in chunks
+    )
+    symbols = [c for c in chunks if c["text"].startswith("FQN: ") and not c["text"].startswith("FQN: Doc:")]
+    assert len(symbols) == 31
 
 
 def test_a_repaired_file_and_a_syntax_error_share_one_notice() -> None:
@@ -217,8 +243,8 @@ def test_no_other_committed_python_fixture_has_a_repaired_entry() -> None:
 def test_main_on_the_repaired_tex_fixture_writes_the_notice_with_a_source_commit_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fixture = _fixture(TEX)
-    chunks = _run_main(monkeypatch, tmp_path, TEX)
+    fixture = _fixture(TEX_REPAIRED)
+    chunks = _run_main(monkeypatch, tmp_path, TEX_REPAIRED)
     notices = [c for c in chunks if c["text"].startswith("FQN: Doc: Extraction notice")]
     assert len(notices) == 1
     assert "36 header lines closed with pass" in notices[0]["text"]

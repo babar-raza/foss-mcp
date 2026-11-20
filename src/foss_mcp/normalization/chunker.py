@@ -97,12 +97,20 @@ def _heading_sections(body: str) -> list[tuple[str, str]]:
     OPEN fenced code block (``_fence_spans``) - a column-0 ``#`` comment in a fenced Python or shell
     snippet is exactly such a line, and was previously cutting the chunk there and orphaning the
     real code after it.
+
+    Text before the first heading (the ``preamble``) is its own leading section with the heading
+    ``""`` - the label a heading-less body's paragraphs already carry - instead of being discarded
+    (TC-870: a block that opens with prose and only then a sub-heading lost that prose from the
+    served index). A whitespace-only preamble yields no section.
     """
     spans = _fence_spans(body)
     matches = [match for match in _HEADING.finditer(body) if not _inside_any_span(match.start(), spans)]
     if not matches:
         return []
     sections: list[tuple[str, str]] = []
+    preamble = body[: matches[0].start()].strip()
+    if preamble:
+        sections.append(("", preamble))
     for index, match in enumerate(matches):
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
