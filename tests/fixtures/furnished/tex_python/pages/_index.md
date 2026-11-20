@@ -11,7 +11,7 @@ submenu:
   enable: true
 github_url: https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python
 doc_source: github_readme
-doc_source_commit: 181015d2eee3e19f8af3d84e4a932ac84ad47c7c
+doc_source_commit: 07db320334a0a58e11107b6ca8092b2e5047c1f8
 overview:
   enable: true
   title: Aspose.TeX FOSS for Python
@@ -41,30 +41,38 @@ overview:
 content:
   enable: true
   block:
-  - title_left: Installation, Dependencies, and Quick Start
+  - title_left: Installation
     content_left: |-
-      ### Installation
-
       **Requirements**: Python 3.10+.
 
-      No PyPI package has been published for this library yet — install it from source:
+      Install the package from PyPI:
+
+      ```bash
+      pip install aspose-tex-foss
+      ```
+
+      The package is imported as `aspose_tex`. To run the MCP server, install the `mcp` extra and start
+      it with `python -m aspose_tex.mcp`:
+
+      ```bash
+      pip install "aspose-tex-foss[mcp]"
+      ```
+
+      ### From source (contributors)
 
       ```bash
       git clone https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python.git
       cd Aspose.TeX-FOSS-for-Python
-      pip install -e .
-      ```
-
-      For development (adds `pytest`, `ruff`, `build`, and `twine`):
-
-      ```bash
       pip install -e ".[dev]"
       ```
 
+      The `dev` extra adds `pytest`, `ruff`, `build`, and `twine`.
+  - title_left: Dependencies
+    content_left: |-
       ### Required Package Dependencies
 
-      No required third-party package dependencies. The published `aspose-tex` package builds from
-      `pyproject.toml`, which declares no `[project.dependencies]` entries.
+      No required third-party package dependencies. The published `aspose-tex-foss` package declares
+      no runtime dependencies; the optional `mcp` extra installs the `mcp` package.
 
       ### Native and System Requirements
 
@@ -76,9 +84,8 @@ content:
         linter, and packaging/publishing tools used for development; `tomli` (>=2.0) is an additional
         dev dependency on Python versions before 3.11. None of these are required to use the library
         itself.
-
-      ### Quick Start
-
+  - title_left: Quick Start
+    content_left: |-
       ```python
       from aspose_tex import TeXJob, TeXOptions, PdfDevice, create_input_source
 
@@ -101,10 +108,8 @@ content:
       job = TeXJob(source, device, options=TeXOptions(load_format=False))
       job.run() # hello.pdf is written to disk
       ```
-    title_right: Key Capabilities and API Reference
-    content_right: |-
-      ### Key Capabilities
-
+  - title_left: Key Capabilities
+    content_left: |-
       - Parse and interpret real TeX/LaTeX source through `TeXJob`, driving the tokenizer, macro
         expander, and mode-machine dispatch that process control sequences, groups, and paragraph text.
       - Resolve font metrics and glyph outlines from the bundled Computer Modern `.tfm` / `.pfb` data,
@@ -123,9 +128,8 @@ content:
         during the most recent run: `\message` and `\write 16` append plain-text entries,
         `\errmessage` prefixes them with `! `, and `\write -1` logs through the standard `aspose_tex`
         logger without appearing in the returned list.
-
-      ### API Reference
-
+  - title_left: API Reference
+    content_left: |-
       The primary entry point is `TeXJob`, which combines an `InputSource`, an `OutputDevice`
       (`PdfDevice`, `DviDevice`, or `SvgDevice`), and `TeXOptions` into one runnable job.
 
@@ -201,19 +205,21 @@ content:
 
       - This is a Pre-Alpha release: the core engine and public API are under active development, and
         interfaces may change between releases.
-      - The default `load_format="plain"` option (`TeXOptions`) does not yet fully load Knuth's Plain
-        TeX macro cascade in this milestone — every example above passes `load_format=False` for a
-        runnable, from-primitives document.
-      - Math-mode content (`$...$`, `$$...$$`) is parsed through a shell surface but not laid out — no
-        math atoms, fractions, or radicals reach the page.
-      - Table alignment (`\halign`, `\valign`) is registered but not implemented — invoking either
-        raises `NotImplementedError`.
-      - Automatic hyphenation is not active: `\patterns` and `\hyphenation` are parsed and discarded,
-        and the bundled `hyphenation/` pattern directory is currently empty; `\hyphenchar` and the
-        hyphenation-penalty parameters are supported but have no pattern data to apply.
-      - Named file-stream I/O (`\openin`, `\openout`, `\closein`, `\closeout`, `\read`) raises
-        `NotImplementedError` — only `\write 16` (message log), `\write -1` (silent log), `\message`,
-        and `\errmessage` are implemented; `\ifeof` always evaluates false.
+      - Plain TeX is the supported format. The default `load_format="plain"` option (`TeXOptions`) loads
+        Knuth's macros from the bundled `plain.tex`, with its output routine, footnotes, and inserts.
+        The examples above pass `load_format=False` to run a document from primitives alone; leave it
+        out to use the plain macros.
+      - LaTeX and the e-TeX and pdfTeX extensions are not implemented yet. `\documentclass`,
+        `\numexpr`, `\pdfoutput`, and similar commands raise `EngineError`.
+      - `\special` is not implemented and raises `EngineError` as an undefined control sequence.
+      - Automatic hyphenation needs the plain format, which loads the bundled US-English patterns from
+        `format/hyphen.tex`. With `load_format=False` no patterns are loaded. Other languages are added
+        the TeX way: a format file on `extra_format_paths` sets `\language` and runs `\patterns` and
+        `\hyphenation`. The bundled `hyphenation/` directory is reserved and empty.
+      - Named file-stream I/O (`\openin`, `\openout`, `\closein`, `\closeout`, `\read`, and `\write` to
+        streams 0 through 15) raises `NotImplementedError` — only `\write 16` (message log), `\write -1`
+        (silent log), `\message`, and `\errmessage` are implemented; `\ifeof` always evaluates false.
+        `\write` takes effect at once, not at shipout.
 
       These limitations don't apply to
       [Aspose.TeX for Python — Enterprise Edition](https://products.aspose.com/tex/python-net/), which

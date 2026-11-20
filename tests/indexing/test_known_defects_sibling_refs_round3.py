@@ -254,19 +254,8 @@ _CASES: tuple[_Case, ...] = (
         ("Aspose.Slides.Foss.ILayoutSlide",),
         ("Aspose.Slides.Foss.LayoutSlide",),
     ),
-    _Case(
-        "tex__python",
-        "TEX-PYTHON-001",
-        (
-            "aspose-tex",
-            "aspose_tex.presentation.TeXJob",
-            "aspose_tex.presentation.PdfDevice",
-            "aspose_tex.PdfDevice",
-            "aspose_tex.presentation.TeXOptions",
-            "aspose_tex.TeXOptions",
-        ),
-        ("aspose_tex.create_input_source", "aspose_tex.presentation.create_input_source"),
-    ),
+    # G3/TC-853: the tex__python / TEX-PYTHON-001 case was removed - tex/python was re-pinned at the upstream release 26.11.1
+    # (07db3203), where the library parses and imports, and TEX-PYTHON-001 was retired on re-verification.
     _Case(
         "words__python",
         "WORDS-PY-013",
@@ -319,10 +308,11 @@ def _server_tool(corpus: ConformanceCorpus, pilot: str, wrap: Callable[..., Call
 # --------------------------------------------------------------------------------------------
 
 
-def test_the_card_touches_29_entries_and_adds_48_refs() -> None:
-    assert len(_CASES) == 29
-    assert len(_ADDED_PAIRS) == 48
-    assert len(set(_ADDED_PAIRS)) == 48
+def test_the_card_touches_28_entries_and_adds_46_refs() -> None:
+    # re-pinned by TC-853: 29 -> 28 entries and 48 -> 46 refs (TEX-PYTHON-001 and its two create_input_source refs were retired).
+    assert len(_CASES) == 28
+    assert len(_ADDED_PAIRS) == 46
+    assert len(set(_ADDED_PAIRS)) == 46
 
 
 @pytest.mark.parametrize("case", _CASES, ids=[f"{c.pilot}:{c.defect_id}" for c in _CASES])

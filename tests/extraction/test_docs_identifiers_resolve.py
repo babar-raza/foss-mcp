@@ -138,3 +138,31 @@ def test_docs_identifiers_reads_spans_not_fences(tmp_path: Path, monkeypatch: py
     )
     monkeypatch.setattr(helper, "FIXTURES", tmp_path)
     assert helper.docs_identifiers("demo") == {"listMailboxes"}
+
+
+def test_the_tex_python_allowlist_entries_are_each_a_documented_non_api_token() -> None:
+    """G3/TC-853: tex/python was re-pinned at the upstream release 26.11.1 and its page regenerated from that README.
+
+    The allowlist file has no reason field, so each remaining tex_python entry is justified here and checked against the page:
+    ``tex`` (new) is the file extension of the bundled data files ``plain.tex`` and ``format/hyphen.tex`` named in the Scope and
+    Limitations section; ``svg`` is a file extension / format word; ``aspose_tex`` is the package (module) name, not a type;
+    ``DviWriter``/``PdfWriter``/``SvgWriter`` are internal writers the README's prose names but the public API does not expose;
+    ``NotImplementedError`` and ``NullHandler`` are standard-library names. ``toml`` (the old ``pyproject.toml`` mention) is no
+    longer named by the 26.11.1 README and was dropped.
+    """
+    entries = helper.load_allowlist()["tex_python"]
+    assert entries == [
+        "DviWriter",
+        "NotImplementedError",
+        "NullHandler",
+        "PdfWriter",
+        "SvgWriter",
+        "aspose_tex",
+        "svg",
+        "tex",
+    ]
+    page = (
+        Path(__file__).resolve().parents[1] / "fixtures" / "furnished" / "tex_python" / "pages" / "_index.md"
+    ).read_text(encoding="utf-8")
+    assert "`plain.tex`" in page and "`format/hyphen.tex`" in page
+    assert "toml" not in entries

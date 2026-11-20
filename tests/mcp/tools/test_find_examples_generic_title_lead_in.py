@@ -477,14 +477,18 @@ def test_the_real_corpus_census_of_generic_titled_examples(tmp_path: Path) -> No
     # "Open a Password-Protected Document"; email/cpp 7 -> 7), 25 -> 23 generic titled (cells/go "Quick Start (2)" is gone, and email/cpp
     # "Quick Start (2)" is replaced by the README example "Create a message and save it as both MSG and EML" (no longer a placeholder title)), still 18 pilots (cells/go and
     # email/cpp keep "Quick Start"), 20 -> 18 that can anchor on a short lead-in (both removed examples had one).
-    assert len(rows) == 290
+    # TC-853 re-pin (tex/python re-pinned at the upstream release 26.11.1 and regenerated: the pilot's one published example grows to nine
+    # - the README examples now run - and its README "Quick Start" is a placeholder-titled example): 290 -> 298 examples (tex/python 1 -> 9),
+    # 23 -> 24 generic titled (tex/python "Quick Start"), 18 -> 19 pilots, still 18 that can anchor on a short lead-in (tex/python's "Quick Start"
+    # opens with its code and has no lead-in sentence, so it is the second one without, next to slides/net "Quick start").
+    assert len(rows) == 298
     generic = [r for r in rows if is_generic_example_title((extract_fqn(r[2]) or "")[len(EXAMPLE_PREFIX) :])]
-    assert len(generic) == 23
-    assert len({(family, platform) for family, platform, _ in generic}) == 18
-    # Every generic-titled example the corpus holds has a lead-in sentence but one (slides/net "Quick start").
+    assert len(generic) == 24
+    assert len({(family, platform) for family, platform, _ in generic}) == 19
+    # Every generic-titled example the corpus holds has a lead-in sentence but two (slides/net "Quick start", tex/python "Quick Start").
     without = [r for r in generic if not example_lead_in(r[2])]
-    assert [(f, p) for f, p, _ in without] == [("slides", "net")]
-    # 18 of the 23 (was 20 of 25, 22 of 28, 24 of 30, 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
+    assert [(f, p) for f, p, _ in without] == [("slides", "net"), ("tex", "python")]
+    # 18 of the 24 (was 18 of 23, 20 of 25, 22 of 28, 24 of 30, 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
     short = [r for r in generic if 0 < len(example_lead_in(r[2]).split()) <= LEAD_IN_MAX_WORDS]
     assert len(short) == 18
 

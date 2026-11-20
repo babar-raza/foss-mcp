@@ -2,8 +2,10 @@
 
 ``coverage_note_from_text`` turns a symbol chunk's ``API-Coverage:`` line into the sentence a miss
 (``get_symbol``, ``list_members``) and ``report_index_freshness`` give. Offline: the stores are in
-memory, built from the real chunk builder over the committed ``tex_python`` fixture (35 of its 45
-package files do not parse at the pinned commit) and over small synthetic fixtures.
+memory, built from the real chunk builder over the frozen ``tex_python`` extraction of 181015d2 (35 of its 45
+package files did not parse there; ``api_surface_181015d2_repaired.json``, the fixture committed before TC-853
+re-pinned tex/python at the upstream release 26.11.1) and over small synthetic fixtures. The committed fixture
+at 26.11.1 parses entirely, so it must raise NO note (the last tests of this module).
 """
 
 from __future__ import annotations
@@ -133,6 +135,15 @@ def _texts(fixture: dict[str, object]) -> list[str]:
 
 
 def _tex_store() -> _Store:
+    """The frozen 181015d2 extraction: 35 of its 45 files did not parse, so every miss carries the coverage note."""
+    fixture = json.loads(
+        (FIXTURES / "tex_python" / "api_surface_181015d2_repaired.json").read_text(encoding="utf-8")
+    )
+    return _Store(_texts(fixture))
+
+
+def _committed_tex_store() -> _Store:
+    """The committed tex fixture at 07db3203 (26.11.1): every one of its 59 files parses."""
     fixture = json.loads((FIXTURES / "tex_python" / "api_surface.json").read_text(encoding="utf-8"))
     return _Store(_texts(fixture))
 
@@ -189,6 +200,19 @@ def test_report_index_freshness_states_the_same_note() -> None:
     assert "Extraction notice" in report.coverage_note
     miss = get_symbol(store, SCOPE, "aspose_tex.NoSuchClass")  # type: ignore[arg-type]
     assert isinstance(miss, NotFound) and miss.coverage_note == report.coverage_note
+
+
+def test_the_committed_tex_store_at_26_11_1_states_no_unparsed_file() -> None:
+    """TC-853 (RD2-258): no file is unparseable at 26.11.1, so a miss and the freshness report carry no coverage note."""
+    store = _committed_tex_store()
+    miss = get_symbol(store, SCOPE, "aspose_tex.NoSuchClass")  # type: ignore[arg-type]
+    assert isinstance(miss, NotFound) and miss.coverage_note is None
+    members = list_members(store, SCOPE, "aspose_tex.NoSuchClass")  # type: ignore[arg-type]
+    assert isinstance(members, NotFound) and members.coverage_note is None
+    commit = "07db320334a0a58e11107b6ca8092b2e5047c1f8"
+    report = report_index_freshness(store, SCOPE, SOURCE_KIND, commit)  # type: ignore[arg-type]
+    assert report.coverage_note is None
+    assert (report.indexed_types, report.total_types) == (16, 16)  # symbol_counts.types of the fixture
 
 
 def test_a_complete_store_with_no_failure_has_no_note() -> None:

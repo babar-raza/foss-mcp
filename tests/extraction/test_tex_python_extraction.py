@@ -24,6 +24,13 @@ repairs and presentation/__init__.py 36. Function bodies are lost (they are not 
 class fields and decorators are kept. The repair is disclosed, never silent: the two
 ``repaired-syntax`` entries are the only entries of ``unresolved``.
 
+G3/TC-853 (RD2-258): tex/python was re-pinned from 181015d2 (35 of 45 files unparseable) to the upstream release 26.11.1,
+commit ``07db320334a0a58e11107b6ca8092b2e5047c1f8``, where all 59 ``.py`` files parse and ``import aspose_tex`` works; the
+fixture was regenerated there (31 symbols: the 15 public names of the paragraph below plus ``FontManager``, the CLI
+entry points ``build_parser``/``main`` and the MCP helpers ``compile_tex``/``tex_to_pdf``/``tex_to_svg``/``tex_version``).
+The paragraphs above are the history of the 181015d2 fixture, which is kept frozen as
+``tests/fixtures/tex_python/api_surface_181015d2_repaired.json`` for the tests of the repair mechanism.
+
 RECONFIRMED LIVE on 2026-10-10 (TC-324) and re-extracted on 2026-10-17 (TC-555): a fresh clone of
 ``aspose-tex-foss/Aspose.TeX-FOSS-for-Python`` resolves to the pinned commit
 ``181015d2eee3e19f8af3d84e4a932ac84ad47c7c`` and still has the identical indentation defect. The
@@ -112,7 +119,18 @@ def test_the_fixture_contains_real_python_type_names() -> None:
 def test_the_fixture_counts_the_functions_and_the_types_separately() -> None:
     data = _load_fixture()
     functions = [entry for entry in data["types"] if entry["kind"] == "function"]
-    assert {entry["name"] for entry in functions} == {"create_input_source"}
+    # TC-853: {"create_input_source"} -> seven names. At 26.11.1 (07db3203) the package also exposes the CLI entry points
+    # (aspose_tex.cli: build_parser, main) and the MCP helpers (aspose_tex.mcp: compile_tex, tex_to_pdf, tex_to_svg,
+    # tex_version); 181015d2 never extracted them because ``aspose_tex/__init__.py`` did not parse as written.
+    assert {entry["name"] for entry in functions} == {
+        "create_input_source",
+        "build_parser",
+        "main",
+        "compile_tex",
+        "tex_to_pdf",
+        "tex_to_svg",
+        "tex_version",
+    }
     assert data["symbol_counts"]["functions"] == len(functions) > 0
     identities = symbol_identity.compute_canonical_identities(data["types"])
     assert (
@@ -190,20 +208,16 @@ def test_the_public_names_are_also_exposed_from_the_top_level_package() -> None:
     assert by_import["aspose_tex.create_input_source"]["kind"] == "function"
 
 
-def test_the_two_repaired_files_are_the_only_unresolved_entries() -> None:
-    # TC-555: 2 syntax-error + 12 unresolved-reexport -> 2 repaired-syntax. A name that stays
-    # unresolved is a finding, so this list is exact, not a lower bound.
-    unresolved = _load_fixture()["unresolved"]
-    # TC-841: regenerated with the current extractor, whose repair also closes the header lines of
-    # ``src/aspose_tex/_fonts/font_manager.py`` (48 header lines closed with pass), so the exact list is now 3 repaired
-    # files, still no syntax-error or unresolved-reexport entry.
-    assert sorted(unresolved) == [
-        "aspose_tex._fonts.font_manager:47:repaired-syntax:src/aspose_tex/_fonts/font_manager.py:48 header lines closed with pass",
-        "aspose_tex._input.reader:52:repaired-syntax:src/aspose_tex/_input/reader.py:42 header lines closed with pass",
-        "aspose_tex.presentation:107:repaired-syntax:src/aspose_tex/presentation/__init__.py:36 header lines closed with pass",
-    ]
-    assert not any(":syntax-error:" in entry for entry in unresolved)
-    assert not any(":unresolved-reexport:" in entry for entry in unresolved)
+def test_no_file_needs_a_repair_and_nothing_is_unresolved() -> None:
+    # TC-555: 2 syntax-error + 12 unresolved-reexport -> 2 repaired-syntax; TC-841: 3 repaired files. TC-853 (RD2-258): the
+    # pin moved to the upstream release 26.11.1 (07db3203), where every one of the 59 source files parses as written, so the
+    # extractor repairs nothing, records no `repaired-syntax` entry and the fixture has no `unresolved` list at all. A name
+    # that stays unresolved is a finding, so this stays exact, not a lower bound.
+    data = _load_fixture()
+    assert data.get("unresolved", []) == []
+    health = data["parse_failures"]
+    assert (health["engine"], health["total"], health["failed"], health["examples"]) == ("ast", 59, 0, [])
+    assert "as_written_failed" not in health
 
 
 def test_every_reexport_shell_names_a_definition_that_is_in_the_fixture() -> None:

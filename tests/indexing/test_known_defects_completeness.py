@@ -422,6 +422,16 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     }
 )
 
+# G3/TC-853 (RD2-258, AGENTS.md "no pilot ever gets worse": a disclosure is removed only on re-verification): findings the
+# audits recorded as upstream library bugs whose defect was re-verified FIXED at the pin the index now serves, so their
+# registry entry was retired rather than kept as a now-false disclosure. Each id needs the evidence below; this is not a
+# way to drop an entry that still reproduces.
+#   TEX-PYTHON-001: 35 of 45 files of aspose-tex at 181015d2 failed ast.parse (IndentationError) and `import aspose_tex`
+#   raised. At 07db3203 (upstream release 26.11.1, PyPI `aspose-tex-foss` 26.11.1) all 59 ``.py`` files pass ``ast.parse``
+#   and ``py_compile`` and ``from aspose_tex import TeXJob, TeXOptions, PdfDevice, create_input_source`` imports in a clean
+#   venv (re-measured 2026-11-20 by the TC-853 worker); tex/python is served from that commit, so the disclosure was false.
+_RETIRED_FIXED_UPSTREAM_IDS: frozenset[str] = frozenset({"TEX-PYTHON-001"})
+
 
 def _real_upstream_library_bug_ids() -> set[str]:
     """The real, algorithmic answer to "which findings, from EITHER committed audit round, must
@@ -440,7 +450,7 @@ def _real_upstream_library_bug_ids() -> set[str]:
     round3_ids = {
         issue["id"] for issue in _real_round3_issues() if issue.get("category") == "upstream-library-bug"
     }
-    return round2_ids | round3_ids | _ADDITIONAL_DISCLOSABLE_IDS
+    return (round2_ids | round3_ids | _ADDITIONAL_DISCLOSABLE_IDS) - _RETIRED_FIXED_UPSTREAM_IDS
 
 
 # --------------------------------------------------------------------------------------------
@@ -519,8 +529,10 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-828 (2026-11-14) this real union
-    # count is 68 (67 as of TC-815, plus TC-828's own additive ``PDF-NET-009``); earlier, as of
+    # Sanity anchor only, not a floor on the future: as of G3/TC-853 (2026-11-20) this real count is
+    # 67 (68 as of TC-828, minus the retired ``TEX-PYTHON-001``, see ``_RETIRED_FIXED_UPSTREAM_IDS``); earlier, as of
+    # G3/TC-828 (2026-11-14) this real union
+    # count was 68 (67 as of TC-815, plus TC-828's own additive ``PDF-NET-009``); earlier, as of
     # G3/TC-815 (2026-11-14) this real union count was 67 (65 as of TC-796, plus TC-815's own additive ``3D-PYTHON-009`` and
     # ``WORDS-NET-005``); earlier, as of G3/TC-796 (2026-11-14) it was 65 (63 as of TC-772, plus
     # TC-796's own additive ``CELLS-TYPESCRIPT-006`` and ``CELLS-TYPESCRIPT-009``); earlier, as of G3/TC-772 (2026-11-12) this real union
@@ -538,7 +550,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 68
+    assert len(upstream_issue_ids) == 67
 
 
 # --------------------------------------------------------------------------------------------
@@ -554,7 +566,9 @@ def test_glob_finds_the_real_current_registry_file_count() -> None:
     files = _registry_files()
     # Not a floor on the future: a later card adding a 28th family file is expected and welcome.
     # This only proves the glob pattern itself is correct against today's real, committed tree.
-    assert len(files) == 27, f"expected 27 real registry files today, found {len(files)}: {files}"
+    # re-pinned by TC-853: 27 -> 26 (config/known_defects/tex__python.yaml was deleted: its only entry, TEX-PYTHON-001, was
+    # re-verified fixed at the new pin 07db3203, see ``_RETIRED_FIXED_UPSTREAM_IDS``).
+    assert len(files) == 26, f"expected 26 real registry files today, found {len(files)}: {files}"
 
 
 # --------------------------------------------------------------------------------------------

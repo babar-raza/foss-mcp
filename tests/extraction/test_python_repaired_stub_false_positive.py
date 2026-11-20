@@ -20,7 +20,12 @@ from typing import Any
 
 from foss_mcp.extraction import run_extraction
 
-_TEX_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tex_python" / "api_surface.json"
+# G3/TC-853: the committed fixture is now the extraction at the upstream release 26.11.1 (07db3203), where nothing is repaired; the
+# repaired-file rule is still held against the frozen extraction of 181015d2 (the previously committed fixture, byte for byte).
+_TEX_FIXTURE = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "tex_python" / "api_surface_181015d2_repaired.json"
+)
+_TEX_COMMITTED = Path(__file__).resolve().parents[1] / "fixtures" / "tex_python" / "api_surface.json"
 
 # The collapsed-indentation module: ``Device`` has its methods' docstrings at the column of their ``def`` (the
 # repair closes each such header with ``pass``). ``Plain`` sits in the same file but parses as written.
@@ -133,3 +138,11 @@ def test_the_tex_fixture_carries_no_empty_body_pass_stub_from_a_repaired_file() 
     repaired = [entry for entry in surface["unresolved"] if ":repaired-syntax:" in entry]
     assert len(repaired) == 3, repaired
     assert [flag for flag in _flagged_members(surface) if flag[2] == "empty body (pass)"] == []
+
+
+def test_the_committed_tex_fixture_at_26_11_1_has_nothing_repaired_and_no_pass_stub() -> None:
+    """TC-853: at 07db3203 every file parses as written, so no ``repaired-syntax`` entry exists and no member is a stub."""
+    surface = json.loads(_TEX_COMMITTED.read_text(encoding="utf-8"))
+    assert surface["source_commit"] == "07db320334a0a58e11107b6ca8092b2e5047c1f8"
+    assert not [entry for entry in surface.get("unresolved", []) if ":repaired-syntax:" in entry]
+    assert _flagged_members(surface) == []

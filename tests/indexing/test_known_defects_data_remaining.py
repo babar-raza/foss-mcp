@@ -101,6 +101,10 @@ REGISTRY_DIR = REPO_ROOT / "config" / "known_defects"
 ROUND2_ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
 ROUND3_ISSUES_PATH = REPO_ROOT / "docs" / "round3" / "issues.json"
 
+# G3/TC-853 (RD2-258): ("tex", "python") was REMOVED from this table. tex/python was re-pinned at the upstream release 26.11.1
+# (07db3203), where every source file parses and `import aspose_tex` works, so its only entry (TEX-PYTHON-001, "the library cannot be
+# imported") was re-verified fixed and retired; config/known_defects/tex__python.yaml no longer exists (pinned below). The module now
+# covers seven pilots and 17 entries (was eight and 18).
 # The eight (family, platform) pilots this card writes, and the real registry filename for each -
 # confirmed against known_defects.registry_path_for's own ``<family>__<platform>.yaml`` pattern.
 _PILOTS: tuple[tuple[str, str], ...] = (
@@ -110,7 +114,6 @@ _PILOTS: tuple[tuple[str, str], ...] = (
     ("imaging", "net"),
     ("note", "python"),
     ("page", "python"),
-    ("tex", "python"),
     ("words", "python"),
 )
 
@@ -125,7 +128,6 @@ _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("imaging", "net"): 5,
     ("note", "python"): 2,
     ("page", "python"): 3,
-    ("tex", "python"): 1,
     ("words", "python"): 2,
 }
 
@@ -240,7 +242,14 @@ def test_sixteen_entries_total_across_all_eight_pilots() -> None:
     # Name kept for the record (TC-767 added a 17th entry additively, TC-772 an 18th; renaming
     # would obscure the history of this module's own counts the way every other widening comment
     # here documents).
-    assert len(_all_written_defects()) == 18
+    # re-pinned by TC-853: 18 -> 17 (TEX-PYTHON-001 retired, see _PILOTS).
+    assert len(_all_written_defects()) == 17
+
+
+def test_tex_python_has_no_registry_file_any_more() -> None:
+    """TC-853: TEX-PYTHON-001 was retired on re-verification at 07db3203; no entry may come back without a new finding."""
+    assert not _registry_path("tex", "python").exists()
+    assert load_known_defects("tex", "python") == []
 
 
 def test_no_duplicate_ids_across_any_of_the_eight_registry_files() -> None:
@@ -271,11 +280,12 @@ def test_every_real_upstream_library_bug_finding_has_a_written_entry() -> None:
         f"real upstream-library-bug findings (round2 union round3) with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 18 members - the real union count as of G3/TC-772
+    # re-pinned by TC-853: 18 -> 17 (the tex/python pilot left this module's table, see _PILOTS).
+    # Both sets equal, and both have exactly 17 members (18 before TC-853) - the real union count as of G3/TC-772
     # (2026-11-12): 17 as of TC-767 (16 as of TC-656, plus TC-767's own project-minted
     # ``PAGE-PYTHON-011``), plus TC-772's own project-minted ``WORDS-PY-013``.
     assert expected_ids == written_ids
-    assert len(expected_ids) == 18
+    assert len(expected_ids) == 17
 
 
 def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
@@ -303,7 +313,6 @@ def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
         "PAGE-PYTHON-006",
         "PAGE-PYTHON-010",
         "PAGE-PYTHON-011",
-        "TEX-PYTHON-001",
         "WORDS-PY-008",
         "WORDS-PY-013",
     }

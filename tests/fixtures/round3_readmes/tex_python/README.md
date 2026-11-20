@@ -1,6 +1,6 @@
 # Aspose.TeX FOSS for Python
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml) [![Status: Pre--Alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#scope-and-limitations)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python/blob/main/LICENSE) [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python/blob/main/pyproject.toml) [![Status: Pre--Alpha](https://img.shields.io/badge/status-pre--alpha-orange.svg)](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#scope-and-limitations)
 
 [![Aspose.TeX FOSS for Python](https://products.aspose.org/media/tex/python/banner-readme.png)](https://products.aspose.org/tex/python/)
 
@@ -11,17 +11,17 @@ inside the package.
 
 ## Navigation
 
-- [At a Glance](#at-a-glance)
-- [Key Capabilities](#key-capabilities)
-- [Installation](#installation)
-- [Dependencies](#dependencies)
-- [Quick Start](#quick-start)
-- [Additional Examples](#additional-examples)
-- [API Reference](#api-reference)
-- [Documentation & Resources](#documentation--resources)
-- [Scope and Limitations](#scope-and-limitations)
-- [Development and Testing](#development-and-testing)
-- [License](#license)
+- [At a Glance](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#at-a-glance)
+- [Key Capabilities](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#key-capabilities)
+- [Installation](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#installation)
+- [Dependencies](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#dependencies)
+- [Quick Start](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#quick-start)
+- [Additional Examples](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#additional-examples)
+- [API Reference](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#api-reference)
+- [Documentation & Resources](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#documentation--resources)
+- [Scope and Limitations](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#scope-and-limitations)
+- [Development and Testing](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#development-and-testing)
+- [License](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#license)
 
 ## At a Glance
 
@@ -73,26 +73,35 @@ flowchart TD
 
 **Requirements**: Python 3.10+.
 
-No PyPI package has been published for this library yet — install it from source:
+Install the package from PyPI:
+
+```bash
+pip install aspose-tex-foss
+```
+
+The package is imported as `aspose_tex`. To run the MCP server, install the `mcp` extra and start
+it with `python -m aspose_tex.mcp`:
+
+```bash
+pip install "aspose-tex-foss[mcp]"
+```
+
+### From source (contributors)
 
 ```bash
 git clone https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python.git
 cd Aspose.TeX-FOSS-for-Python
-pip install -e .
-```
-
-For development (adds `pytest`, `ruff`, `build`, and `twine`):
-
-```bash
 pip install -e ".[dev]"
 ```
+
+The `dev` extra adds `pytest`, `ruff`, `build`, and `twine`.
 
 ## Dependencies
 
 ### Required Package Dependencies
 
-No required third-party package dependencies. The published `aspose-tex` package builds from
-`pyproject.toml`, which declares no `[project.dependencies]` entries.
+No required third-party package dependencies. The published `aspose-tex-foss` package declares
+no runtime dependencies; the optional `mcp` extra installs the `mcp` package.
 
 ### Native and System Requirements
 
@@ -312,26 +321,28 @@ The primary entry point is `TeXJob`, which combines an `InputSource`, an `Output
 
 - **[Getting started guide](https://docs.aspose.org/tex/python/)** — installation, walkthroughs, and feature guides for this library.
 - **[How-to guides & FAQ](https://kb.aspose.org/tex/python/)** — task-focused answers for common TeX/LaTeX-processing questions.
-- **[Full API reference](https://reference.aspose.org/tex/python/)** — the complete, browsable reference for the public API surface (the [API reference](#api-reference) section above covers the essentials).
+- **[Full API reference](https://reference.aspose.org/tex/python/)** — the complete, browsable reference for the public API surface (the [API reference](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python#api-reference) section above covers the essentials).
 - Found a bug or have a feature request? [Open an issue](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python/issues) on GitHub.
 
 ## Scope and Limitations
 
 - This is a Pre-Alpha release: the core engine and public API are under active development, and
   interfaces may change between releases.
-- The default `load_format="plain"` option (`TeXOptions`) does not yet fully load Knuth's Plain
-  TeX macro cascade in this milestone — every example above passes `load_format=False` for a
-  runnable, from-primitives document.
-- Math-mode content (`$...$`, `$$...$$`) is parsed through a shell surface but not laid out — no
-  math atoms, fractions, or radicals reach the page.
-- Table alignment (`\halign`, `\valign`) is registered but not implemented — invoking either
-  raises `NotImplementedError`.
-- Automatic hyphenation is not active: `\patterns` and `\hyphenation` are parsed and discarded,
-  and the bundled `hyphenation/` pattern directory is currently empty; `\hyphenchar` and the
-  hyphenation-penalty parameters are supported but have no pattern data to apply.
-- Named file-stream I/O (`\openin`, `\openout`, `\closein`, `\closeout`, `\read`) raises
-  `NotImplementedError` — only `\write 16` (message log), `\write -1` (silent log), `\message`,
-  and `\errmessage` are implemented; `\ifeof` always evaluates false.
+- Plain TeX is the supported format. The default `load_format="plain"` option (`TeXOptions`) loads
+  Knuth's macros from the bundled `plain.tex`, with its output routine, footnotes, and inserts.
+  The examples above pass `load_format=False` to run a document from primitives alone; leave it
+  out to use the plain macros.
+- LaTeX and the e-TeX and pdfTeX extensions are not implemented yet. `\documentclass`,
+  `\numexpr`, `\pdfoutput`, and similar commands raise `EngineError`.
+- `\special` is not implemented and raises `EngineError` as an undefined control sequence.
+- Automatic hyphenation needs the plain format, which loads the bundled US-English patterns from
+  `format/hyphen.tex`. With `load_format=False` no patterns are loaded. Other languages are added
+  the TeX way: a format file on `extra_format_paths` sets `\language` and runs `\patterns` and
+  `\hyphenation`. The bundled `hyphenation/` directory is reserved and empty.
+- Named file-stream I/O (`\openin`, `\openout`, `\closein`, `\closeout`, `\read`, and `\write` to
+  streams 0 through 15) raises `NotImplementedError` — only `\write 16` (message log), `\write -1`
+  (silent log), `\message`, and `\errmessage` are implemented; `\ifeof` always evaluates false.
+  `\write` takes effect at once, not at shipout.
 
 These limitations don't apply to
 [Aspose.TeX for Python — Enterprise Edition](https://products.aspose.com/tex/python-net/), which
@@ -346,7 +357,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-68 test modules cover the tokenizer, macro expander, box and page builder, font subsystem, and
+About 180 test modules cover the tokenizer, macro expander, box and page builder, font subsystem, and
 each output writer, including an automated end-to-end suite that compiles fixture documents
 through the public `TeXJob` API and compares the result against committed MiKTeX-generated DVI
 baselines — semantically (page count, glyph stream, line and rule positions, font metadata), not
@@ -361,8 +372,8 @@ applications can opt into standard Python logging without unexpected default-han
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). The MIT License permits use, copying,
+This project is licensed under the [MIT License](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python/blob/main/LICENSE). The MIT License permits use, copying,
 modification, distribution, sublicensing, and commercial use, provided its copyright and
 permission notice are retained. The software is provided without warranty.
 
-Bundled Computer Modern fonts are covered separately — see the [font license file](LICENSE-FONTS).
+Bundled Computer Modern fonts are covered separately — see the [font license file](https://github.com/aspose-tex-foss/Aspose.TeX-FOSS-for-Python/blob/main/LICENSE-FONTS).

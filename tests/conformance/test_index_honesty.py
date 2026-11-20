@@ -460,17 +460,20 @@ def test_parse_failure_undercount_sub_case_names_what_could_and_could_not_be_ver
 
     verifiable = [name for name, info in measured.items() if info["has_as_written_field"]]
     nonzero_failed = [name for name, info in measured.items() if info["failed"]]
-    # TC-841: tex/python was regenerated with the current extractor (TC-561), so its fixture now exposes as_written_failed
-    # (35 of 45) next to the repaired failed count (11 of 45): exactly one of the 11 pilots can be cross-checked offline, and
-    # that cross-check CONFIRMS the undercount. No other pilot may expose the field without this test and the baseline
-    # being updated.
-    assert verifiable == ["tex__python"], (
+    # TC-841: tex/python was regenerated with the current extractor (TC-561), so its fixture then exposed as_written_failed
+    # (35 of 45) next to the repaired failed count (11 of 45), and that cross-check CONFIRMED the undercount.
+    # TC-853 (RD2-258): tex/python is re-pinned at the upstream release 26.11.1 (07db3203), where all 59 source files parse as
+    # written; the extractor writes ``as_written_failed`` only when it is nonzero, so no fixture exposes the field any more, no
+    # pilot reports a nonzero parse-failure count, and the one baselined finding (parse_failure_undercount:tex__python) was
+    # removed from the baseline because it is fixed. A pilot that exposes the field or reports a failure again must be
+    # added here and to the baseline deliberately.
+    assert verifiable == [], (
         f"the set of fixtures exposing as_written_failed changed - update this test and the baseline: {verifiable}"
     )
-    assert nonzero_failed == ["tex__python"], nonzero_failed
-    assert measured["tex__python"]["failed"] == 11
-    assert measured["tex__python"]["total"] == 45
-    assert measured["tex__python"]["as_written_failed"] == 35
+    assert nonzero_failed == [], nonzero_failed
+    assert measured["tex__python"]["failed"] == 0
+    assert measured["tex__python"]["total"] == 59
+    assert measured["tex__python"]["as_written_failed"] is None
 
 
 def test_member_body_excludes_an_empty_methods_and_properties_section() -> None:

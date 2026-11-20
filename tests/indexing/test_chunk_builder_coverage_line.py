@@ -37,8 +37,14 @@ def _texts(fixture: Mapping[str, object]) -> list[str]:
     return [chunk.text for chunk in build_chunks_from_api_surface(fixture, title="t", max_types=10_000)]
 
 
-def _real(pilot: str) -> dict[str, object]:
-    return json.loads((FIXTURES_DIR / pilot / "api_surface.json").read_text(encoding="utf-8"))
+def _real(pilot: str, name: str = "api_surface.json") -> dict[str, object]:
+    return json.loads((FIXTURES_DIR / pilot / name).read_text(encoding="utf-8"))
+
+
+# G3/TC-853: tex/python was re-pinned at the upstream release 26.11.1 (07db3203), where every file parses. The clause mechanism
+# ("N of M source files could not be parsed") is still held against the frozen extraction of 181015d2 (35 of 45 files unparseable,
+# 11 of 45 unreadable after the repair): the previously committed fixture, byte for byte.
+_TEX_FROZEN = "api_surface_181015d2_repaired.json"
 
 
 def _last_lines(fixture: Mapping[str, object]) -> set[str]:
@@ -194,8 +200,8 @@ def test_every_clause_in_order() -> None:
 # ---------------------------------------------------------------- the committed tex_python fixture
 
 
-def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk() -> None:
-    fixture = _real("tex_python")
+def test_frozen_tex_python_fixture_states_the_unparsed_files_in_every_chunk() -> None:
+    fixture = _real("tex_python", _TEX_FROZEN)
     texts = _texts(fixture)
     # TC-555: 4 chunks -> 23 (21 types, 2 functions) and "at least 2 source files" -> the measured
     # parse_failures of the committed fixture (the files the indentation repair reads are no failure; the 11
@@ -212,10 +218,20 @@ def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk()
     assert all(text.splitlines()[-1] == expected for text in texts)
 
 
+def test_committed_tex_python_fixture_at_26_11_1_states_no_unparsed_file() -> None:
+    """TC-853: every one of the 59 files parses at 07db3203, so no chunk carries a "could not be parsed" clause."""
+    fixture = _real("tex_python")
+    texts = _texts(fixture)
+    assert len(texts) == 31
+    assert all(text.splitlines()[-1] == "API-Coverage: 16 of 16 types; 8 of 8 functions" for text in texts)
+    assert not any("could not be parsed" in text for text in texts)
+
+
 def test_the_line_still_matches_the_legacy_regex_with_the_types_clause_first() -> None:
     fixtures = [
         _go_like({"symbol_counts": {"types": 259, "functions": 2054}}),
         _real("tex_python"),
+        _real("tex_python", _TEX_FROZEN),
         _fixture(
             [{"name": "A", "kind": "class", "file": "a.py"}],
             type_count=4,
@@ -241,7 +257,7 @@ def test_every_symbol_chunk_carries_the_clause_not_only_the_first() -> None:
 
 
 def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> None:
-    fixture = _real("tex_python")
+    fixture = _real("tex_python", _TEX_FROZEN)
     for text in _texts(fixture):
         appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
         assert appended.splitlines()[

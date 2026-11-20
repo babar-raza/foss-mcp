@@ -265,25 +265,23 @@ def test_cells_python_workbook_surfaces_cells_py_005_via_search_symbols(corpus: 
 # --------------------------------------------------------------------------------------------
 
 
-def test_tex_python_tex_job_surfaces_tex_python_001_via_search_symbols(corpus: ConformanceCorpus) -> None:
-    """Proves the architectural fix itself: TEX-PYTHON-001 is subject.kind "package", so before
-    widening _SYMBOL_DEFECT_SUBJECT_KINDS this would have been silently dropped regardless of refs."""
+def test_tex_python_tex_job_surfaces_no_known_defect_via_search_symbols(corpus: ConformanceCorpus) -> None:
+    """G3/TC-853 (RD2-258): TEX-PYTHON-001 (subject.kind "package", the architectural case this group once proved through
+    tex/python) was RETIRED: at the pin tex/python now serves (07db3203, release 26.11.1) every source file parses and
+    ``import aspose_tex`` works, so a disclosure that the library cannot be imported would be false. The package-kind
+    mechanism itself is still proven below through slides/python (SLIDES-PY-001) and 3d/python; here the symbol must be found
+    and carry NO defect, and the pilot's registry must be empty."""
     result = _pilot_search_symbols(corpus, "tex__python", "TeXJob")
     assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
-    defects = load_known_defects("tex", "python")
-    hit_ids = set()
-    for match in result:
-        hit_ids |= _defect_ids(match.known_defects, defects)
-    assert hit_ids == {"TEX-PYTHON-001"}
+    assert not load_known_defects("tex", "python")
+    assert not any(match.known_defects for match in result)
 
 
-def test_tex_python_tex_job_still_surfaces_tex_python_001_via_get_symbol(corpus: ConformanceCorpus) -> None:
-    """Regression guard: get_symbol never had the kind filter, so this already worked and must keep
-    working unaffected by the search_symbols-only widening."""
+def test_tex_python_tex_job_surfaces_no_known_defect_via_get_symbol(corpus: ConformanceCorpus) -> None:
+    """Regression guard for the retirement above: ``get_symbol`` answers TeXJob and attaches no defect line."""
     result = _pilot_get_symbol(corpus, "tex__python", "TeXJob")
     assert isinstance(result, SymbolSignature) and result.found
-    defects = load_known_defects("tex", "python")
-    assert _defect_ids(result.known_defects, defects) == {"TEX-PYTHON-001"}
+    assert not result.known_defects
 
 
 def test_slides_python_notes_slide_manager_surfaces_slides_py_001_via_search_symbols(

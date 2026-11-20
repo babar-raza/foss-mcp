@@ -61,11 +61,9 @@ NO_REGISTRY_PLATFORM = "cpp"
 COMMIT_EXCEPTIONS: dict[str, str] = {}
 # pilot -> the allowed MAXIMUM of the fixture's ``unresolved`` list. The entry is removed once the count reaches 0.
 UNRESOLVED_EXCEPTIONS = {
-    # tex/python: two modules of the pinned upstream library lost their indentation (reader.py, presentation/__init__.py); the
-    # extractor repairs them and discloses each as one `repaired-syntax` entry (TC-555: 13 -> 2). Both entries are disclosures,
-    # not unresolved references: every public name is extracted.
-    # TC-841: 2 -> 3 (the regenerated fixture also repairs src/aspose_tex/_fonts/font_manager.py, a third disclosure).
-    "tex_python": 3,
+    # tex/python: TC-853 removed the entry - the pilot is re-pinned at the upstream release 26.11.1 (07db3203), where every one of
+    # the 59 source files parses as written, so nothing is repaired and the regenerated fixture has no `unresolved` list (was 3
+    # `repaired-syntax` disclosures at 181015d2: TC-555 13 -> 2, TC-841 2 -> 3).
     # email/python: references to types the extraction could not resolve.
     # TC-841: 38 -> 6 (the regenerated fixture lists 6 unresolved entries)
     "email_python": 6,

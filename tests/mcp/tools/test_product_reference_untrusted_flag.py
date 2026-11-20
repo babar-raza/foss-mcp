@@ -45,7 +45,10 @@ HAZARDS = (
     KnownHazard(text="Calling close() twice crashes the process.", verified_at="2026-11-14"),
     KnownHazard(text="Saving from two threads corrupts the file.", verified_at="2026-11-13"),
 )
-# The seven pilots whose real answer is the README section with hazard paragraphs appended; the flag was False.
+# The six pilots whose real answer is the README section with hazard paragraphs appended; the flag was False.
+# re-pinned by TC-853: seven -> six. tex_python left the list: its only hazard source was the known-defect TEX-PYTHON-001, retired when
+# tex/python was re-pinned at the upstream release 26.11.1 (07db3203), so its limitations answer is the plain README section (no hazard
+# paragraph, nothing to mix); test_tex_python_limitations_carry_no_hazard_paragraph below pins that.
 MIXED_PILOTS = (
     "3d_java",
     "3d_net",
@@ -53,7 +56,6 @@ MIXED_PILOTS = (
     "cells_rust",
     "page_python",
     "slides_python",
-    "tex_python",
 )
 # The one pilot whose limitations answer is nothing but the project's own hazard disclosure.
 HAZARD_ONLY_PILOTS = ("imaging_net",)
@@ -172,7 +174,7 @@ def test_every_pilot_limitations_flag_is_true_unless_the_answer_is_project_autho
 
 
 @pytest.mark.parametrize("pilot", MIXED_PILOTS)
-def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
+def test_the_six_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -> None:
     inputs, readme = _load_baked(tmp_path, pilot)
     assert _hazards_for_limitations(inputs), pilot
 
@@ -182,6 +184,17 @@ def test_the_seven_mixed_pilots_now_carry_the_flag(tmp_path: Path, pilot: str) -
     assert KNOWN_HAZARD_LEAD in result.text
     assert not result.text.startswith(KNOWN_HAZARD_LEAD), pilot  # upstream README text heads the answer
     assert result.untrusted_upstream_content is True
+
+
+def test_tex_python_limitations_carry_no_hazard_paragraph(tmp_path: Path) -> None:
+    """TC-853: no known-defect hazard exists for tex/python any more, so the answer is the upstream README section alone."""
+    inputs, readme = _load_baked(tmp_path, "tex_python")
+    assert _hazards_for_limitations(inputs) == ()
+
+    result = get_product_reference(inputs, "limitations", readme=readme)
+
+    assert isinstance(result, ReferenceContent)
+    assert KNOWN_HAZARD_LEAD not in result.text
 
 
 @pytest.mark.parametrize("pilot", HAZARD_ONLY_PILOTS)

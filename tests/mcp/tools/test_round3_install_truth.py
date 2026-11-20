@@ -404,7 +404,11 @@ def test_every_pilot_the_registry_lacks_quotes_no_install_line_for_it() -> None:
         offending = [line for line in result.text.split("\n") if command.search(line)]
         assert offending == [], (pilot, offending)
         checked += 1
-    assert checked >= 3
+    # re-pinned by TC-853: 3 -> 2. tex/python was re-pinned at the upstream release 26.11.1 (07db3203), whose package
+    # `aspose-tex-foss` IS published on PyPI (package_registry_tex_python.json: verified true, served 26.11.1), so it left
+    # the set of pilots whose recorded registry answer is "absent"; test_tex_python_install_names_the_published_package
+    # below pins that. The two remaining pilots are still checked.
+    assert checked >= 2
 
 
 # --- bounds and build steps (RD3-085, RD3-086) -----------------------------------------------------------------------
@@ -741,9 +745,10 @@ def test_the_extraction_notice_statement_is_read_from_the_index() -> None:
 
 
 def test_tex_install_leads_with_the_cannot_be_imported_statement_and_the_real_count() -> None:
-    pyproject = _upstream("tex_python", "pyproject.toml")
-    inputs = _registry_says_absent("tex_python")
-    assert 'name = "aspose-tex"' in pyproject
+    """The mechanism (RD3-092): an index that holds the 181015d2 Extraction notice puts the statement first in the
+    install answer. TC-853: tex/python no longer HAS that notice at 26.11.1, so the notice text below is the historical
+    one and the inputs are the real, current ones (the registry answers: published, coordinate aspose-tex-foss)."""
+    inputs = _inputs("tex_python")
 
     result = get_product_reference(inputs, "install", readme=_tex_index())
 
@@ -751,6 +756,35 @@ def test_tex_install_leads_with_the_cannot_be_imported_statement_and_the_real_co
     assert result.text.startswith(f"WARNING: {IMPORT_WARNING}")
     assert "cannot be imported at this commit" in result.text
     assert "35 of 45" in result.text and "11 of 45" not in result.text
+
+
+def test_tex_python_install_names_the_published_package_and_warns_of_nothing() -> None:
+    """TC-853 (RD2-258): at 07db3203 (release 26.11.1) the package is `aspose-tex-foss`, which PyPI serves, and no
+    extraction notice exists in the index, so the install answer is the plain command with no import warning."""
+    pin = _pin("tex_python")
+    pyproject = _upstream("tex_python", "pyproject.toml")
+    recorded = json.loads((MANIFESTS / "package_registry_tex_python.json").read_text(encoding="utf-8"))
+    assert pin["commit"] == "07db320334a0a58e11107b6ca8092b2e5047c1f8"
+    assert 'name = "aspose-tex-foss"' in pyproject and 'version = "26.11.1"' in pyproject
+    assert (
+        recorded["ecosystem"],
+        recorded["coordinate"],
+        recorded["verified"],
+        recorded["served_version"],
+    ) == (
+        "pypi",
+        "aspose-tex-foss",
+        True,
+        "26.11.1",
+    )
+    assert recorded["source_ref"] == pin["commit"]
+
+    result = get_product_reference(_inputs("tex_python"), "install", readme=ReadmeSections())
+
+    assert isinstance(result, ReferenceContent)
+    assert not result.text.startswith("WARNING")
+    assert result.text.startswith("pip install aspose-tex-foss")
+    assert "aspose-tex " not in result.text.replace("aspose-tex-foss", "")
 
 
 def test_an_install_answer_without_the_statement_is_not_prefixed() -> None:

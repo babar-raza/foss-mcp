@@ -434,8 +434,10 @@ def test_tex_options_is_a_dataclass_with_a_generated_constructor() -> None:
 
 def test_tex_reports_the_files_that_do_not_parse() -> None:
     health = fixture("tex_python")["parse_failures"]
-    assert (health["engine"], health["failed"], health["total"]) == ("ast", 11, 45)
-    assert health["examples"]
+    # re-pinned by TC-853: ('ast', 11, 45) with examples -> ('ast', 0, 59), examples []. tex/python moved from 181015d2 (35 of 45
+    # files unparseable) to the upstream release 26.11.1 (07db3203), where all 59 source files parse as written.
+    assert (health["engine"], health["failed"], health["total"]) == ("ast", 0, 59)
+    assert health["examples"] == []
     # TC-841: 14 -> 16 after regenerating with the current extractor (TC-818 package-root re-export shells recover
     # ``FontManager`` and ``InputSource``, the two new type entries).
     assert fixture("tex_python")["symbol_counts"]["types"] == 16

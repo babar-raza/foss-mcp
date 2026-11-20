@@ -18,7 +18,13 @@ from typing import Any
 
 from foss_mcp.extraction import run_extraction
 
-FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tex_python" / "api_surface.json"
+# G3/TC-853: the committed tex fixture moved to the upstream release 26.11.1 (07db3203), where every file parses and nothing
+# is repaired; these tests keep proving the repair against the frozen extraction of 181015d2 (35 of 45 files collapsed),
+# the previously committed fixture byte for byte.
+FIXTURE = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "tex_python" / "api_surface_181015d2_repaired.json"
+)
+COMMITTED_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "tex_python" / "api_surface.json"
 MANIFEST = {"platform": "python", "family": "pkg", "repository": "acme/pkg"}
 
 # Collapsed: one space per level, the docstring at the def's column.
@@ -212,3 +218,23 @@ def test_the_committed_tex_health_counts_only_the_unrepairable_files() -> None:
     # TC-555: 35 of 45 (every collapsed file) -> 11 of 45 (the files the bounded repair cannot read).
     assert health["failed"] == 11
     assert len(health["examples"]) == 5
+
+
+def test_the_committed_tex_health_at_26_11_1_has_nothing_to_repair_and_nothing_unreadable() -> None:
+    """TC-853 (RD2-258): at 07db3203 all 59 files parse as written, so no file is repaired or unreadable."""
+    health = json.loads(COMMITTED_FIXTURE.read_text(encoding="utf-8"))["parse_failures"]
+    assert (health["engine"], health["total"], health["failed"], health["examples"]) == ("ast", 59, 0, [])
+    assert "as_written_failed" not in health
+
+
+def test_the_committed_output_format_at_26_11_1_has_its_real_members_without_any_repair() -> None:
+    """TC-853: the enum is read from a file that parses as written at 07db3203, with the same three members."""
+    fixture = json.loads(COMMITTED_FIXTURE.read_text(encoding="utf-8"))
+    enums = {entry["class_import"]: entry for entry in fixture["types"] if entry["kind"] == "enum"}
+    assert fixture["source_commit"] == "07db320334a0a58e11107b6ca8092b2e5047c1f8"
+    assert _members(enums["aspose_tex.presentation.OutputFormat"]) == [
+        ("DVI", "'dvi'"),
+        ("PDF", "'pdf'"),
+        ("SVG", "'svg'"),
+    ]
+    assert enums["aspose_tex.OutputFormat"]["enum_members"] == []

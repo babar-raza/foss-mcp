@@ -76,7 +76,12 @@ NO_REGISTRY_PLATFORM = "cpp"
 # 50_376_778 bytes (generation files, pointers and sidecars). Same rule as TC-848..TC-851: the measurement rounded up to the next
 # 10_000 (the usual x 1.05 would be 52_895_617, which the 55_000_000 ceiling would allow but would leave the budget loose by 2.5 MB).
 # No pilot holds 64-dim vectors any more, so no later regeneration adds vector bytes; the margin under the ceiling is 4_623_222 bytes.
-TREE_BYTES_BUDGET = 50_380_000
+# re-pinned by TC-853: 50_380_000 -> 50_680_000. tex/python was re-pinned at the upstream release 26.11.1 (07db3203) and regenerated with
+# gateway 4096-dim example vectors: 47 chunks (was 32), 9 example vector points (was 1), 31 symbols (was 25), and fresh product-reference,
+# package-registry and recent-releases sidecars (the product-reference one now carries the 26.11.1 README and install_served_version): the
+# committed tree measured 50_677_414 bytes (generation files, pointers and sidecars). Same rule as TC-848..TC-852: the measurement rounded up
+# to the next 10_000. The margin under the 55_000_000 lean ceiling is 4_322_586 bytes (4_320_000 from the budget).
+TREE_BYTES_BUDGET = 50_680_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {

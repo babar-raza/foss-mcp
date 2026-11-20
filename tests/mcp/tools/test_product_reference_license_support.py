@@ -280,7 +280,10 @@ def test_slides_net_with_the_recorded_directory_build_props_answers_the_package_
     )
 
 
-@pytest.mark.parametrize("pilot", ["pdf_go", "tex_python"])
+# re-pinned by TC-853: tex_python left the two parametrised tests below. At the upstream release 26.11.1 (07db3203) its pyproject.toml
+# states [project.urls] (Homepage = the repository), so its support answer is that manifest URL, not the labelled source repository
+# (test_tex_python_support_is_the_url_its_manifest_states below).
+@pytest.mark.parametrize("pilot", ["pdf_go"])
 def test_support_without_a_manifest_url_is_the_labelled_source_repository(pilot: str) -> None:
     repository = _sidecar(pilot)["source_repository"]
 
@@ -302,7 +305,7 @@ def test_a_full_source_repository_url_is_kept_as_given() -> None:
     assert result.text == url
 
 
-@pytest.mark.parametrize("pilot", ["pdf_go", "tex_python", "slides_net"])
+@pytest.mark.parametrize("pilot", ["pdf_go", "slides_net"])
 def test_a_sidecar_from_before_the_fetcher_change_keeps_its_support_answer_despite_the_pin(
     pilot: str,
 ) -> None:
@@ -314,6 +317,17 @@ def test_a_sidecar_from_before_the_fetcher_change_keeps_its_support_answer_despi
 
     assert get_product_reference(with_pin, "support") == get_product_reference(without_pin, "support")
     assert isinstance(get_product_reference(with_pin, "support"), NotAvailable)
+
+
+def test_tex_python_support_is_the_url_its_manifest_states() -> None:
+    """TC-853: the 26.11.1 pyproject.toml names Homepage/Source/Issues, so ``support`` answers from the manifest with no notice,
+    with or without the install pin."""
+    repository = _sidecar("tex_python")["source_repository"]
+    expected = ReferenceContent("support", f"https://github.com/{repository}")
+
+    assert get_product_reference(_inputs("tex_python", source_repository=repository), "support") == expected
+    with_pin = _inputs("tex_python", source_repository=repository, source_ref="a" * 40)
+    assert get_product_reference(with_pin, "support") == expected
 
 
 def test_a_url_the_manifest_states_is_not_replaced_by_the_source_repository() -> None:
