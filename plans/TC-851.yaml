@@ -86,6 +86,8 @@ write_paths:
   - tests/indexing/test_authored_examples_cells_typescript.py
   - tests/fixtures/furnished/3d_typescript/authored_examples.yaml
   - tests/indexing/test_authored_examples_3d_typescript.py
+  - tests/mcp/tools/test_find_examples_verification_level_label.py
+  - tests/mcp/tools/test_find_examples_rare_code_word.py
 satisfies:
   - REQ-G3-017
 source_refs:
@@ -193,6 +195,7 @@ inputs:
     fails. (3) A stale FAILED entry in tests/fixtures/verified_examples/<pilot>.json is replayed
     instead of re-run: when you fix the cause of a failure, drop only those entries and re-run them.
     (4) pull_verification_cache writes CRLF into the JSON: convert to LF before committing.
+  - 'LESSONS FROM TC-850 (read before you start) - (1) tests/mcp/tools/test_find_examples_verification_level_label.py keeps a LEGACY_PILOTS list of pilots whose committed generation has no Verification-Level line; move every pilot you regenerate out of it and into a regenerated list (check whether your pilots are in it), and tests/mcp/tools/test_find_examples_rare_code_word.py pins authored titles, so re-pin any title your sidecar changed. (2) tests/deploy/test_compact_demo_manifests.py has MEDIAN_FILE_BYTES_BUDGET as well as TREE_BYTES_BUDGET, and tests/conformance/test_example_integrity.py, test_index_honesty.py and test_symbol_self_retrieval.py plus their baselines hold per-pilot entries (mislabelled-verified, tautology, prefix3 counts) that a regeneration legitimately fixes or moves - remove fixed entries, add only prefix3 or probe-artefact entries under DG-1, record a tc851_rationale key with per-pilot counts, and keep strict true. (3) tests/mcp/tools/test_post_regen_retrieval_ratchets.py non-vacuity guard now compares stamped example chunks (simulated greater than committed); it still holds while cohort C5 is unregenerated, do not change it here. (4) Rebuild infra/demo-inputs/embeddings/<pilot>.json from the new generations (entries equal points, sha256 of text to vector); the recipe reproduces the committed pdf__net file byte for byte. (5) Run helm and tsc through activate.ps1 in the same shell or tests/deploy and the typescript verifier tests error on a missing tool. (6) Use pytest junitxml to confirm results when a redirected run ends with no summary line.'
 actions:
   - >-
     Regenerate cohort C4 locally, review per-pilot diffs, land the data with its test pins and a new
