@@ -224,3 +224,53 @@ examples:
 
     main();
   code_sha256: 778fe244d93ec1cd584bdaad131c3084687597ba0945dfe1bf122efa47840bdd
+- title: Convert a PDF to HTML, Markdown and DOCX, even a password-protected one
+  description: Creates a document with page text and metadata, writes it with an AES-256 encrypt option (user and owner password, copying and modifying denied), reopens it with Document.OpenFile and the password, reads the metadata title back and converts the reopened pages to HTML, Markdown and DOCX with Document.ToHtml, Document.ToMarkdown and Document.ToDocx.
+  symbols:
+  - Document
+  - Document.New
+  - Page.AddText
+  - Document.SetMetadata
+  - Document.WriteTo
+  - Document.OpenFile
+  - Document.GetMetadata
+  - Document.ToHtml
+  - Document.ToMarkdown
+  - Document.ToDocx
+  code: |
+    // Authored example: password-protect a document with AES-256, reopen it with the password and convert its pages to HTML, Markdown and DOCX.
+    import { Document, PageFormat } from "@asposefoss/pdf";
+
+    function main(): void {
+      const doc = Document.New(PageFormat.A4);
+      doc.Pages[0].AddText("Confidential quarterly figures", 72, 760, { fontSize: 16 });
+      doc.SetMetadata({ title: "Protected Report", author: "FOSS team" });
+
+      const path = "outputfiles/cand6.pdf";
+      doc.WriteTo(path, {
+        encrypt: {
+          userPassword: "open-me",
+          ownerPassword: "full-rights",
+          algorithm: "aes256",
+          permissions: { copying: false, modifying: false },
+          encryptMetadata: true,
+        },
+      });
+
+      // Open the protected file with its password, then convert every page: HTML and Markdown are strings, DOCX is a byte array.
+      const reopened = Document.OpenFile(path, { password: "open-me" });
+      const title = reopened.GetMetadata().title;
+      const html = reopened.ToHtml();
+      const markdown = reopened.ToMarkdown();
+      const docx = reopened.ToDocx();
+      console.log("title:", title, "html bytes:", html.length, "markdown bytes:", markdown.length, "docx bytes:", docx.length);
+
+      if (title !== "Protected Report") throw new Error(`expected title "Protected Report", got: ${title}`);
+      if (!html.includes("Confidential quarterly figures")) throw new Error("expected the page text in the HTML conversion");
+      if (!markdown.includes("Confidential quarterly figures")) throw new Error("expected the page text in the Markdown conversion");
+      if (docx.length < 4 || docx[0] !== 0x50 || docx[1] !== 0x4b) throw new Error("expected the DOCX conversion to be a zip package");
+      console.log("cand6 OK");
+    }
+
+    main();
+  code_sha256: 0927ddd9e29ad1ced76e5925158005847843dced0065302662c604ea2fd15e13

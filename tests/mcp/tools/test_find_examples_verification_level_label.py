@@ -308,6 +308,8 @@ REGENERATED_COHORT_C1_PILOTS = [
     "tex__python",
 ]
 REGENERATED_COHORT_C3_PILOTS = ["pdf__java", "slides__java", "cells__java", "3d__java"]
+# TC-851: cohort C4 (the three TypeScript pilots) was regenerated: every one of its example chunks carries a Verification-Level line.
+REGENERATED_COHORT_C4_PILOTS = ["pdf__typescript", "cells__typescript", "3d__typescript"]
 
 
 def _committed_example_texts(pilot: str) -> list[str]:
@@ -322,7 +324,9 @@ def _committed_example_texts(pilot: str) -> list[str]:
     return [doc["text"] for doc in documents.values() if is_verified_example_text(doc["text"])]
 
 
-@pytest.mark.parametrize("pilot", [*REGENERATED_COHORT_C1_PILOTS, *REGENERATED_COHORT_C3_PILOTS])
+@pytest.mark.parametrize(
+    "pilot", [*REGENERATED_COHORT_C1_PILOTS, *REGENERATED_COHORT_C3_PILOTS, *REGENERATED_COHORT_C4_PILOTS]
+)
 def test_a_regenerated_generation_has_level_lines_and_serves_the_level_derived_label(pilot: str) -> None:
     examples = _committed_example_texts(pilot)
     assert examples, pilot

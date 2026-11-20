@@ -62,7 +62,12 @@ EXPECTED_SCOPES = 32
 # sidecars; the compaction's own scope-only total is 45_011_768). Same rule as TC-848/TC-849: the measurement rounded up to the next
 # 10_000 (the usual x 1.05 would be 50_054_932, which the 55_000_000 ceiling would allow but would leave the budget loose by 2.4 MB).
 # Pilots still holding 64-dim vectors (cohorts C4 and C5) will add vector bytes when they are regenerated.
-TREE_BYTES_BUDGET = 47_680_000
+# re-pinned by TC-851: 47_680_000 -> 48_420_000. Cohort C4 (pdf, cells and 3d, all TypeScript) was regenerated with gateway 4096-dim
+# example vectors (they were 64-dim hashing vectors) and one authored example more per pilot: the committed tree measured 48_414_308
+# bytes (generation files, pointers and sidecars; the compaction's own scope-only total is 45_755_665). Same rule as TC-848/TC-849/TC-850:
+# the measurement rounded up to the next 10_000 (the usual x 1.05 would be 50_835_023, which the 55_000_000 ceiling would allow but
+# would leave the budget loose by 2.4 MB). Pilots still holding 64-dim vectors (cohort C5) will add vector bytes when regenerated.
+TREE_BYTES_BUDGET = 48_420_000
 # re-pinned by TC-778: 6_060_000 -> 7_390_000 (the largest generation file is pdf/java again, now
 # 7_031_594 bytes, after the supervisor's TC-743/TC-744/TC-748 authored-examples re-ingest finally
 # caught pdf/java's own generation up to the per-member documentation rendering already present on
@@ -77,7 +82,9 @@ LARGEST_FILE_BYTES_BUDGET = 7_390_000
 # generation file (over the 32 scopes) to 844_338.5 bytes; 844_338.5 x 1.05 = 886_555.4, rounded up to the next 10_000.
 # re-pinned by TC-850: 890_000 -> 990_000. Cohort C3's regenerated Java pilots carry 4096-dim example vectors, which moved the median
 # generation file (over the 32 scopes) to 934_366 bytes; 934_366 x 1.05 = 981_084.3, rounded up to the next 10_000.
-MEDIAN_FILE_BYTES_BUDGET = 990_000
+# re-pinned by TC-851: 990_000 -> 1_050_000. Cohort C4's regenerated TypeScript pilots carry 4096-dim example vectors, which moved the median
+# generation file (over the 32 scopes) to 998_887 bytes; 998_887 x 1.05 = 1_048_831.4, rounded up to the next 10_000.
+MEDIAN_FILE_BYTES_BUDGET = 1_050_000
 # The lean standalone image was agreed with the operator at 45 MB for the baked tree. Raised to 55 MB by TC-854 on 2026-11-14,
 # recorded as OQ-029 (PROVISIONAL_ACCEPT, decided by the supervisor under the standing directive; the operator can still overrule it).
 # Why: gateway-dimension (4096) example vectors make find_examples hybrid instead of permanently lexical-only, at about 33 KB per

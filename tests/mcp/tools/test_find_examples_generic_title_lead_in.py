@@ -466,16 +466,21 @@ def test_the_real_corpus_census_of_generic_titled_examples(tmp_path: Path) -> No
     # longer published): 302 -> 296 examples (pdf/java 7 -> 8, slides/java 16 -> 13, cells/java 8 -> 8, 3d/java 8 -> 4), 30 -> 28 generic
     # titled (3d/java "Quick Start (2)" and cells/java "Quick Start (2)" are gone), still 20 pilots, 24 -> 22 that can anchor on a short
     # lead-in (both removed examples had one).
-    assert len(rows) == 296
+    # TC-851 re-pin (cohort C4, the three TypeScript pilots, regenerated: README examples whose run failed or printed nothing are no
+    # longer published; one authored example per pilot restores an answer): 296 -> 291 examples (pdf/typescript 9 -> 7, cells/typescript
+    # 8 -> 6, 3d/typescript 8 -> 7), 28 -> 25 generic titled (3d/typescript "Quick Start" and cells/typescript "Quick Start" and
+    # "Quick Start (2)" are gone; the authored cells/typescript "Quick Start: save Products in XLSX format, update and reload" is not a
+    # generic title), 20 -> 18 pilots (3d/typescript and cells/typescript have none left), 22 -> 20 that can anchor on a short lead-in.
+    assert len(rows) == 291
     generic = [r for r in rows if is_generic_example_title((extract_fqn(r[2]) or "")[len(EXAMPLE_PREFIX) :])]
-    assert len(generic) == 28
-    assert len({(family, platform) for family, platform, _ in generic}) == 20
+    assert len(generic) == 25
+    assert len({(family, platform) for family, platform, _ in generic}) == 18
     # Every generic-titled example the corpus holds has a lead-in sentence but one (slides/net "Quick start").
     without = [r for r in generic if not example_lead_in(r[2])]
     assert [(f, p) for f, p, _ in without] == [("slides", "net")]
-    # 22 of the 28 (was 24 of 30, 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
+    # 20 of the 25 (was 22 of 28, 24 of 30, 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
     short = [r for r in generic if 0 < len(example_lead_in(r[2]).split()) <= LEAD_IN_MAX_WORDS]
-    assert len(short) == 22
+    assert len(short) == 20
 
 
 QUERIES = (

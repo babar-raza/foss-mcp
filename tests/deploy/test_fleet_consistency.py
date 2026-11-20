@@ -130,6 +130,9 @@ COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # net) from the current fixtures with gateway 4096-dim vectors, so pdf_net's TC-842 entry is removed from both tables.
 # TC-850 (2026-11-20): cohort C3 (scripts/release/regenerate_local.py) re-baked pdf/java, slides/java, cells/java and 3d/java from
 # the current fixtures with gateway 4096-dim vectors, so their TC-727 / TC-842 entries are removed: no pilot is listed stale any more.
+# TC-851 (2026-11-20): cohort C4 (scripts/release/regenerate_local.py) re-baked pdf/typescript, cells/typescript and 3d/typescript
+# from the current fixtures with gateway 4096-dim vectors. None of the three was listed (their fixtures never moved), so the tables
+# stay empty; tests/deploy/test_regenerated_cohort_c4.py pins that they are not listed.
 STALE_BAKED_PILOTS: dict[str, str] = {}
 # TC-536: emptied with STALE_BAKED_PILOTS above (every member-stale pilot is resolved). Kept defined, not removed, because
 # baked_is_stale() below still names it and tests/deploy/test_served_coverage_matches_fixtures.py reaches baked_is_stale

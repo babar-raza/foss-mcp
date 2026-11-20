@@ -54,8 +54,9 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
-EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
+# TC-851: a sixth example restores an answer the TC-802 verifier rule removed (a README example that cannot run as written).
+EXPECTED_EXAMPLES = 6
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5, 6]
 
 _STATIC_MODULE_DECLARATION_RE = re.compile(
     r"""(?:^|(?<=;))[ \t\r\n]*(?P<kw>import|export)\b(?:[^'"`;]*?\bfrom)?\s*(?P<q>['"])(?P<spec>[^'"\n]+)(?P=q)[ \t]*;?""",
@@ -102,7 +103,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_six_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}

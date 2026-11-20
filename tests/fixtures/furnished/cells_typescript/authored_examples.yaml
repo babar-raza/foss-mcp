@@ -231,3 +231,57 @@ examples:
 
     main();
   code_sha256: fb58e426d83b55905cdbd8f998db059eab12bb9f3c3e8f849ef2445ca0fb91fa
+- title: "Quick Start: save Products in XLSX format, update and reload"
+  description: Writes a Products worksheet with Apple and Orange prices and a SUM formula, saves it as XLSX, reloads it, replaces the header cell with the value Updated through Cell.putValue, saves again and reads the updated cell and the prices back from the final reload.
+  symbols:
+  - Workbook
+  - Workbook.save
+  - Workbook.load
+  - Worksheet.putValue
+  - Worksheet.getCell2
+  - Worksheet.name
+  - Cell.putValue
+  - Cell.setFormula
+  - Cell.value
+  code: |
+    // Authored example: save a Products price list as an XLSX workbook, update one cell after reloading it, save again and read the changes back.
+    import { Workbook } from "./aspose_cells";
+
+    async function main() {
+      const workbook = new Workbook();
+      const sheet = workbook.worksheets.get(0)!;
+      sheet.name = "Products";
+      sheet.putValue("A1", "Product");
+      sheet.putValue("B1", "Price");
+      sheet.putValue("A2", "Apple");
+      sheet.putValue("B2", 2.99);
+      sheet.putValue("A3", "Orange");
+      sheet.putValue("B3", 1.99);
+      sheet.getCell2("B4").setFormula("SUM(B2:B3)");
+
+      const firstPath = "outputfiles/cand6.xlsx";
+      await workbook.save(firstPath);
+
+      const reloaded = await Workbook.load(firstPath);
+      const reloadedSheet = reloaded.worksheets.get(0)!;
+      reloadedSheet.getCell2("A1").putValue("Updated");
+
+      const secondPath = "outputfiles/cand6-updated.xlsx";
+      await reloaded.save(secondPath);
+
+      const final = await Workbook.load(secondPath);
+      const finalSheet = final.worksheets.get(0)!;
+      const header = finalSheet.getCell2("A1").value;
+      const apple = finalSheet.getCell2("A2").value;
+      const orangePrice = finalSheet.getCell2("B3").value;
+      console.log("sheet:", finalSheet.name, "A1:", header, "A2:", apple, "B3:", orangePrice);
+
+      if (finalSheet.name !== "Products") throw new Error(`expected sheet name Products, got ${finalSheet.name}`);
+      if (header !== "Updated") throw new Error(`expected A1 to be Updated, got ${header}`);
+      if (apple !== "Apple") throw new Error(`expected A2 to be Apple, got ${apple}`);
+      if (orangePrice !== 1.99) throw new Error(`expected B3 to be 1.99, got ${orangePrice}`);
+      console.log("cand6 OK");
+    }
+
+    main();
+  code_sha256: d3286876f12f76535a705b5567c9ee6d05f5e94d001f4e08519a0bc875ce8327

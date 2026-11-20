@@ -209,3 +209,50 @@ examples:
 
     main();
   code_sha256: 76f7cd2e04a9a6c729891703ca2aef997326c87d8ea0c0bcfd35b9945deb1a60
+- title: Configure OBJ load options and binary glTF save options
+  description: Configures an ObjLoadOptions (materials on, normals normalised, coordinate system kept, half scale) and a GltfSaveOptions (binary mode on, texture coordinates not flipped, textures not exported) in memory and reads every setting back; neither options object is applied to a file.
+  symbols:
+  - ObjLoadOptions
+  - ObjLoadOptions.enableMaterials
+  - ObjLoadOptions.normalizeNormal
+  - ObjLoadOptions.flipCoordinateSystem
+  - ObjLoadOptions.scale
+  - GltfSaveOptions
+  - GltfSaveOptions.binaryMode
+  - GltfSaveOptions.flipTexCoordV
+  - SaveOptions.exportTextures
+  code: |
+    // Authored example: configure ObjLoadOptions and a binary GltfSaveOptions in memory and read every setting back.
+    import { Scene } from './dist/aspose/threed';
+    import { ObjLoadOptions } from './dist/aspose/threed/formats/obj';
+    import { GltfSaveOptions } from './dist/aspose/threed/formats/gltf';
+
+    function main(): void {
+      // A new scene is empty: the options below are only configured here, never applied to it or to a file.
+      const scene = new Scene();
+      if (scene.rootNode.childNodes.length !== 0) throw new Error("expected a new scene to have no child nodes");
+
+      const loadOptions = new ObjLoadOptions();
+      loadOptions.enableMaterials = true;
+      loadOptions.normalizeNormal = true;
+      loadOptions.flipCoordinateSystem = false;
+      loadOptions.scale = 0.5;
+      console.log("obj load:", loadOptions.enableMaterials, loadOptions.normalizeNormal, loadOptions.flipCoordinateSystem, loadOptions.scale);
+      if (loadOptions.enableMaterials !== true) throw new Error("expected enableMaterials to read back true");
+      if (loadOptions.normalizeNormal !== true) throw new Error("expected normalizeNormal to read back true");
+      if (loadOptions.flipCoordinateSystem !== false) throw new Error("expected flipCoordinateSystem to read back false");
+      if (loadOptions.scale !== 0.5) throw new Error(`expected scale 0.5, got ${loadOptions.scale}`);
+
+      const saveOptions = new GltfSaveOptions();
+      saveOptions.binaryMode = true;
+      saveOptions.flipTexCoordV = false;
+      saveOptions.exportTextures = false;
+      console.log("gltf save:", saveOptions.binaryMode, saveOptions.flipTexCoordV, saveOptions.exportTextures);
+      if (saveOptions.binaryMode !== true) throw new Error("expected binaryMode to read back true");
+      if (saveOptions.flipTexCoordV !== false) throw new Error("expected flipTexCoordV to read back false");
+      if (saveOptions.exportTextures !== false) throw new Error("expected exportTextures to read back false");
+      console.log("cand6 OK");
+    }
+
+    main();
+  code_sha256: 3f21d5ffe687c4b61ea5c308c580bf856076351051a61f82166da0315c866dda

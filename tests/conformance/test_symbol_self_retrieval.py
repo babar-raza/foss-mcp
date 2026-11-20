@@ -310,10 +310,14 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
 
     TC-850 (DG-1, 2026-11-20) re-recorded the four regenerated cohort-C3 Java pilots (pdf, slides, cells, 3d): one default-sample
     ``prefix3-findable`` entry added (slides/java ``ColorType``), 112 -> 113 and ``prefix3-findable`` 20 -> 21 (see the baseline's
-    ``tc850_rationale``)."""
+    ``tc850_rationale``).
+
+    TC-851 (DG-1, 2026-11-20) re-recorded the three regenerated cohort-C4 TypeScript pilots (pdf, cells, 3d): one default-sample
+    ``prefix3-findable`` entry added (pdf/typescript ``htmldom.HtmlDoctype``), 113 -> 114 and ``prefix3-findable`` 21 -> 22 (see the
+    baseline's ``tc851_rationale``)."""
     baseline = load_baseline(BASELINE_PATH)
     assert baseline.strict is True
-    assert len(baseline.known_failures) == 113
+    assert len(baseline.known_failures) == 114
     by_subcase: dict[str, int] = {}
     for failure in baseline.known_failures:
         sub = failure.case_id.split(":", 1)[0]
@@ -323,7 +327,7 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
         "bare-namespace-word-false-exact": 32,
         "digit-stripped-family-findable": 23,
         "fabricated-fqn-false-exact": 5,
-        "prefix3-findable": 21,
+        "prefix3-findable": 22,
     }
 
 
