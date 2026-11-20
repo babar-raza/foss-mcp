@@ -1,0 +1,205 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_release_records.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ypxvogy1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 36%]
+........................................................................ [ 73%]
+...................................................                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_release_records.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ypxvogy1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 36%]
+........................................................................ [ 73%]
+...................................................                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/DECISION_LOG.md, M docs/RELEASE.md, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_release_records.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ypxvogy1\.junit-0.xml"
+--- stdout ---
+FFFFFFF...FF............................................................ [ 36%]
+........................................................................ [ 73%]
+...................................................                      [100%]
+================================== FAILURES ===================================
+______________________ test_decision_section_exists_once ______________________
+
+    def test_decision_section_exists_once() -> None:
+>       assert SECTION_HEADING in DECISION_LOG.read_text(encoding="utf-8")
+E       AssertionError: assert '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)' in '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'
+E        +  where '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n' = read_text(encoding='utf-8')
+E        +    where read_text = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-ypxvogy1/docs/DECISION_LOG.md').read_text
+
+tests\deploy\test_release_records.py:40: AssertionError
+_____________________ test_decision_section_names[TC-834] _____________________
+
+name = 'TC-834'
+
+    @pytest.mark.parametrize("name", REQUIRED_NAMES)
+    def test_decision_section_names(name: str) -> None:
+>       assert name in _decision_section(), f"{name} is not named in the 2026-11-19 DECISION_LOG section"
+                       ^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_release_records.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _decision_section() -> str:
+        """The text of the TC-855 section: from its heading up to the next '## ' heading or the end of the file."""
+        text = DECISION_LOG.read_text(encoding="utf-8")
+>       assert text.count(SECTION_HEADING) == 1, f"expected exactly one {SECTION_HEADING!r}"
+E       AssertionError: expected exactly one '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000026EAC714040>('## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)')
+E        +    where <built-in method count of str object at 0x0000026EAC714040> = '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'.count
+
+tests\deploy\test_release_records.py:33: AssertionError
+_____________________ test_decision_section_names[TC-843] _____________________
+
+name = 'TC-843'
+
+    @pytest.mark.parametrize("name", REQUIRED_NAMES)
+    def test_decision_section_names(name: str) -> None:
+>       assert name in _decision_section(), f"{name} is not named in the 2026-11-19 DECISION_LOG section"
+                       ^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_release_records.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _decision_section() -> str:
+        """The text of the TC-855 section: from its heading up to the next '## ' heading or the end of the file."""
+        text = DECISION_LOG.read_text(encoding="utf-8")
+>       assert text.count(SECTION_HEADING) == 1, f"expected exactly one {SECTION_HEADING!r}"
+E       AssertionError: expected exactly one '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000026EAC847040>('## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)')
+E        +    where <built-in method count of str object at 0x0000026EAC847040> = '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'.count
+
+tests\deploy\test_release_records.py:33: AssertionError
+_____________________ test_decision_section_names[TC-845] _____________________
+
+name = 'TC-845'
+
+    @pytest.mark.parametrize("name", REQUIRED_NAMES)
+    def test_decision_section_names(name: str) -> None:
+>       assert name in _decision_section(), f"{name} is not named in the 2026-11-19 DECISION_LOG section"
+                       ^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_release_records.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _decision_section() -> str:
+        """The text of the TC-855 section: from its heading up to the next '## ' heading or the end of the file."""
+        text = DECISION_LOG.read_text(encoding="utf-8")
+>       assert text.count(SECTION_HEADING) == 1, f"expected exactly one {SECTION_HEADING!r}"
+E       AssertionError: expected exactly one '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000026EAC97E040>('## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)')
+E        +    where <built-in method count of str object at 0x0000026EAC97E040> = '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'.count
+
+tests\deploy\test_release_records.py:33: AssertionError
+_____________________ test_decision_section_names[OQ-029] _____________________
+
+name = 'OQ-029'
+
+    @pytest.mark.parametrize("name", REQUIRED_NAMES)
+    def test_decision_section_names(name: str) -> None:
+>       assert name in _decision_section(), f"{name} is not named in the 2026-11-19 DECISION_LOG section"
+                       ^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_release_records.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _decision_section() -> str:
+        """The text of the TC-855 section: from its heading up to the next '## ' heading or the end of the file."""
+        text = DECISION_LOG.read_text(encoding="utf-8")
+>       assert text.count(SECTION_HEADING) == 1, f"expected exactly one {SECTION_HEADING!r}"
+E       AssertionError: expected exactly one '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000026EACAAE040>('## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)')
+E        +    where <built-in method count of str object at 0x0000026EACAAE040> = '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'.count
+
+tests\deploy\test_release_records.py:33: AssertionError
+______________________ test_decision_section_names[DG-1] ______________________
+
+name = 'DG-1'
+
+    @pytest.mark.parametrize("name", REQUIRED_NAMES)
+    def test_decision_section_names(name: str) -> None:
+>       assert name in _decision_section(), f"{name} is not named in the 2026-11-19 DECISION_LOG section"
+                       ^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_release_records.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _decision_section() -> str:
+        """The text of the TC-855 section: from its heading up to the next '## ' heading or the end of the file."""
+        text = DECISION_LOG.read_text(encoding="utf-8")
+>       assert text.count(SECTION_HEADING) == 1, f"expected exactly one {SECTION_HEADING!r}"
+E       AssertionError: expected exactly one '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000026EACBDD040>('## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)')
+E        +    where <built-in method count of str object at 0x0000026EACBDD040> = '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'.count
+
+tests\deploy\test_release_records.py:33: AssertionError
+______________ test_decision_section_names[regenerate_local.py] _______________
+
+name = 'regenerate_local.py'
+
+    @pytest.mark.parametrize("name", REQUIRED_NAMES)
+    def test_decision_section_names(name: str) -> None:
+>       assert name in _decision_section(), f"{name} is not named in the 2026-11-19 DECISION_LOG section"
+                       ^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_release_records.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _decision_section() -> str:
+        """The text of the TC-855 section: from its heading up to the next '## ' heading or the end of the file."""
+        text = DECISION_LOG.read_text(encoding="utf-8")
+>       assert text.count(SECTION_HEADING) == 1, f"expected exactly one {SECTION_HEADING!r}"
+E       AssertionError: expected exactly one '## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000026EACD0A040>('## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)')
+E        +    where <built-in method count of str object at 0x0000026EACD0A040> = '# Decision Log\n\nThis file owns decisions made during execution (see `AGENTS.md`). Entries are\nappend-only: never r...keep their relative cases around the new value (55_000_000\naccepted, 55_000_001 rejected, 45_000_001 now accepted).\n'.count
+
+tests\deploy\test_release_records.py:33: AssertionError
+______________ test_release_doc_names_tool[regenerate_local.py] _______________
+
+name = 'regenerate_local.py'
+
+    @pytest.mark.parametrize("name", ("regenerate_local.py", "answer_diff.py"))
+    def test_release_doc_names_tool(name: str) -> None:
+        text = RELEASE_DOC.read_text(encoding="utf-8")
+>       assert REGENERATION_HEADING in text
+E       assert '### Regenerating the demo data without a cluster' in "# Releasing the standalone demo image\n\nThis page is for the operator. It follows one image from a build, through th...es chart's cluster install beyond what section 8 already lists under the chart. The standalone image is the release.\n"
+
+tests\deploy\test_release_records.py:57: AssertionError
+_________________ test_release_doc_names_tool[answer_diff.py] _________________
+
+name = 'answer_diff.py'
+
+    @pytest.mark.parametrize("name", ("regenerate_local.py", "answer_diff.py"))
+    def test_release_doc_names_tool(name: str) -> None:
+        text = RELEASE_DOC.read_text(encoding="utf-8")
+>       assert REGENERATION_HEADING in text
+E       assert '### Regenerating the demo data without a cluster' in "# Releasing the standalone demo image\n\nThis page is for the operator. It follows one image from a build, through th...es chart's cluster install beyond what section 8 already lists under the chart. The standalone image is the release.\n"
+
+tests\deploy\test_release_records.py:57: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_records.py::test_decision_section_exists_once
+FAILED tests/deploy/test_release_records.py::test_decision_section_names[TC-834]
+FAILED tests/deploy/test_release_records.py::test_decision_section_names[TC-843]
+FAILED tests/deploy/test_release_records.py::test_decision_section_names[TC-845]
+FAILED tests/deploy/test_release_records.py::test_decision_section_names[OQ-029]
+FAILED tests/deploy/test_release_records.py::test_decision_section_names[DG-1]
+FAILED tests/deploy/test_release_records.py::test_decision_section_names[regenerate_local.py]
+FAILED tests/deploy/test_release_records.py::test_release_doc_names_tool[regenerate_local.py]
+FAILED tests/deploy/test_release_records.py::test_release_doc_names_tool[answer_diff.py]
+
+--- stderr ---
+
