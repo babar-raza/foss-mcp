@@ -1,109 +1,56 @@
 id: TC-856
 gate: G3
 lane: storage-retrieval
-purpose: >-
-  RW-14 (plan 'Reconciliation (2026-11-18)'): two leftovers of TC-823. (1) RD2-230 slides/cpp:
-  `lookup('transition')` still returns `EffectFormat` labelled match_quality 'exact', reached only
-  through the synonym 'effect'; the query word is not in the candidate's name or any member it
-  declares. TC-823's worker found the obvious rule (a one-word query's term must occur literally
-  in the candidate) flips correct rank-1 answers for 'add a slide' on slides/cpp, slides/java,
-  slides/net and slides/python from exact to partial, and the same synonym path answers 'add a
-  cube' with `Box` on the 3d pilots, so it was removed. Find a narrower rule that separates the
-  two classes (for example: the term has no literal occurrence in the candidate's name, members,
-  docs or example titles AND the hit was admitted through the synonym table alone), implement it
-  where the label is granted (src/foss_mcp/mcp/tools/lookup.py `_precise_symbol_labels` from
-  TC-823, or src/foss_mcp/mcp/tools/search_symbols.py if that is the only place that can see the
-  synonym provenance), and prove it on the 729-case corpus: every case whose label changes is
-  listed in your report with before/after, rank and top-3 unchanged, and every ratchet floor
-  unchanged (hit@3 >= 0.85, wrong-confident ceilings, pdf/slides/examples precision,
-  nonsense-miss, title-anchor invariants, forgiveness 23/3/0). MEASUREMENT-GATED: if no rule keeps
-  every currently correct exact answer, do NOT ship a rule that flips one; land only a test that
-  pins the measured negative result and report the numbers - the supervisor then records RD2-230
-  as a measured limitation. (2) RD2-278 words/python: a user asking for `DocumentBuilder` (the
-  Aspose.Words .NET/Java authoring entry point) finds no such class in aspose-words-foss for
-  Python; the real authoring path is `light_document_model` plus `LdmDocxWriter`. FIRST re-verify
-  against the real published package at the pinned version (pip download into a scratch directory
-  outside the repo, read the installed source; AGENTS.md: re-verify before writing a disclosure),
-  then add the disclosure through the mechanism the neighbouring WORDS-PY-008/013 entries use
-  (config/known_defects/words__python.yaml, subject kind per the schema; read
-  schemas/product/known_defects.schema.json and the completeness lock
-  tests/indexing/test_known_defects_completeness.py for what an entry needs - an id that is not a
-  ledger id goes through its _ADDITIONAL_DISCLOSABLE_IDS allowlist exactly as TC-706/707/711 did)
-  with a factual summary <= 240 chars, a user_action and the repro evidence; if the package does
-  have a DocumentBuilder, report that and write nothing.
+purpose: 'RW-14 (plan ''Reconciliation (2026-11-18)''): two leftovers of TC-823. (1) RD2-230 slides/cpp: `lookup(''transition'')` still returns `EffectFormat` labelled match_quality ''exact'', reached only through the synonym ''effect''; the query word is not in the candidate''s name or any member it declares. TC-823''s worker found the obvious rule (a one-word query''s term must occur literally in the candidate) flips correct rank-1 answers for ''add a slide'' on slides/cpp, slides/java, slides/net and slides/python from exact to partial, and the same synonym path answers ''add a cube'' with `Box` on the 3d pilots, so it was removed. Find a narrower rule that separates the two classes (for example: the term has no literal occurrence in the candidate''s name, members, docs or example titles AND the hit was admitted through the synonym table alone), implement it where the label is granted (src/foss_mcp/mcp/tools/lookup.py `_precise_symbol_labels` from TC-823, or src/foss_mcp/mcp/tools/search_symbols.py
+  if that is the only place that can see the synonym provenance), and prove it on the 729-case corpus: every case whose label changes is listed in your report with before/after, rank and top-3 unchanged, and every ratchet floor unchanged (hit@3 >= 0.85, wrong-confident ceilings, pdf/slides/examples precision, nonsense-miss, title-anchor invariants, forgiveness 23/3/0). MEASUREMENT-GATED: if no rule keeps every currently correct exact answer, do NOT ship a rule that flips one; land only a test that pins the measured negative result and report the numbers - the supervisor then records RD2-230 as a measured limitation. (2) RD2-278 words/python: a user asking for `DocumentBuilder` (the Aspose.Words .NET/Java authoring entry point) finds no such class in aspose-words-foss for Python; the real authoring path is `light_document_model` plus `LdmDocxWriter`. FIRST re-verify against the real published package at the pinned version (pip download into a scratch directory outside the repo, read the installed
+  source; AGENTS.md: re-verify before writing a disclosure), then add the disclosure through the mechanism the neighbouring WORDS-PY-008/013 entries use (config/known_defects/words__python.yaml, subject kind per the schema; read schemas/product/known_defects.schema.json and the completeness lock tests/indexing/test_known_defects_completeness.py for what an entry needs - an id that is not a ledger id goes through its _ADDITIONAL_DISCLOSABLE_IDS allowlist exactly as TC-706/707/711 did) with a factual summary <= 240 chars, a user_action and the repro evidence; if the package does have a DocumentBuilder, report that and write nothing.'
 depends_on:
-  - TC-823
-  - TC-808
-  - TC-815
-  - TC-828
-  - TC-832
-  - TC-853
+- TC-823
+- TC-808
+- TC-815
+- TC-828
+- TC-832
+- TC-853
 write_paths:
-  - src/foss_mcp/mcp/tools/lookup.py
-  - src/foss_mcp/mcp/tools/search_symbols.py
-  - tests/mcp/tools/test_exact_label_synonym_only.py
-  - config/known_defects/words__python.yaml
-  - tests/indexing/test_known_defects_completeness.py
-  - tests/mcp/tools/test_known_defects_words_python_documentbuilder.py
-  - tests/mcp/tools/test_exact_label_unsupported_concept.py
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_exact_label_synonym_only.py
+- config/known_defects/words__python.yaml
+- tests/indexing/test_known_defects_completeness.py
+- tests/mcp/tools/test_known_defects_words_python_documentbuilder.py
+- tests/mcp/tools/test_exact_label_unsupported_concept.py
+- tests/indexing/test_known_defects_data_remaining.py
 satisfies:
-  - REQ-G3-011
+- REQ-G3-011
 source_refs:
-  - file: docs/DECISION_LOG.md
-    anchor: >-
-      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
-    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
 inputs:
-  - >-
-    READ FIRST: plans/TC-823.yaml and its tests
-    tests/mcp/tools/test_exact_label_unsupported_concept.py (the real slides/cpp, words/python,
-    words/net repros and the grep-level wiring checks), src/foss_mcp/mcp/tools/lookup.py
-    `_precise_symbol_labels`, how search_symbols.py grants match_quality 'exact' and records the
-    synonym admission, tests/mcp/tools/test_round3_retrieval_corpus.py (the 729-case corpus; measure
-    before/after with a throwaway script outside the repo), config/known_defects/words__python.yaml,
-    schemas/product/known_defects.schema.json, tests/indexing/test_known_defects_completeness.py.
-  - >-
-    REPRODUCE FIRST: pin the current slides/cpp `transition` exact label as a failing test (in the
-    new test file) before any change; then the four 'add a slide' control cases (slides/cpp, java,
-    net, python) and the 3d 'add a cube' -> Box control that must stay exact.
-  - >-
-    ENVIRONMENT: PowerShell; run `.
-    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first where a
-    toolchain is needed. The worktree has no venv: use
-    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
-    to your worktree root, src and infra. Never print GITHUB_TOKEN. Keep scratch work outside the
-    repository.
-  - >-
-    Run the card's checks twice, ruff check/format and mypy on touched src files (report only errors
-    you introduced), make exactly ONE commit, leave no background process, report ONCE with the
-    corpus before/after.
+- 'READ FIRST: plans/TC-823.yaml and its tests tests/mcp/tools/test_exact_label_unsupported_concept.py (the real slides/cpp, words/python, words/net repros and the grep-level wiring checks), src/foss_mcp/mcp/tools/lookup.py `_precise_symbol_labels`, how search_symbols.py grants match_quality ''exact'' and records the synonym admission, tests/mcp/tools/test_round3_retrieval_corpus.py (the 729-case corpus; measure before/after with a throwaway script outside the repo), config/known_defects/words__python.yaml, schemas/product/known_defects.schema.json, tests/indexing/test_known_defects_completeness.py.'
+- 'REPRODUCE FIRST: pin the current slides/cpp `transition` exact label as a failing test (in the new test file) before any change; then the four ''add a slide'' control cases (slides/cpp, java, net, python) and the 3d ''add a cube'' -> Box control that must stay exact.'
+- 'ENVIRONMENT: PowerShell; run `. E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\scripts\toolchain\activate.ps1` first where a toolchain is needed. The worktree has no venv: use E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set to your worktree root, src and infra. Never print GITHUB_TOKEN. Keep scratch work outside the repository.'
+- Run the card's checks twice, ruff check/format and mypy on touched src files (report only errors you introduced), make exactly ONE commit, leave no background process, report ONCE with the corpus before/after.
 actions:
-  - >-
-    Narrow the synonym-only exact label if a rule exists that flips no correct answer, else pin the
-    negative result; add the verified words/python DocumentBuilder disclosure.
+- Narrow the synonym-only exact label if a rule exists that flips no correct answer, else pin the negative result; add the verified words/python DocumentBuilder disclosure.
 checks:
-  - command: '{python} -m pytest tests/mcp/tools/test_exact_label_synonym_only.py tests/mcp/tools/test_exact_label_unsupported_concept.py tests/mcp/tools/test_search_docs_incidental_token.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider tests/mcp/tools/test_known_defects_words_python_documentbuilder.py tests/indexing/test_known_defects_completeness.py'
-    expect: 'exit 0'
-    timeout_seconds: 1800
-    junitxml: true
-    proves:
-      - REQ-G3-011
+- command: '{python} -m pytest tests/mcp/tools/test_exact_label_synonym_only.py tests/mcp/tools/test_exact_label_unsupported_concept.py tests/mcp/tools/test_search_docs_incidental_token.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider tests/mcp/tools/test_known_defects_words_python_documentbuilder.py tests/indexing/test_known_defects_completeness.py'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-011
 min_tests: 200
 requires:
-  - python
+- python
 network: true
 negative_control:
-  mutate: |
-    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/mcp/tools/lookup.py', 'src/foss_mcp/mcp/tools/search_symbols.py', 'config/known_defects/words__python.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
-  rationale: >-
-    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
-    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
-    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
-    therefore commit exactly ONE commit for this card.
+  mutate: 'python -X utf8 -c "import subprocess; paths = [''src/foss_mcp/mcp/tools/lookup.py'', ''src/foss_mcp/mcp/tools/search_symbols.py'', ''config/known_defects/words__python.yaml'']; patch = subprocess.run([''git'', ''show'', ''--format='', ''HEAD'', ''--''] + paths, capture_output=True, check=True).stdout; assert patch.strip(), ''the worker commit changes none of the production paths - the fix is missing''; subprocess.run([''git'', ''apply'', ''-R'', ''--whitespace=nowarn'', ''-''], input=patch, check=True)"
+
+    '
+  rationale: Reverse-applies the worker's own commit restricted to this card's production (non-test) paths, i.e. removes the fix itself while keeping the card's new tests; the suite must then fail. Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must therefore commit exactly ONE commit for this card.
 evidence:
-  - evidence/build/G3/TC-856/receipt.json
+- evidence/build/G3/TC-856/receipt.json
 closeout:
-  - >-
-    The synonym-only exact label is narrowed or its measured limit is pinned, and words/python
-    discloses that DocumentBuilder does not exist.
+- The synonym-only exact label is narrowed or its measured limit is pinned, and words/python discloses that DocumentBuilder does not exist.
 recovery: Re-run from a clean tree.
