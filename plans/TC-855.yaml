@@ -1,136 +1,82 @@
 id: TC-855
 gate: G3
 lane: verification
-purpose: >-
-  RW-21 (plan 'Reconciliation (2026-11-18)'): record the decisions the 2026-11-14..19 programme
-  made but never wrote down, and give REQ-G3-018 (release proof) its first satisfying card and
-  proving check. Documentation plus ONE offline test; no product code and no data. (1)
-  docs/DECISION_LOG.md: append ONE new section headed '## 2026-11-19 - Remaining-work programme
-  record (retired cards, regeneration route, size ceiling, baseline re-record)' containing, each
-  as its own short paragraph: (a) the retirements of TC-834 (superseded by TC-835: the first fix
-  attempt for the LONGQ-001 regression), TC-843 and TC-845 (no-ops: the go, rust and cpp
-  extraction fixtures are byte-identical on regeneration, verified by the TC-841/TC-842 workers) -
-  their plan files were removed and nothing was integrated; (b) the metadata note that
-  plans/TC-713.yaml and plans/TC-715.yaml carry satisfies REQ-G3-017 although their work is
-  disclosure-ledger work (REQ-G3-015) and are left unchanged because a card is immutable after
-  acceptance; (c) the regeneration route: plan stage H6 was re-scoped from a regenerate_demo.py to
-  scripts/release/regenerate_local.py (helm template + docker run in the ingestion image, no
-  cluster; TC-829), with the served-answer comparator scripts/release/answer_diff.py (TC-831) as
-  the 'no pilot gets worse' gate and the replay-only cached embedding provider restored (TC-830);
-  (d) OQ-029: the lean baked-tree ceiling moves from 45 MB to 55 MB as a PROVISIONAL_ACCEPT
-  (numbers: 44.46 MB after cohort C1, about 50 MB projected when all 32 pilots carry 4096-dim
-  vectors; rejected: fewer vector decimals, a new vector encoding, keeping 45 MB with 20
-  lexical-only pilots) - the operator still resolves it before gate exit; (e) DG-1: on 2026-11-19
-  the operator authorised re-recording baseline_symbol_self_retrieval.json and
-  baseline_sentence_wrapped_retrieval.json for cohort C1 under hard guards (only the prefix-3 /
-  probe-artefact classes may gain entries, no non-cohort pilot may change, strict stays true) and
-  the same guard for the later cohorts; (f) RD2-286 (LONGQ-001) stays OPEN by the operator's
-  2026-11-01 deferral. Use the same heading style and tone as the neighbouring 2026-11-14
-  sections. (2) docs/RELEASE.md: add a short section 'Regenerating the demo data without a
-  cluster' that states the command (`python scripts/release/regenerate_local.py --cohort
-  C1[,C2...]` or `--only <pilot>`), that it needs Docker, helm, the embedding-gateway variables
-  (never printed) and an ingestion image built from the same tree, that it refuses anything not
-  4096-dimensional, what answer_diff.py and generation_diff.py are for, and the rule that sidecars
-  are committed history refreshed only by a deliberate data commit. Do not change any limitation
-  text or number that another card owns. (3) New test tests/deploy/test_release_records.py
-  (offline, reads committed files only): the DECISION_LOG section exists and names TC-834, TC-843,
-  TC-845, OQ-029, DG-1 and regenerate_local.py; plans/TC-834.yaml, TC-843.yaml and TC-845.yaml do
-  NOT exist; RELEASE.md names regenerate_local.py and answer_diff.py; ops/requirements.yaml
-  contains REQ-G3-018 and at least one plan lists it in satisfies (parse with yaml, do not grep
-  prose).
+purpose: 'RW-21 (plan ''Reconciliation (2026-11-18)''): record the decisions the 2026-11-14..19 programme made but never wrote down, and give REQ-G3-018 (release proof) its first satisfying card and proving check. Documentation plus ONE offline test; no product code and no data. (1) docs/DECISION_LOG.md: append ONE new section headed ''## 2026-11-19 - Remaining-work programme record (retired cards, regeneration route, size ceiling, baseline re-record)'' containing, each as its own short paragraph: (a) the retirements of TC-834 (superseded by TC-835: the first fix attempt for the LONGQ-001 regression), TC-843 and TC-845 (no-ops: the go, rust and cpp extraction fixtures are byte-identical on regeneration, verified by the TC-841/TC-842 workers) - their plan files were removed and nothing was integrated; (b) the metadata note that plans/TC-713.yaml and plans/TC-715.yaml carry satisfies REQ-G3-017 although their work is disclosure-ledger work (REQ-G3-015) and are left unchanged because a card
+  is immutable after acceptance; (c) the regeneration route: plan stage H6 was re-scoped from a regenerate_demo.py to scripts/release/regenerate_local.py (helm template + docker run in the ingestion image, no cluster; TC-829), with the served-answer comparator scripts/release/answer_diff.py (TC-831) as the ''no pilot gets worse'' gate and the replay-only cached embedding provider restored (TC-830); (d) OQ-029: the lean baked-tree ceiling moves from 45 MB to 55 MB as a PROVISIONAL_ACCEPT (numbers: 44.46 MB after cohort C1, about 50 MB projected when all 32 pilots carry 4096-dim vectors; rejected: fewer vector decimals, a new vector encoding, keeping 45 MB with 20 lexical-only pilots) - the operator still resolves it before gate exit; (e) DG-1: on 2026-11-19 the operator authorised re-recording baseline_symbol_self_retrieval.json and baseline_sentence_wrapped_retrieval.json for cohort C1 under hard guards (only the prefix-3 / probe-artefact classes may gain entries, no non-cohort pilot may
+  change, strict stays true) and the same guard for the later cohorts; (f) RD2-286 (LONGQ-001) stays OPEN by the operator''s 2026-11-01 deferral. Use the same heading style and tone as the neighbouring 2026-11-14 sections. (2) docs/RELEASE.md: add a short section ''Regenerating the demo data without a cluster'' that states the command (`python scripts/release/regenerate_local.py --cohort C1[,C2...]` or `--only <pilot>`), that it needs Docker, helm, the embedding-gateway variables (never printed) and an ingestion image built from the same tree, that it refuses anything not 4096-dimensional, what answer_diff.py and generation_diff.py are for, and the rule that sidecars are committed history refreshed only by a deliberate data commit. Do not change any limitation text or number that another card owns. (3) New test tests/deploy/test_release_records.py (offline, reads committed files only): the DECISION_LOG section exists and names TC-834, TC-843, TC-845, OQ-029, DG-1 and regenerate_local.py;
+  plans/TC-834.yaml, TC-843.yaml and TC-845.yaml do NOT exist; RELEASE.md names regenerate_local.py and answer_diff.py; ops/requirements.yaml contains REQ-G3-018 and at least one plan lists it in satisfies (parse with yaml, do not grep prose).'
 depends_on:
-  - TC-808
-  - TC-537
-  - TC-575
-  - TC-576
-  - TC-579
-  - TC-597
-  - TC-602
-  - TC-615
-  - TC-678
-  - TC-695
-  - TC-698
-  - TC-699
-  - TC-730
-  - TC-731
-  - TC-774
-  - TC-776
-  - TC-777
-  - TC-778
-  - TC-792
-  - TC-799
-  - TC-809
-  - TC-813
-  - TC-820
-  - TC-829
-  - TC-831
-  - TC-839
-  - TC-841
-  - TC-842
-  - TC-846
-  - TC-854
-  - TC-849
-  - TC-850
-  - TC-851
-  - TC-852
-  - TC-853
+- TC-808
+- TC-537
+- TC-575
+- TC-576
+- TC-579
+- TC-597
+- TC-602
+- TC-615
+- TC-678
+- TC-695
+- TC-698
+- TC-699
+- TC-730
+- TC-731
+- TC-774
+- TC-776
+- TC-777
+- TC-778
+- TC-792
+- TC-799
+- TC-809
+- TC-813
+- TC-820
+- TC-829
+- TC-831
+- TC-839
+- TC-841
+- TC-842
+- TC-846
+- TC-854
+- TC-849
+- TC-850
+- TC-851
+- TC-852
+- TC-853
 write_paths:
-  - docs/DECISION_LOG.md
-  - docs/RELEASE.md
-  - tests/deploy/test_release_records.py
+- docs/DECISION_LOG.md
+- docs/RELEASE.md
+- tests/deploy/test_release_records.py
 satisfies:
-  - REQ-G3-018
+- REQ-G3-018
 source_refs:
-  - file: docs/DECISION_LOG.md
-    anchor: >-
-      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
-    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
 inputs:
-  - >-
-    READ FIRST: the last five sections of docs/DECISION_LOG.md (style, and note the 'source-ref
-    anchor fencepost': another card's source_refs hash a DECISION_LOG section up to the next '## '
-    heading, so append your section at the END and never edit the text of an existing section),
-    docs/RELEASE.md section 8 and the regeneration paragraphs, scripts/release/regenerate_local.py
-    module docstring, ops/open_questions.jsonl entry OQ-029 (read only),
-    plans/TC-829.yaml..TC-831.yaml, plans/TC-841.yaml and TC-842.yaml (why go/rust/cpp fixtures did
-    not change).
-  - >-
-    Facts you must not invent: use only numbers and reasons in this card or in the files above; if a
-    number cannot be confirmed, leave it out. Do not edit ops/, plans/, evidence/ or project/
-    (supervisor-owned). REQ-G3-018 itself is added to ops/requirements.yaml by the supervisor in the
-    same commit that authors this card; your test only reads it.
-  - >-
-    Run the card's check twice, ruff check / ruff format --check on the new test, make exactly ONE
-    commit, report once. In a worktree without a venv use
-    E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set
-    to your worktree root, src and infra.
+- 'READ FIRST: the last five sections of docs/DECISION_LOG.md (style, and note the ''source-ref anchor fencepost'': another card''s source_refs hash a DECISION_LOG section up to the next ''## '' heading, so append your section at the END and never edit the text of an existing section), docs/RELEASE.md section 8 and the regeneration paragraphs, scripts/release/regenerate_local.py module docstring, ops/open_questions.jsonl entry OQ-029 (read only), plans/TC-829.yaml..TC-831.yaml, plans/TC-841.yaml and TC-842.yaml (why go/rust/cpp fixtures did not change).'
+- 'ADDITIONAL DECISIONS TO RECORD in the same DECISION_LOG section (each its own short paragraph, only these facts): (g) TC-802 honest-publish losses accepted during regeneration: slides/java ''Save a Presentation'' confident->loose (TC-850); 3d/typescript Quick Start, pdf/typescript ''Edit Pages and Metadata, Then Save'', cells/typescript ''Export a Workbook to HTML'' (TC-851); cells/go ''Quick Start (2)'', and the README examples pdf/go ''Fill AcroForm Fields'' and pdf/cpp ''Open a Password-Protected Document'' (both replaced by authored examples; TC-852); tex/python README example ''Messages and Logging'' (TC-853) - each because its run failed or printed nothing in the sandbox, none lowered a floor or forgiveness row. (h) TC-853 re-pinned tex/python from 181015d2 (35 of 45 files unparseable) to upstream tag 26.11.1 (07db3203, 0 of 59 failures, imports clean, PyPI aspose-tex-foss 26.11.1) and retired known-defect TEX-PYTHON-001 after re-verifying it fixed at the new pin; the old extraction
+  is kept as the frozen fixture tests/fixtures/tex_python/api_surface_181015d2_repaired.json. (i) After TC-852 all 32 baked pilots carry 4096-dim vectors; the baked tree is about 50.7 MB, about 4.3 MB under the 55 MB ceiling. (j) imaging/net (cohort C0) was the one pilot no cohort card re-baked and still has README examples without a Verification-Level line; TC-868 regenerates it. (k) The chunker discards text before a document''s first heading (found by the TC-853 worker on tex/python); TC-870 measures and fixes it. Do not invent numbers beyond these.'
+- 'Facts you must not invent: use only numbers and reasons in this card or in the files above; if a number cannot be confirmed, leave it out. Do not edit ops/, plans/, evidence/ or project/ (supervisor-owned). REQ-G3-018 itself is added to ops/requirements.yaml by the supervisor in the same commit that authors this card; your test only reads it.'
+- Run the card's check twice, ruff check / ruff format --check on the new test, make exactly ONE commit, report once. In a worktree without a venv use E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.venv\Scripts\python.exe with PYTHONPATH set to your worktree root, src and infra.
 actions:
-  - >-
-    Write the missing decision records and the regeneration how-to, and pin them with one offline
-    test that also proves REQ-G3-018 has a card.
+- Write the missing decision records and the regeneration how-to, and pin them with one offline test that also proves REQ-G3-018 has a card.
 checks:
-  - command: '{python} -m pytest tests/deploy/test_release_records.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider'
-    expect: 'exit 0'
-    timeout_seconds: 900
-    junitxml: true
-    proves:
-      - REQ-G3-018
+- command: '{python} -m pytest tests/deploy/test_release_records.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-018
 min_tests: 189
 requires:
-  - python
+- python
 network: false
 negative_control:
-  mutate: |
-    python -X utf8 -c "import subprocess; paths = ['docs/DECISION_LOG.md', 'docs/RELEASE.md']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
-  rationale: >-
-    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
-    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
-    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
-    therefore commit exactly ONE commit for this card.
+  mutate: 'python -X utf8 -c "import subprocess; paths = [''docs/DECISION_LOG.md'', ''docs/RELEASE.md'']; patch = subprocess.run([''git'', ''show'', ''--format='', ''HEAD'', ''--''] + paths, capture_output=True, check=True).stdout; assert patch.strip(), ''the worker commit changes none of the production paths - the fix is missing''; subprocess.run([''git'', ''apply'', ''-R'', ''--whitespace=nowarn'', ''-''], input=patch, check=True)"
+
+    '
+  rationale: Reverse-applies the worker's own commit restricted to this card's production (non-test) paths, i.e. removes the fix itself while keeping the card's new tests; the suite must then fail. Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must therefore commit exactly ONE commit for this card.
 evidence:
-  - evidence/build/G3/TC-855/receipt.json
+- evidence/build/G3/TC-855/receipt.json
 closeout:
-  - >-
-    The programme's decisions are on record and REQ-G3-018 exists with a satisfying card and a
-    proving check.
+- The programme's decisions are on record and REQ-G3-018 exists with a satisfying card and a proving check.
 recovery: Re-run from a clean tree.
