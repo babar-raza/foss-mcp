@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "card": "TC-850",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-20T07:17:42Z",
+  "base_rev": "bf1d20bbb0f7536a3a74f660d08fb6660cf34495",
+  "head_rev": "530d2ef1e0aa7d5a1803ca66d5b0b3fbf93c18d2",
+  "card_sha256": "8f53a22a61e72cc89ddd3f66c8445fb12d498c752f4bd1ccd6a9c47b3077849e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-inputs/embeddings/3d__java.json",
+      "infra/demo-inputs/embeddings/cells__java.json",
+      "infra/demo-inputs/embeddings/pdf__java.json",
+      "infra/demo-inputs/embeddings/slides__java.json",
+      "infra/demo-manifests/3d__java__self_extracted/active_pointer.json",
+      "infra/demo-manifests/3d__java__self_extracted/generation__20261109T134446437450Z-174ae075.json",
+      "infra/demo-manifests/3d__java__self_extracted/generation__20261114T000000000000Z-71341532.json",
+      "infra/demo-manifests/cells__java__self_extracted/active_pointer.json",
+      "infra/demo-manifests/cells__java__self_extracted/generation__20261112T144937206147Z-0852b0b4.json",
+      "infra/demo-manifests/cells__java__self_extracted/generation__20261114T000000000000Z-a7489ff4.json",
+      "infra/demo-manifests/pdf__java__self_extracted/active_pointer.json",
+      "infra/demo-manifests/pdf__java__self_extracted/generation__20261112T052607703091Z-77c409d0.json",
+      "infra/demo-manifests/pdf__java__self_extracted/generation__20261114T000000000000Z-0d9d92f5.json",
+      "infra/demo-manifests/slides__java__self_extracted/active_pointer.json",
+      "infra/demo-manifests/slides__java__self_extracted/generation__20261112T050144741584Z-7da59ab4.json",
+      "infra/demo-manifests/slides__java__self_extracted/generation__20261114T000000000000Z-2d57e7aa.json",
+      "tests/conformance/test_example_integrity.py",
+      "tests/conformance/test_index_honesty.py",
+      "tests/conformance/test_symbol_self_retrieval.py",
+      "tests/deploy/test_compact_demo_manifests.py",
+      "tests/deploy/test_demo_manifests_sidecars.py",
+      "tests/deploy/test_fleet_consistency.py",
+      "tests/deploy/test_regenerated_cohort_c3.py",
+      "tests/fixtures/conformance/baseline_example_integrity.json",
+      "tests/fixtures/conformance/baseline_index_honesty.json",
+      "tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json",
+      "tests/fixtures/conformance/baseline_symbol_self_retrieval.json",
+      "tests/fixtures/furnished/slides_java/authored_examples.yaml",
+      "tests/fixtures/verified_examples/3d_java.json",
+      "tests/fixtures/verified_examples/cells_java.json",
+      "tests/fixtures/verified_examples/pdf_java.json",
+      "tests/fixtures/verified_examples/slides_java.json",
+      "tests/indexing/test_authored_examples_slides_java.py",
+      "tests/indexing/test_cached_embedding_provider.py",
+      "tests/indexing/test_round3_example_runtime_truth.py",
+      "tests/mcp/tools/test_find_examples_generic_title_lead_in.py",
+      "tests/mcp/tools/test_find_examples_rare_code_word.py",
+      "tests/mcp/tools/test_find_examples_verification_level_label.py",
+      "tests/mcp/tools/test_post_regen_retrieval_ratchets.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy tests/poc tests/furnished_content tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 641.229,
+          "stdout_sha256": "8ab2d21a47b1456fb832e69debc62dc53c27a22ecd862d1844de4431671869ad",
+          "tests": 3144,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy tests/poc tests/furnished_content tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 596.654,
+          "stdout_sha256": "8ab2d21a47b1456fb832e69debc62dc53c27a22ecd862d1844de4431671869ad",
+          "tests": 3144,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['infra/demo-manifests', 'tests/fixtures/verified_examples', 'infra/demo-inputs']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "9b90507dff01754371e3eafd104cccf5302888e66c31456381c2367e6d2e58cf",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/demo-inputs/embeddings/3d__java.json",
+      "M infra/demo-inputs/embeddings/cells__java.json",
+      "M infra/demo-inputs/embeddings/pdf__java.json",
+      "M infra/demo-inputs/embeddings/slides__java.json",
+      "M infra/demo-manifests/3d__java__self_extracted/active_pointer.json",
+      "D infra/demo-manifests/3d__java__self_extracted/generation__20261114T000000000000Z-71341532.json",
+      "M infra/demo-manifests/cells__java__self_extracted/active_pointer.json",
+      "D infra/demo-manifests/cells__java__self_extracted/generation__20261114T000000000000Z-a7489ff4.json",
+      "M infra/demo-manifests/pdf__java__self_extracted/active_pointer.json",
+      "D infra/demo-manifests/pdf__java__self_extracted/generation__20261114T000000000000Z-0d9d92f5.json",
+      "M infra/demo-manifests/slides__java__self_extracted/active_pointer.json",
+      "D infra/demo-manifests/slides__java__self_extracted/generation__20261114T000000000000Z-2d57e7aa.json",
+      "M tests/fixtures/verified_examples/3d_java.json",
+      "M tests/fixtures/verified_examples/cells_java.json",
+      "M tests/fixtures/verified_examples/pdf_java.json",
+      "M tests/fixtures/verified_examples/slides_java.json",
+      "?? .junit-0.xml",
+      "?? infra/demo-manifests/3d__java__self_extracted/generation__20261109T134446437450Z-174ae075.json",
+      "?? infra/demo-manifests/cells__java__self_extracted/generation__20261112T144937206147Z-0852b0b4.json",
+      "?? infra/demo-manifests/pdf__java__self_extracted/generation__20261112T052607703091Z-77c409d0.json",
+      "?? infra/demo-manifests/slides__java__self_extracted/generation__20261112T050144741584Z-7da59ab4.json"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
