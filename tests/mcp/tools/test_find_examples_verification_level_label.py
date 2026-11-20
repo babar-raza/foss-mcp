@@ -291,7 +291,9 @@ def test_the_server_source_reads_the_prefixes_the_entrypoint_writes() -> None:
 # TC-848: words/python left this list - cohort C1 (slides, words, cells, pdf, email, barcode, note, html, page, 3d and tex
 # python) was regenerated and every one of its example chunks now carries a Verification-Level line. The remaining
 # committed generations below are still legacy chunks (no level line) and keep their old labels.
-LEGACY_PILOTS = ["cells__cpp", "3d__java", "pdf__go", "slides__java"]
+# TC-850: 3d/java and slides/java left this list - cohort C3 (pdf, slides, cells and 3d java) was regenerated and every one of its
+# example chunks now carries a Verification-Level line.
+LEGACY_PILOTS = ["cells__cpp", "pdf__go"]
 REGENERATED_COHORT_C1_PILOTS = [
     "slides__python",
     "words__python",
@@ -305,6 +307,7 @@ REGENERATED_COHORT_C1_PILOTS = [
     "3d__python",
     "tex__python",
 ]
+REGENERATED_COHORT_C3_PILOTS = ["pdf__java", "slides__java", "cells__java", "3d__java"]
 
 
 def _committed_example_texts(pilot: str) -> list[str]:
@@ -319,7 +322,7 @@ def _committed_example_texts(pilot: str) -> list[str]:
     return [doc["text"] for doc in documents.values() if is_verified_example_text(doc["text"])]
 
 
-@pytest.mark.parametrize("pilot", REGENERATED_COHORT_C1_PILOTS)
+@pytest.mark.parametrize("pilot", [*REGENERATED_COHORT_C1_PILOTS, *REGENERATED_COHORT_C3_PILOTS])
 def test_a_regenerated_generation_has_level_lines_and_serves_the_level_derived_label(pilot: str) -> None:
     examples = _committed_example_texts(pilot)
     assert examples, pilot

@@ -115,6 +115,17 @@ def _documents(root: Path, directory: str) -> dict[str, dict[str, Any]]:
     return data["payload"]["lexical_index"]
 
 
+def _stamped_example_chunks(root: Path) -> int:
+    """How many example chunks of the pilots under *root* carry a ``Verification-Level:`` line (read straight from the files)."""
+    count = 0
+    for directory in sorted(root.glob("*__self_extracted")):
+        for document in _documents(root, directory.name)["documents"].values():
+            text = str(document["text"])
+            if sim.is_example_text(text) and "\nVerification-Level: " in text:
+                count += 1
+    return count
+
+
 def test_the_simulation_covers_every_baked_pilot_and_every_sidecar_example(tree: _Tree) -> None:
     assert len(tree.counts) == 32
     with_sidecar = {
@@ -123,9 +134,24 @@ def test_the_simulation_covers_every_baked_pilot_and_every_sidecar_example(tree:
     assert len(with_sidecar) == 30, sorted(set(tree.counts) - set(with_sidecar))
     for pilot, value in with_sidecar.items():
         assert value.simulated_authored == value.sidecar_examples, pilot
-    assert sum(v.simulated_examples for v in tree.counts.values()) > sum(
-        v.committed_examples for v in tree.counts.values()
-    ), "the simulated tree holds no example the committed one lacks: the simulation is vacuous"
+    committed_examples = sum(v.committed_examples for v in tree.counts.values())
+    simulated_examples = sum(v.simulated_examples for v in tree.counts.values())
+    assert simulated_examples >= committed_examples, (
+        "the simulated tree lost examples the committed one holds"
+    )
+    # TC-850: cohort C3 was the last cohort whose committed data lacked authored examples its sidecar already carried, so
+    # from here on the simulation can no longer ADD an example (every sidecar entry is committed already). A simulation that
+    # changes nothing proves nothing, so the non-vacuity pin is now the other thing it always rewrites: the verification
+    # stamp. Every pilot not yet regenerated (cohorts C4 and C5) has committed example chunks without a ``Verification-Level:``
+    # line, and the simulated tree gives them one.
+    committed_stamped = _stamped_example_chunks(sim.DEMO_MANIFESTS)
+    simulated_stamped = _stamped_example_chunks(tree.root)
+    assert simulated_stamped > committed_stamped, (
+        "the simulated tree stamps no example chunk the committed one lacks a verification level on: "
+        "the simulation is vacuous",
+        committed_stamped,
+        simulated_stamped,
+    )
 
 
 def test_every_simulated_authored_chunk_is_a_current_sidecar_entry_in_the_real_chunk_format(

@@ -306,10 +306,14 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
     slides, words) to their new default-sample failure set - 19 entries added, 13 removed, 106 -> 112 - as ranking
     churn plus probe artefacts of the newly served module-level constants (see the baseline's ``tc848_rationale``):
     ``digit-stripped-family-findable`` 19 -> 23, ``fabricated-fqn-false-exact`` 4 -> 5, ``prefix3-findable`` 19 -> 20,
-    the two case-(g) classes stay at 32 each."""
+    the two case-(g) classes stay at 32 each.
+
+    TC-850 (DG-1, 2026-11-20) re-recorded the four regenerated cohort-C3 Java pilots (pdf, slides, cells, 3d): one default-sample
+    ``prefix3-findable`` entry added (slides/java ``ColorType``), 112 -> 113 and ``prefix3-findable`` 20 -> 21 (see the baseline's
+    ``tc850_rationale``)."""
     baseline = load_baseline(BASELINE_PATH)
     assert baseline.strict is True
-    assert len(baseline.known_failures) == 112
+    assert len(baseline.known_failures) == 113
     by_subcase: dict[str, int] = {}
     for failure in baseline.known_failures:
         sub = failure.case_id.split(":", 1)[0]
@@ -319,7 +323,7 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
         "bare-namespace-word-false-exact": 32,
         "digit-stripped-family-findable": 23,
         "fabricated-fqn-false-exact": 5,
-        "prefix3-findable": 20,
+        "prefix3-findable": 21,
     }
 
 

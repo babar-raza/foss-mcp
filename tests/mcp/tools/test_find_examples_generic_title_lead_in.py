@@ -462,16 +462,20 @@ def test_the_real_corpus_census_of_generic_titled_examples(tmp_path: Path) -> No
     # cells/net "Quick Start (2)" and "(3)" and 3d/net "Additional Examples" are gone), 22 -> 20 pilots (email/net and 3d/net have
     # none left), 28 -> 24 that can anchor on a short lead-in. cells/net then regained its two PDF-export README examples once the .NET
     # verifier shipped the SkiaSharp native asset (TC-867), so 300 -> 302 examples; the generic-title counts are unchanged.
-    assert len(rows) == 302
+    # TC-850 re-pin (cohort C3, the four Java pilots, regenerated: README examples whose run failed or printed nothing are no
+    # longer published): 302 -> 296 examples (pdf/java 7 -> 8, slides/java 16 -> 13, cells/java 8 -> 8, 3d/java 8 -> 4), 30 -> 28 generic
+    # titled (3d/java "Quick Start (2)" and cells/java "Quick Start (2)" are gone), still 20 pilots, 24 -> 22 that can anchor on a short
+    # lead-in (both removed examples had one).
+    assert len(rows) == 296
     generic = [r for r in rows if is_generic_example_title((extract_fqn(r[2]) or "")[len(EXAMPLE_PREFIX) :])]
-    assert len(generic) == 30
+    assert len(generic) == 28
     assert len({(family, platform) for family, platform, _ in generic}) == 20
     # Every generic-titled example the corpus holds has a lead-in sentence but one (slides/net "Quick start").
     without = [r for r in generic if not example_lead_in(r[2])]
     assert [(f, p) for f, p, _ in without] == [("slides", "net")]
-    # 24 of the 30 (was 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
+    # 22 of the 28 (was 24 of 30, 28 of 34, 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
     short = [r for r in generic if 0 < len(example_lead_in(r[2]).split()) <= LEAD_IN_MAX_WORDS]
-    assert len(short) == 24
+    assert len(short) == 22
 
 
 QUERIES = (

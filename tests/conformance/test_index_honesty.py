@@ -264,11 +264,16 @@ def test_tautology_sub_case_pins_todays_real_count_of_fully_tautological_pilots(
     the "genuine, honestly-disclosed <100%" case this docstring's prior paragraph calls a good sign
     - it is an outright missing disclosure - so it is named here as the one real exception rather
     than silently folded back into "no exception".
+
+    Re-measured G3/TC-850 (2026-11-20): all 32 again, no exception. TC-790 made ``_sanitize_chunk_text`` keep the trailing
+    ``API-Coverage:`` line when it truncates a chunk, and the cohort C3 regeneration re-baked `pdf__java`: its
+    `...xfa.model.template.Proto` chunk now carries its single coverage line (after its own ``Truncated: N characters omitted``
+    disclosure), so the one confirmed exception is FIXED and the pinned exception list is empty.
     """
     _, all_100_percent = _tautology_observations(corpus)
     assert len(all_100_percent) == EXPECTED_PILOT_COUNT, sorted(all_100_percent)
     exceptions = sorted(name for name, is_full in all_100_percent.items() if not is_full)
-    assert exceptions == ["pdf__java"], (
+    assert exceptions == [], (
         f"the set of pilots with a real coverage exception changed: {exceptions} (update this test's own pinned list and name the change in the next card's closeout)"
     )
 

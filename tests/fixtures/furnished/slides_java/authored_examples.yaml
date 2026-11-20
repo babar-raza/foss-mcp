@@ -282,3 +282,55 @@ examples:
         }
     }
   code_sha256: 3e5f6c8d6013de7a318054e6473d73790f2510c9a4420d4cb5fff1b3af288544
+- title: Clone a slide in memory and read the copy's shape count
+  description: Adds one rectangle with a text frame to the first slide, clones the slide with addClone, prints and asserts the in-memory slide count and the clone's shape count, then saves to memory, reloads and prints how many slides the saved file really holds (do not rely on size() alone after addClone).
+  symbols:
+  - Presentation
+  - Presentation.save
+  - ISlideCollection.addClone
+  - ISlide.getShapes
+  - IShapeCollection.addAutoShape
+  - IShapeCollection.size
+  code: |
+    // Authored example: clone a slide in memory, read the copy's shape count, then save and reload to see what the file keeps
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.slides.foss.IAutoShape;
+    import org.aspose.slides.foss.ISlide;
+    import org.aspose.slides.foss.Presentation;
+    import org.aspose.slides.foss.ShapeType;
+    import org.aspose.slides.foss.export.SaveFormat;
+
+    public class SlideCloneExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Presentation pres = new Presentation()) {
+                ISlide original = pres.getSlides().get(0);
+                original.getShapes().clear();
+                IAutoShape box = original.getShapes().addAutoShape(ShapeType.RECTANGLE, 50, 50, 200, 100);
+                box.addTextFrame("Original");
+                ISlide copy = pres.getSlides().addClone(original);
+                int slidesInMemory = pres.getSlides().size();
+                int copyShapes = copy.getShapes().size();
+                System.out.println("slides in memory: " + slidesInMemory);
+                System.out.println("shapes on the copy: " + copyShapes);
+                if (slidesInMemory != 2) {
+                    throw new AssertionError("expected 2 slides in memory after addClone, found " + slidesInMemory);
+                }
+                if (copyShapes != 1) {
+                    throw new AssertionError("expected the clone to hold 1 shape, found " + copyShapes);
+                }
+                pres.save(savedBytes, SaveFormat.PPTX);
+            }
+
+            // Do not trust size() alone: re-read the saved bytes and report how many slides the file really holds.
+            try (Presentation reloaded = new Presentation(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                int reloadedSlides = reloaded.getSlides().size();
+                System.out.println("slides after reload: " + reloadedSlides);
+                if (reloadedSlides < 1) {
+                    throw new AssertionError("expected the reloaded file to hold at least 1 slide, found " + reloadedSlides);
+                }
+            }
+        }
+    }
+  code_sha256: e865262eebaa5b8d6b40a9b97060c9dddedcac97376269c788dcdbe7645fe8d9

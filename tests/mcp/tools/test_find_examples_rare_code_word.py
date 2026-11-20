@@ -187,7 +187,7 @@ def test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word
     # plus the named-range example - both labelled as the loose rare-code-word match they are.
     assert sorted(_titles(result)) == [
         "Additional Examples",
-        "Define a named range scoped to the file, with a comment, and confirm it after a reload",
+        "Define a file-scoped named range with a comment and confirm after reload",
     ]
     assert _bases(result) == {MATCH_BASIS_RARE_CODE_WORD}
 

@@ -62,8 +62,11 @@ KNOWN_ORPHAN_PILOTS: frozenset[str] = frozenset()
 # TC-849: cohort C2 regenerated 3d/net, and TC-802 (publish no example whose run failed or produced nothing) removed its one
 # ``Kind: verified_example`` chunk with ``Runtime-Status: failed`` ("Additional Examples", a README example that read a file the
 # sandbox does not have): the defect is FIXED there. Every example chunk 3d/net now holds is authored and ran with output.
-PREVIOUSLY_KNOWN_MISLABELLED_VERIFIED_PILOTS = frozenset({"3d__net"})
-KNOWN_MISLABELLED_VERIFIED_PILOTS = frozenset({"3d__java", "pdf__cpp"})
+# TC-850: cohort C3 regenerated 3d/java, and the same rule removed its two ``Kind: verified_example`` chunks that were labelled
+# ``Runtime-Status: no_output`` ("Build a Scene From a Primitive", a 35-byte STL with no facet) and ``failed`` ("Quick Start (2)",
+# an IOException): the defect is FIXED there too. Every example chunk 3d/java now holds ran and produced output.
+PREVIOUSLY_KNOWN_MISLABELLED_VERIFIED_PILOTS = frozenset({"3d__net", "3d__java"})
+KNOWN_MISLABELLED_VERIFIED_PILOTS = frozenset({"pdf__cpp"})
 
 
 @pytest.fixture(autouse=True)
@@ -201,21 +204,21 @@ def test_no_other_pilot_newly_exhibits_the_orphan_fragment_defect(corpus: Confor
     assert not new, f"newly found orphan-fragment pilot(s), not previously known: {sorted(new)}"
 
 
-# ---- mislabelled-verified sub-case (3d/java, pdf/cpp; 3d/net fixed by TC-849) -----------------------------------------
+# ---- mislabelled-verified sub-case (pdf/cpp; 3d/net fixed by TC-849, 3d/java by TC-850) -----------------------------------------
 
 
-def test_the_previously_known_3d_net_pilot_no_longer_exhibits_the_mislabelled_verified_defect(
+def test_the_previously_known_3d_pilots_no_longer_exhibit_the_mislabelled_verified_defect(
     corpus: ConformanceCorpus,
 ) -> None:
-    """TC-849: 3d/net was regenerated; it still has real example chunks (so this is not vacuous) and none is
-    labelled verified while its own run failed or produced nothing."""
+    """TC-849 (3d/net) and TC-850 (3d/java): the pilot was regenerated; it still has real example chunks (so this is not
+    vacuous) and none is labelled verified while its own run failed or produced nothing."""
     for name in sorted(PREVIOUSLY_KNOWN_MISLABELLED_VERIFIED_PILOTS):
         pilot = corpus.pilots[name]
         assert pilot.example_chunks(), name
         assert _mislabelled_verified_findings(pilot) == [], name
 
 
-def test_the_two_already_known_mislabelled_verified_pilots_still_exhibit_the_defect(
+def test_the_one_already_known_mislabelled_verified_pilot_still_exhibits_the_defect(
     corpus: ConformanceCorpus,
 ) -> None:
     found = {

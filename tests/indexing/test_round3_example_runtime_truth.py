@@ -2,7 +2,7 @@
 
 The verifier used to stop at compilation, so ``find_examples`` labelled as "Compiled or run" an example that
 throws (3d/net ``Save("o.obj", FileFormat.WavefrontOBJ)``), writes an empty file (3d/java "Build a Scene From
-a Primitive": a 35-byte STL with no facet) or throws an IOException (3d/java "Quick Start (2)"). It now RUNS
+a Primitive": a 35-byte STL with no facet) or throws an IOException (3d/java "Quick Start (2)", titled by its lead-in sentence since the TC-850 regeneration). It now RUNS
 what compiled, in a sandbox directory behind an injected runner, and records ``compiled``, ``ran``,
 ``exit_code`` and ``produced_output`` separately.
 
@@ -381,7 +381,9 @@ def test_the_switch_off_restores_the_compile_only_verdict(monkeypatch: pytest.Mo
 PINS = [
     ("3d_net", "Additional Examples", RUNTIME_FAILED),
     ("3d_java", "Build a Scene From a Primitive", RUNTIME_NO_OUTPUT),
-    ("3d_java", "Quick Start (2)", RUNTIME_FAILED),
+    # TC-850: the regenerated 3d/java cache titles this README example by its lead-in sentence (it was "Quick Start (2)");
+    # same code, same IOException ("File format not specified in SaveOptions"), still never published.
+    ("3d_java", "To explicitly specify the output format, or load with custom save options", RUNTIME_FAILED),
     ("pdf_cpp", "Open a Password-Protected Document", RUNTIME_FAILED),
 ]
 
@@ -415,7 +417,12 @@ def test_the_empty_stl_pin_records_exit_zero_and_zero_bytes() -> None:
 
 def test_the_failing_pins_carry_the_error_that_the_label_will_quote() -> None:
     assert "NotImplementedException" in _entries("3d_net", "Additional Examples")[0]["runtime_error"]
-    assert "IOException" in _entries("3d_java", "Quick Start (2)")[0]["runtime_error"]
+    assert (
+        "IOException"
+        in _entries("3d_java", "To explicitly specify the output format, or load with custom save options")[
+            0
+        ]["runtime_error"]
+    )
     assert "zlib" in _entries("pdf_cpp", "Open a Password-Protected Document")[0]["runtime_error"]
 
 

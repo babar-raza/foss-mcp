@@ -1,14 +1,17 @@
 """Offline checks of the slides/java authored-example sidecar (TC-754, REQ-G3-014).
 
-``tests/fixtures/furnished/slides_java/authored_examples.yaml`` holds five authored examples
+``tests/fixtures/furnished/slides_java/authored_examples.yaml`` holds six authored examples
 written against the real public API of ``org.aspose.slides.foss`` (Aspose.Slides FOSS for Java) at
 the pinned commit: a connector round trip whose start and end connections are read back by shape
 name, a hidden-slide flag round trip across a three-slide deck, a paragraph alignment/margin/indent
-round trip, a solid shape fill round trip read back as fill type and ARGB value, and a slide
-removal whose remaining order is confirmed after a reload. The real pinned upstream repository
+round trip, a solid shape fill round trip read back as fill type and ARGB value, a slide
+removal whose remaining order is confirmed after a reload, and (TC-850) an in-memory slide clone whose copy is
+read back as a shape count (the README "Clone a Slide" example prints nothing, so it is no longer published; the
+reload at the end only reports the saved slide count, because SLIDES-JAVA-010B documents that addClone's slide is
+not registered in the saved file). The real pinned upstream repository
 (``aspose-slides-foss/Aspose.Slides-FOSS-for-Java``) ships no dedicated ``examples/``-style sample
 directory at the pinned commit (its tree holds only ``src/``, ``tests/test_data/`` and build files),
-so every one of these five was authored against the real API surface in
+so every one of these six was authored against the real API surface in
 ``tests/fixtures/slides_java/api_surface.json`` and the working calls shown in the upstream README.
 
 Each is a complete, self-contained Java program (its own ``public class`` with a ``main`` method
@@ -61,8 +64,8 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
-EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
+EXPECTED_EXAMPLES = 6
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5, 6]
 
 _IMPORT_LINE_RE = re.compile(r"(?m)^import\s+([^;]+);")
 _LIBRARY_IMPORT_PREFIX = "org.aspose.slides.foss"
@@ -109,7 +112,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_six_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
