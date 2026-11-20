@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-870",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-20T22:33:21Z",
+  "base_rev": "26b7acdbbb26a080e465988c1e70788f7946c8bd",
+  "head_rev": "dd60c76da634f86832dae508946708b69686f9f5",
+  "card_sha256": "a790935d02b4a32b449469f9ff743f3244b169089a58eb5924e69003226a64fb",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-manifests/tex__python__self_extracted/active_pointer.json",
+      "infra/demo-manifests/tex__python__self_extracted/generation__20261114T000000000000Z-afc6f734.json",
+      "infra/demo-manifests/tex__python__self_extracted/generation__20261114T000000000000Z-b428c761.json",
+      "src/foss_mcp/normalization/chunker.py",
+      "tests/indexing/test_doc_chunking.py",
+      "tests/infra/test_build_chunks_extraction_notice.py",
+      "tests/infra/test_build_chunks_parse_failures_notice.py",
+      "tests/normalization/test_chunker.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_doc_chunking.py tests/normalization tests/deploy tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 427.354,
+          "stdout_sha256": "26c829343ada2050b6a80ca438d1b49d681611ebf62a2378d613be4304d4a75b",
+          "tests": 3569,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_doc_chunking.py tests/normalization tests/deploy tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 377.753,
+          "stdout_sha256": "26c829343ada2050b6a80ca438d1b49d681611ebf62a2378d613be4304d4a75b",
+          "tests": 3569,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/normalization/chunker.py'); s = p.read_text(encoding='utf-8'); old = '    if preamble:'; assert s.count(old) == 1, 'the fix is missing or its anchor changed'; p.write_text(s.replace(old, '    if preamble and False:', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "a07e85250840a197830707ae9ba3fd0adeacfc3f962dd1b55c17c9d4b04de5c3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/normalization/chunker.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
