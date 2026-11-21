@@ -81,7 +81,11 @@ NO_REGISTRY_PLATFORM = "cpp"
 # package-registry and recent-releases sidecars (the product-reference one now carries the 26.11.1 README and install_served_version): the
 # committed tree measured 50_677_414 bytes (generation files, pointers and sidecars). Same rule as TC-848..TC-852: the measurement rounded up
 # to the next 10_000. The margin under the 55_000_000 lean ceiling is 4_322_586 bytes (4_320_000 from the budget).
-TREE_BYTES_BUDGET = 50_680_000
+# re-pinned by TC-868: 50_680_000 -> 50_690_000. imaging/net (cohort C0) was regenerated with honest verification levels: the committed tree
+# measured 50_680_690 bytes (generation files, pointers and sidecars; the one imaging/net generation file grew from 130_228 to 132_214
+# bytes, from a committed 50_678_704). Same rule as TC-848..TC-853: the measurement rounded up to the
+# next 10_000. The margin under the 55_000_000 lean ceiling is 4_319_310 bytes (4_310_000 from the budget).
+TREE_BYTES_BUDGET = 50_690_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {

@@ -115,8 +115,8 @@ def _documents(root: Path, directory: str) -> dict[str, dict[str, Any]]:
     return data["payload"]["lexical_index"]
 
 
-# The pilots whose committed generation is not a regenerated one (no ``Verification-Level:`` line on its example chunks).
-NOT_REGENERATED_PILOTS = ("imaging__net",)
+# TC-868: imaging/net (cohort C0) was the last pilot whose committed generation was not a regenerated one (no
+# ``Verification-Level:`` line on its example chunks). It is regenerated now, so no pilot is left outside the regenerated set.
 
 
 def _stamped_example_chunks_by_pilot(root: Path) -> dict[str, int]:
@@ -152,23 +152,15 @@ def test_the_simulation_covers_every_baked_pilot_and_every_sidecar_example(tree:
     # non-vacuity guard (simulated stamped chunks strictly greater than committed stamped chunks, summed over the tree) is
     # replaced by the pin that is still meaningful once nothing is left to add: every regenerated baked pilot has stamped example
     # chunks and the simulated tree holds exactly as many stamped example chunks as the committed one, per pilot (the simulation
-    # neither drops a stamp nor invents a chunk). The one exception is imaging/net (cohort C0, never re-baked by a cohort card:
-    # three README examples with no level line, see tests/mcp/tools/test_find_examples_verification_level_label.py): the
-    # simulation still stamps those, which keeps the simulation non-vacuous (simulated stamped > committed stamped for it).
+    # neither drops a stamp nor invents a chunk). TC-868 regenerated imaging/net (cohort C0), the last pilot with unstamped
+    # chunks, so the per-pilot exception that used to keep the simulation non-vacuous for it is gone and all 32 pilots are held to
+    # the same equality.
     committed_stamped = _stamped_example_chunks_by_pilot(sim.DEMO_MANIFESTS)
     simulated_stamped = _stamped_example_chunks_by_pilot(tree.root)
     assert len(committed_stamped) == 32
-    regenerated = sorted(set(committed_stamped) - set(NOT_REGENERATED_PILOTS))
-    assert len(regenerated) == 31
-    for pilot in regenerated:
+    for pilot in sorted(committed_stamped):
         assert committed_stamped[pilot] > 0, pilot
         assert simulated_stamped[pilot] == committed_stamped[pilot], pilot
-    for pilot in NOT_REGENERATED_PILOTS:
-        assert committed_stamped[pilot] == 0, pilot
-        assert simulated_stamped[pilot] > committed_stamped[pilot], (
-            f"{pilot}: the simulated tree stamps no example chunk the committed one lacks a verification level on: "
-            "the simulation is vacuous"
-        )
 
 
 def test_every_simulated_authored_chunk_is_a_current_sidecar_entry_in_the_real_chunk_format(

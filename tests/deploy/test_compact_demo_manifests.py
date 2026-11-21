@@ -77,7 +77,11 @@ EXPECTED_SCOPES = 32
 # package-registry and recent-releases sidecars (the product-reference one now carries the 26.11.1 README and install_served_version): the
 # committed tree measured 50_677_414 bytes (generation files, pointers and sidecars). Same rule as TC-848..TC-852: the measurement rounded up
 # to the next 10_000. The margin under the 55_000_000 lean ceiling is 4_322_586 bytes (4_320_000 from the budget).
-TREE_BYTES_BUDGET = 50_680_000
+# re-pinned by TC-868: 50_680_000 -> 50_690_000. imaging/net (cohort C0) was regenerated with honest verification levels: the committed tree
+# measured 50_680_690 bytes (generation files, pointers and sidecars; the one imaging/net generation file grew from 130_228 to 132_214
+# bytes, from a committed 50_678_704). Same rule as TC-848..TC-853: the measurement rounded up to the
+# next 10_000. The margin under the 55_000_000 lean ceiling is 4_319_310 bytes (4_310_000 from the budget).
+TREE_BYTES_BUDGET = 50_690_000
 # re-pinned by TC-778: 6_060_000 -> 7_390_000 (the largest generation file is pdf/java again, now
 # 7_031_594 bytes, after the supervisor's TC-743/TC-744/TC-748 authored-examples re-ingest finally
 # caught pdf/java's own generation up to the per-member documentation rendering already present on

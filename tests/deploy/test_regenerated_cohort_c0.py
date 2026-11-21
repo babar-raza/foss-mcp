@@ -1,0 +1,140 @@
+"""G3/TC-868: cohort C0 (imaging/net, the one pilot no earlier cohort card re-baked) serves freshly regenerated data (REQ-G3-017).
+
+The committed imaging/net generation was baked before the one-chunk verified examples and the honest verification levels:
+its three example chunks carried no ``Verification-Level:`` / ``Verified-With:`` line, so it served unstamped,
+unverified-by-label examples while the other 31 pilots served honest levels (its vectors were 4096-dim already). This test
+pins, offline from the committed files only:
+
+* every vector index of the active generation is 4096-dimensional and every Example chunk has a vector point;
+* the pilot is not listed in the stale tables of tests/deploy/test_fleet_consistency.py;
+* every Example chunk carries ``Verification-Level:`` and ``Verified-With:`` lines and no chunk holds two examples;
+* the pilot's tests/fixtures/verified_examples cache file exists;
+* the three examples are published at the honest ``ran-produced-output`` level and none was dropped (TC-802 would drop one
+  whose run failed or printed nothing; none did);
+* all 32 baked pilots are stamped: no pilot is legacy or unregenerated any more.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from tests.deploy.test_fleet_consistency import STALE_BAKED_PILOTS, STALE_BY_MEMBERS
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
+VERIFIED_EXAMPLES = REPO_ROOT / "tests" / "fixtures" / "verified_examples"
+
+COHORT_C0 = ("imaging_net",)
+GATEWAY_DIMENSION = 4096
+_EXAMPLE_FQN_LINE = re.compile(r"^FQN: Example: ", re.MULTILINE)
+
+
+def _scope_dir(key: str) -> Path:
+    family, platform = key.split("_", 1)
+    return DEMO_MANIFESTS / f"{family}__{platform}__self_extracted"
+
+
+def _active_generation(key: str) -> dict[str, Any]:
+    scope = _scope_dir(key)
+    pointer = json.loads((scope / "active_pointer.json").read_text(encoding="utf-8"))
+    version = pointer["generation_id"].rsplit("::", 1)[-1]
+    return json.loads((scope / f"generation__{version}.json").read_text(encoding="utf-8"))
+
+
+def _example_chunks(generation: dict[str, Any]) -> dict[str, str]:
+    documents = generation["payload"]["lexical_index"]["documents"]
+    return {
+        chunk_id: str(chunk.get("text", ""))
+        for chunk_id, chunk in documents.items()
+        if _EXAMPLE_FQN_LINE.search(str(chunk.get("text", "")))
+    }
+
+
+def test_the_cohort_is_imaging_net_alone() -> None:
+    assert COHORT_C0 == ("imaging_net",)
+
+
+@pytest.mark.parametrize("key", COHORT_C0)
+def test_every_vector_is_gateway_dimension_and_every_example_has_a_point(key: str) -> None:
+    generation = _active_generation(key)
+    vector_index = generation["payload"]["vector_index"]
+    assert vector_index["dimension"] == GATEWAY_DIMENSION, f"{key}: vector index dimension"
+    points = vector_index["points"]
+    assert points, f"{key}: the vector index has no points"
+    assert {len(point["vector"]) for point in points} == {GATEWAY_DIMENSION}, (
+        f"{key}: a point is not 4096-dim"
+    )
+    examples = _example_chunks(generation)
+    assert examples, f"{key}: no Example chunk"
+    point_texts = {str(point["text"]) for point in points}
+    missing = sorted(chunk_id for chunk_id, text in examples.items() if text not in point_texts)
+    assert not missing, f"{key}: Example chunks without a vector point: {missing}"
+
+
+@pytest.mark.parametrize("key", COHORT_C0)
+def test_the_pilot_is_not_listed_stale(key: str) -> None:
+    assert key not in STALE_BAKED_PILOTS, f"{key} is regenerated: it must not be in STALE_BAKED_PILOTS"
+    assert key not in STALE_BY_MEMBERS, f"{key} is regenerated: it must not be in STALE_BY_MEMBERS"
+
+
+@pytest.mark.parametrize("key", COHORT_C0)
+def test_example_chunks_are_verified_and_hold_one_example_each(key: str) -> None:
+    examples = _example_chunks(_active_generation(key))
+    assert examples, f"{key}: no Example chunk"
+    for chunk_id, text in examples.items():
+        assert re.search(r"^Verification-Level: \S", text, re.MULTILINE), (
+            f"{key} {chunk_id}: no Verification-Level"
+        )
+        assert re.search(r"^Verified-With: \S", text, re.MULTILINE), f"{key} {chunk_id}: no Verified-With"
+        assert len(_EXAMPLE_FQN_LINE.findall(text)) == 1, (
+            f"{key} {chunk_id}: more than one example in one chunk"
+        )
+
+
+@pytest.mark.parametrize("key", COHORT_C0)
+def test_the_verified_examples_cache_file_exists(key: str) -> None:
+    path = VERIFIED_EXAMPLES / f"{key}.json"
+    assert path.is_file(), f"{key}: {path} is missing"
+    assert json.loads(path.read_text(encoding="utf-8")), f"{key}: the verified-examples cache is empty"
+
+
+# TC-802 publishes no example whose run failed or printed nothing. All three imaging/net examples (authored for this index) ran to
+# exit 0 and wrote output, so none was dropped and each is published at the strongest level.
+EXPECTED_EXAMPLE_TITLES = (
+    "Detect an image format from PNG signature bytes",
+    "Probe a PNG stream asynchronously",
+    "Read the size of a one-pixel BMP file",
+)
+
+
+@pytest.mark.parametrize("key", COHORT_C0)
+def test_all_three_examples_are_published_at_the_ran_produced_output_level(key: str) -> None:
+    chunks = _example_chunks(_active_generation(key))
+    titles = sorted(
+        re.search(r"^FQN: Example: (.+)$", text, re.MULTILINE).group(1) for text in chunks.values()
+    )  # type: ignore[union-attr]
+    assert titles == sorted(EXPECTED_EXAMPLE_TITLES), key
+    for chunk_id, text in chunks.items():
+        level = re.search(r"^Verification-Level: (\S+)$", text, re.MULTILINE)
+        assert level is not None and level.group(1) == "ran-produced-output", (key, chunk_id)
+
+
+def test_every_baked_pilot_is_stamped_none_is_legacy() -> None:
+    """After TC-868 every one of the 32 baked pilots' example chunks carries a Verification-Level line."""
+    scopes = sorted(DEMO_MANIFESTS.glob("*__self_extracted"))
+    assert len(scopes) == 32
+    for scope in scopes:
+        family, platform, _ = scope.name.split("__")
+        examples = _example_chunks(_active_generation(f"{family}_{platform}"))
+        assert examples, scope.name
+        unstamped = [
+            chunk_id
+            for chunk_id, text in examples.items()
+            if not re.search(r"^Verification-Level: \S", text, re.MULTILINE)
+        ]
+        assert not unstamped, (scope.name, unstamped)
