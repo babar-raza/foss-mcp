@@ -647,11 +647,9 @@ def _stored_dimension(pilot: tuple[str, str, str]) -> int:
 def test_a_committed_pilot_generation_reports_the_gateway_mode_exactly_when_it_has_example_points(
     monkeypatch: pytest.MonkeyPatch, pilot: tuple[str, str, str]
 ) -> None:
-    # TC-810: a gateway whose configured dimension equals the dimension the generation STORES. The
-    # committed pilots do not all store 4096: 31 of 32 hold the 64-dimension local hashing fallback's
-    # vectors and only imaging/net holds real gateway vectors (the same wrong universal-4096 assumption
-    # TC-778 fixed in test_compact_demo_manifests), so the old fixed "4096" configured a MISMATCH for
-    # them. The mode logic is unchanged and is what is under test.
+    # TC-810: a gateway whose configured dimension equals the dimension the generation STORES (read from the
+    # generation, so the mode logic stays what is under test; TC-869: every committed pilot stores 4096 now,
+    # pinned by test_a_committed_pilot_generation_stores_the_dimension_of_its_own_vectors).
     family, platform, source_kind = pilot
     _configure(monkeypatch, dimension=str(_stored_dimension(pilot)))
     report = report_index_freshness(
@@ -686,12 +684,12 @@ def test_a_committed_pilot_generation_with_a_different_configured_dimension_is_l
 def test_a_committed_pilot_generation_stores_the_dimension_of_its_own_vectors(
     pilot: tuple[str, str, str],
 ) -> None:
-    # TC-810: was "stores the default gateway dimension (4096)", wrong for the 31 pilots built with the
-    # 64-dimension local hashing fallback (gateway_embedding_provider._DEFAULT_DIMENSION = 4096 vs
-    # hashing_embedding_provider's 64). What must hold universally is that the stored dimension is one
-    # of the two real providers' and is truthful about every stored vector.
+    # TC-810 relaxed this to (64, 4096) while 31 pilots still held the 64-dimension local hashing fallback's
+    # vectors (hashing_embedding_provider's 64). TC-869: every baked pilot was regenerated with gateway vectors
+    # (TC-848..TC-853, TC-868), so a 64 now is a regression. The stored dimension is the gateway default (4096)
+    # and is truthful about every stored vector.
     payload = _demo_payload(*pilot)
     dimension = _stored_dimension(pilot)
-    assert dimension in (64, 4096), dimension
+    assert dimension == 4096, dimension
     points = (payload.get("vector_index") or {}).get("points") or []
     assert all(len(point["vector"]) == dimension for point in points)

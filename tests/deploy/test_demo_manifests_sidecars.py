@@ -85,7 +85,11 @@ NO_REGISTRY_PLATFORM = "cpp"
 # measured 50_680_690 bytes (generation files, pointers and sidecars; the one imaging/net generation file grew from 130_228 to 132_214
 # bytes, from a committed 50_678_704). Same rule as TC-848..TC-853: the measurement rounded up to the
 # next 10_000. The margin under the 55_000_000 lean ceiling is 4_319_310 bytes (4_310_000 from the budget).
-TREE_BYTES_BUDGET = 50_690_000
+# re-pinned by TC-869: 50_690_000 -> 50_780_000. The final re-measure: all 32 baked pilots are 4096-dim, the committed tree measures
+# 50_680_690 bytes (generation files, pointers and sidecars). The measurement rounded up to the next 10_000 is 50_690_000 (9_310 bytes of
+# slack, too little for one more authored example at about 33 KB per 4096-dim example point), so the final budget keeps about 100 KB of
+# headroom for the next regeneration: 50_780_000, 99_310 bytes above the measured tree and 4_220_000 below the 55_000_000 lean ceiling.
+TREE_BYTES_BUDGET = 50_780_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {

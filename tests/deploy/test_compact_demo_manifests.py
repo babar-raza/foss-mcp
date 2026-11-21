@@ -81,7 +81,12 @@ EXPECTED_SCOPES = 32
 # measured 50_680_690 bytes (generation files, pointers and sidecars; the one imaging/net generation file grew from 130_228 to 132_214
 # bytes, from a committed 50_678_704). Same rule as TC-848..TC-853: the measurement rounded up to the
 # next 10_000. The margin under the 55_000_000 lean ceiling is 4_319_310 bytes (4_310_000 from the budget).
-TREE_BYTES_BUDGET = 50_690_000
+# re-pinned by TC-869: 50_690_000 -> 50_780_000. The final re-measure: all 32 baked pilots are 4096-dim (no 64-dim hashing index is left),
+# the committed tree measures 50_680_690 bytes (generation files, pointers and sidecars). The measurement rounded up to the next 10_000 is
+# 50_690_000, which leaves 9_310 bytes, too little for even one more authored example (about 33 KB per 4096-dim example point), so the
+# final budget keeps about 100 KB of headroom for the next regeneration: 50_780_000, 99_310 bytes above the measured tree and 4_220_000
+# below the 55_000_000 lean ceiling (the usual x 1.05 would be 53_214_725, which would leave the budget loose by 2.5 MB).
+TREE_BYTES_BUDGET = 50_780_000
 # re-pinned by TC-778: 6_060_000 -> 7_390_000 (the largest generation file is pdf/java again, now
 # 7_031_594 bytes, after the supervisor's TC-743/TC-744/TC-748 authored-examples re-ingest finally
 # caught pdf/java's own generation up to the per-member documentation rendering already present on
@@ -100,7 +105,10 @@ LARGEST_FILE_BYTES_BUDGET = 7_390_000
 # generation file (over the 32 scopes) to 998_887 bytes; 998_887 x 1.05 = 1_048_831.4, rounded up to the next 10_000.
 # re-pinned by TC-852: 1_050_000 -> 1_140_000. Cohort C5's regenerated pilots carry 4096-dim example vectors (all 32 pilots do now), which moved
 # the median generation file (over the 32 scopes) to 1_078_914 bytes; 1_078_914 x 1.05 = 1_132_859.7, rounded up to the next 10_000.
-MEDIAN_FILE_BYTES_BUDGET = 1_140_000
+# re-pinned by TC-869: 1_140_000 -> 1_090_000. Final re-measure of the median generation file (over the 32 scopes, all 4096-dim): 1_078_914
+# bytes. The old budget was the TC-852 measurement x 1.05, which left 61_086 bytes of slack; the measurement rounded up to the next
+# 10_000 is 1_080_000 (1_086 bytes of slack), and one more 10_000 step (1_090_000, 11_086 bytes) is kept for a small regeneration.
+MEDIAN_FILE_BYTES_BUDGET = 1_090_000
 # The lean standalone image was agreed with the operator at 45 MB for the baked tree. Raised to 55 MB by TC-854 on 2026-11-14,
 # recorded as OQ-029 (PROVISIONAL_ACCEPT, decided by the supervisor under the standing directive; the operator can still overrule it).
 # Why: gateway-dimension (4096) example vectors make find_examples hybrid instead of permanently lexical-only, at about 33 KB per
@@ -108,14 +116,15 @@ MEDIAN_FILE_BYTES_BUDGET = 1_140_000
 # Quantising the vectors and changing their on-disk encoding were rejected (see docs/DECISION_LOG.md). A worker never moves it
 # without such a recorded decision.
 LEAN_CEILING_BYTES = 55_000_000
-# Added by TC-778: the real committed tree legitimately serves TWO distinct vector dimensions, not
-# one universal value - confirmed directly against src/foss_mcp/indexing/hashing_embedding_provider.py's
-# local offline fallback (`dimension: int = 64`, used by 31 of 32 real pilots) and
-# gateway_embedding_provider.py's real Qwen gateway vectors (`_DEFAULT_DIMENSION = 4096`, used by
-# imaging/net alone today). What must hold for every pilot, forever, is that each kept point's own
-# vector length matches its OWN generation's declared dimension - asserted on the next line below -
-# never that every pilot shares one single dimension.
-LEGITIMATE_VECTOR_DIMENSIONS = {64, 4096}
+# Added by TC-778 as {64, 4096}, tightened to {4096} by TC-869. While the pilots were being regenerated the committed tree
+# legitimately served TWO vector dimensions: the local offline hashing fallback's 64
+# (src/foss_mcp/indexing/hashing_embedding_provider.py, `dimension: int = 64`) and the real gateway's 4096
+# (gateway_embedding_provider.py, `_DEFAULT_DIMENSION = 4096`). Cohorts C0 to C5 and the tex/python and imaging/net
+# re-pins (TC-848..TC-853, TC-868) have since moved every one of the 32 baked pilots to gateway vectors, and a 64-dim
+# hashing index makes find_examples permanently lexical-only, so a 64 is now a regression, not a legitimate dimension.
+# What must hold for every pilot is that its declared dimension is 4096 and that each kept point's own vector length
+# matches its OWN generation's declared dimension - asserted in test_real_tree_every_kept_vector_point_is_an_example_chunk_and_keeps_its_fields.
+LEGITIMATE_VECTOR_DIMENSIONS = {4096}
 
 
 def budget_is_within_the_lean_ceiling(budget: int, ceiling: int = LEAN_CEILING_BYTES) -> bool:
