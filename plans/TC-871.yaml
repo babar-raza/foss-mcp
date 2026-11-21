@@ -1,0 +1,60 @@
+id: TC-871
+gate: G3
+lane: verification
+purpose: 'AU1-AU3 of the original plan were never built (verified 2026-11-21: no scripts/audit, no tests/audit, no replay runner; the 285 reported problems of docs/round2/issues.json exist only as prose repro notes and as ledger rows in docs/ROUND2_REVIEW.md). The operator wants every previously reported problem replayable against an image. Cards TC-857..TC-865 now append one machine-readable probe per dispositioned ledger row to tests/audit/probes/ws_*.yaml (entry shape in those cards: id, row, pilot, disposition, probe {tool,args} or {manual,reason}, expect {found, match_quality, result_contains, result_not_contains, min_results, max_results}, evidence). This card builds the runner and the permanent regression around those files: (1) scripts/audit/replay.py: loads every tests/audit/probes/*.yaml, validates the shape, runs each non-manual probe by calling the real MCP tool function in-process against the committed infra/demo-manifests exactly as the closure workers did (reuse the in-process
+  client/store helpers the repo already has: look at tests/mcp/tools helpers, scripts/release/answer_diff.py and scripts/release/fleet_live_smoke.py / image_workflow_gate.py for how a store and a live client are opened), compares the serialised result to the expectation and prints one line per probe (id, pilot, tool, MATCH|MISMATCH|ERROR|MANUAL) plus a JSON and a markdown report with a deterministic canonical hash of the results (sorted, no timestamps); exit code 1 when any probe whose disposition is not OPEN mismatches or errors. (2) --image TAG (release time): start one container per pilot the way scripts/release/image_workflow_gate.py does (reuse its helpers, do not reimplement container handling), run the same probes through the live MCP client, and tear the containers down; --base-url TEMPLATE (e.g. https://host/{family}-{platform}/mcp) runs them against a deployed URL. These live modes are exercised only by unit tests with a fake client (no docker in CI). (3) tests/audit/test_probe_files.py:
+  every probe file is valid, every id exists in docs/round2/issues.json (or docs/round3/issues.json), the disposition in the probe equals the Status column of docs/ROUND2_REVIEW.md for that row, ids are unique across files, and every ledger row with a non-OPEN disposition has a probe entry OR is listed with a reason in tests/audit/probes/_unprobed.yaml (rows closed before this programme have no probe; list them, report the count, and do not invent probes). (4) tests/audit/test_replay_inprocess.py: runs every non-manual probe in-process and requires MATCH for every non-OPEN disposition (this is the permanent offline regression), and a small fake-client test for the live modes. (5) docs/RELEASE.md: a short section ''Replaying the reported problems against an image'' with the three commands. If a probe written by an earlier card does not match the live result, fix the PROBE only when you prove the closure card''s disposition is still right (show the live output); if the disposition itself is
+  wrong, stop and report the row so the supervisor can reopen it - never edit a ledger status yourself (docs/ROUND2_REVIEW.md is not in your write_paths).'
+depends_on:
+- TC-853
+- TC-855
+- TC-856
+- TC-857
+- TC-858
+- TC-859
+- TC-860
+- TC-861
+- TC-862
+- TC-863
+- TC-864
+- TC-865
+- TC-868
+- TC-869
+- TC-870
+write_paths:
+- scripts/audit/**
+- tests/audit/**
+- docs/RELEASE.md
+satisfies:
+- REQ-G3-010
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+- 'READ FIRST: docs/round2/issues.json (285 issues; keys id, pilot, tools, repro, expected, actual), docs/ROUND2_REVIEW.md (the ledger, Status is the last column), tests/audit/probes/*.yaml written by TC-857..TC-865 (read three of them for the real shape), scripts/release/answer_diff.py and tests/deploy/test_answer_diff.py (module + test layout to imitate), scripts/release/fleet_live_smoke.py, scripts/release/image_workflow_gate.py and src/foss_mcp/mcp/ (tool function signatures).'
+- No Docker in this card's checks. Never print credentials. Use only the real tool functions; do not mock the retrieval stack in the in-process mode. The in-process run over all probes must finish in under 10 minutes; if it does not, report the slowest pilots rather than trimming probes.
+- "Run the FULL directory sweeps WITHOUT -x after your final edit (PowerShell, scripts\toolchain\activate.ps1 dot-sourced): tests/audit tests/mcp tests/indexing tests/conformance tests/config tests/extraction tests/infra tests/release tests/deploy; tests/infra must be green. In a worktree without a venv use the main checkout .venv python (E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.venv/Scripts/python.exe) with PYTHONPATH set to your worktree root, src and infra. One commit with FOSS_MCP_WORKER=TC-871; report once with the probe counts per workstream, MATCH/MISMATCH/MANUAL totals, the _unprobed count and the run time."
+actions:
+- Build the probe replay runner (in-process, image and URL modes) and the permanent offline regression around the probe files.
+checks:
+- command: '{python} -m pytest tests/audit -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-010
+min_tests: 40
+requires:
+- python
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import subprocess; paths = [''scripts/audit'']; patch = subprocess.run([''git'', ''show'', ''--format='', ''HEAD'', ''--''] + paths, capture_output=True, check=True).stdout; assert patch.strip(), ''the worker commit changes none of the production paths - the runner is missing''; subprocess.run([''git'', ''apply'', ''-R'', ''--whitespace=nowarn'', ''-''], input=patch, check=True)"
+
+    '
+  rationale: Reverse-applies the worker's own commit restricted to scripts/audit (the runner itself), keeping the tests; the suite must then fail on import. Anchored on the real diff, so it cannot be vacuous. The worker must commit exactly one commit.
+evidence:
+- evidence/build/G3/TC-871/receipt.json
+closeout:
+- Every dispositioned ledger row with a probe can be replayed in-process and against an image or URL with one command; the offline regression keeps them green.
+recovery: Re-run from a clean tree.
