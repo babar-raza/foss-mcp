@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "card": "TC-868",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-21T12:45:52Z",
+  "base_rev": "1ae6fcab178f7c6314b9785596843a7f40118add",
+  "head_rev": "c3a0d10db2ba6380e16f0374096644cf4050dbfa",
+  "card_sha256": "ada16ee788022a3e3ea4254eed3e207e4353e64df4758354548132f3cfa631d6",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-inputs/embeddings/imaging__net.json",
+      "infra/demo-manifests/imaging__net__self_extracted/active_pointer.json",
+      "infra/demo-manifests/imaging__net__self_extracted/generation__20261023T094715759338Z-3f6606ee.json",
+      "infra/demo-manifests/imaging__net__self_extracted/generation__20261114T000000000000Z-71993046.json",
+      "tests/deploy/test_compact_demo_manifests.py",
+      "tests/deploy/test_demo_manifests_sidecars.py",
+      "tests/deploy/test_regenerated_cohort_c0.py",
+      "tests/fixtures/verified_examples/imaging_net.json",
+      "tests/mcp/tools/test_find_examples_verification_level_label.py",
+      "tests/mcp/tools/test_post_regen_retrieval_ratchets.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy tests/poc tests/furnished_content tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 426.355,
+          "stdout_sha256": "42d5c8cf3bb3eaafaecbf512e4d6c99a3192823f635ac46f51d716b4d4f04966",
+          "tests": 3282,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy tests/poc tests/furnished_content tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 371.138,
+          "stdout_sha256": "42d5c8cf3bb3eaafaecbf512e4d6c99a3192823f635ac46f51d716b4d4f04966",
+          "tests": 3282,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['infra/demo-manifests', 'tests/fixtures/verified_examples', 'infra/demo-inputs']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "9b90507dff01754371e3eafd104cccf5302888e66c31456381c2367e6d2e58cf",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/demo-inputs/embeddings/imaging__net.json",
+      "M infra/demo-manifests/imaging__net__self_extracted/active_pointer.json",
+      "D infra/demo-manifests/imaging__net__self_extracted/generation__20261114T000000000000Z-71993046.json",
+      "M tests/fixtures/verified_examples/imaging_net.json",
+      "?? .junit-0.xml",
+      "?? infra/demo-manifests/imaging__net__self_extracted/generation__20261023T094715759338Z-3f6606ee.json"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
