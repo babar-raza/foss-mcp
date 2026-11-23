@@ -139,12 +139,13 @@ _FILES_BY_PLATFORM = {
     "python": "3d__python.yaml",
     "typescript": "3d__typescript.yaml",
 }
-# The real entry count actually WRITTEN per pilot (6 + 5 + 7 + 3 = 21): the 14 real round-2
+# The real entry count actually WRITTEN per pilot (7 + 5 + 7 + 3 = 22): the 14 real round-2
 # findings TC-644 wrote, plus TC-656's own 3D-JAVA-014 (java 4 -> 5), plus TC-706's own
 # 3D-JAVA-001 (java 5 -> 6), plus TC-707's own 3D-NET-001 (net 4 -> 5), plus TC-758's own
 # 3D-TYPESCRIPT-STL-001 and 3D-TYPESCRIPT-FBX-001 (typescript 1 -> 3), plus TC-771's own
-# 3D-PYTHON-013 (python 5 -> 6), plus TC-815's own 3D-PYTHON-009 (python 6 -> 7).
-_EXPECTED_COUNTS = {"java": 6, "net": 5, "python": 7, "typescript": 3}
+# 3D-PYTHON-013 (python 5 -> 6), plus TC-815's own 3D-PYTHON-009 (python 6 -> 7), plus TC-857's own
+# 3D-JAVA-007 (java 6 -> 7).
+_EXPECTED_COUNTS = {"java": 7, "net": 5, "python": 7, "typescript": 3}
 
 # TC-706 (G3, workstream J, REQ-G3-015): an explicit, hand-reviewed, additive allowlist of real,
 # cited, committed audit findings that this module's own category-filtered id source would
@@ -177,6 +178,9 @@ _EXPECTED_COUNTS = {"java": 6, "net": 5, "python": 7, "typescript": 3}
 # package - see this module's own docstring for the full detail.
 # TC-815 (REQ-G3-015): ``3D-PYTHON-009`` (round-2/round-3 category not ``"upstream-library-bug"``)
 # is the FileFormat None-constants disclosure, re-verified against the real installed package.
+# TC-857 (REQ-G3-015): ``3D-JAVA-007`` (round-2 category ``"mcp-content-wrong"``) is the ``Mesh.isManifold()``
+# stub disclosure, re-verified 2026-11-23 by a static ``javap -c -p`` read of the real Maven Central
+# ``aspose-3d-foss`` 26.5.0 jar (``isManifold()`` is ``iconst_0; ireturn``).
 _ADDITIONAL_DISCLOSABLE_3D_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -185,6 +189,7 @@ _ADDITIONAL_DISCLOSABLE_3D_IDS: frozenset[str] = frozenset(
         "3D-TYPESCRIPT-FBX-001",
         "3D-PYTHON-013",
         "3D-PYTHON-009",
+        "3D-JAVA-007",
     }
 )
 
@@ -253,7 +258,7 @@ def test_twenty_entries_total_across_all_four_3d_pilots() -> None:
     total = sum(
         len(load_known_defects("3d", platform)) for platform in ("java", "net", "python", "typescript")
     )
-    assert total == 21
+    assert total == 22
 
 
 def test_no_duplicate_ids_across_the_entire_3d_family() -> None:
@@ -296,12 +301,12 @@ def test_every_real_3d_upstream_library_bug_finding_has_a_written_entry() -> Non
         f"real 3d upstream-library-bug findings (round2 union round3) with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 21 members - the real union count as of 2026-11-14
-    # (20 as of 2026-11-12, plus TC-815's own additive 3D-PYTHON-009; 19 as of 2026-11-11: 15 as of 2026-11-02, plus TC-706's additive 3D-JAVA-001, plus
+    # Both sets equal, and both have exactly 22 members - the real union count as of 2026-11-23
+    # (21 as of TC-815 on 2026-11-14, plus TC-857's own additive 3D-JAVA-007; 20 as of 2026-11-12, plus TC-815's own additive 3D-PYTHON-009; 19 as of 2026-11-11: 15 as of 2026-11-02, plus TC-706's additive 3D-JAVA-001, plus
     # TC-707's additive 3D-NET-001, plus TC-758's additive 3D-TYPESCRIPT-STL-001 and
     # 3D-TYPESCRIPT-FBX-001; plus TC-771's own additive 3D-PYTHON-013).
     assert expected_ids == written_ids
-    assert len(expected_ids) == 21
+    assert len(expected_ids) == 22
 
 
 # --------------------------------------------------------------------------------------------
@@ -416,8 +421,11 @@ def test_get_symbol_end_to_end_surfaces_the_real_written_java_triangulate_defect
 
     assert isinstance(result, ResolvedSignature)
     assert result.fqn == "com.aspose.threed.Mesh"
-    assert len(result.known_defects) == 1
+    # TC-857: 3D-JAVA-007 (Mesh.isManifold(), also a type-level ref on Mesh) now discloses beside 3D-JAVA-006,
+    # in registry file order, so a Mesh member lookup carries both lines.
+    assert len(result.known_defects) == 2
     assert "Mesh.triangulate() is a no-op in aspose-3d-foss 26.5.0" in result.known_defects[0]
+    assert "Mesh.isManifold() is an unimplemented stub in aspose-3d-foss 26.5.0" in result.known_defects[1]
 
 
 def test_get_product_reference_end_to_end_surfaces_real_written_python_package_defects() -> None:

@@ -228,6 +228,15 @@ distribution): no class, function or assignment named ``DocumentBuilder`` exists
 The real new union count is 68 after ``TC-853``'s retirement of ``TEX-PYTHON-001`` took it to 67: both
 equality assertions above still hold exactly, just against this slightly wider set; the real registry file
 count is unchanged at 26 (the entry lands in the already-existing ``words__python.yaml``).
+
+**Widened again (G3/TC-857, 2026-11-23):** ``3D-JAVA-007`` (round-2, category ``"mcp-content-wrong"``; ledger row
+RD2-007) and ``CELLS-CPP-004`` (round-2, category ``"mcp-content-missing"``; ledger row RD2-055) are real, cited,
+committed audit findings this module's own category-filtered id source would otherwise never admit; both are added to
+``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way (see that frozenset's own in-code comment for the
+re-verification against the real pinned package and commit). The real new union count is 70 (not 68): both equality
+assertions above still hold exactly, just against this slightly wider set; the real registry file count is now 27
+(not 26): ``CELLS-CPP-004`` lands in a brand-new ``cells__cpp.yaml`` file, this pilot's first known-defects entry
+(``3D-JAVA-007`` lands in the already-existing ``3d__java.yaml``).
 """
 
 from __future__ import annotations
@@ -422,6 +431,18 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   Markdown-import cursor ``MarkdownDocumentBuilder`` and ``HtmlInsertOptions``. A missing class, not a bug
 #   in an existing one, so the audit never filed it as ``"upstream-library-bug"``. Disclosure-only, attached to
 #   those two look-alike symbols that ``lookup``/``search_symbols`` return for a ``DocumentBuilder`` query.
+# - ``3D-JAVA-007`` (G3/TC-857, REQ-G3-015, round-2 audit finding, category ``"mcp-content-wrong"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-007): re-verified on 2026-11-23 by a static bytecode read (``javap -c -p``)
+#   of the real ``com.aspose.threed.Mesh`` in the Maven Central ``org.aspose:aspose-3d-foss:26.5.0`` jar (the only published
+#   version): ``isManifold()`` is the two instructions ``iconst_0; ireturn``, a constant ``false`` that never reads the mesh.
+#   No upstream code was executed. Disclosure-only.
+# - ``CELLS-CPP-004`` (G3/TC-857, REQ-G3-015, round-2 audit finding, category ``"mcp-content-missing"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-055): re-verified on 2026-11-23 by a static source read at the pinned commit
+#   ``9f852d0f`` of ``Aspose.Cells-FOSS-for-Cpp``: ``Cell::SetFormula`` only stores the normalized formula string, no source
+#   file implements an evaluator, and the XLSX writer emits ``<v>`` only from a value already stored on the cell. Already
+#   disclosed in ``get_product_reference``'s limitations by ``config/products/cells/cpp.yaml``'s ``known_hazards`` (TC-796);
+#   this entry adds the per-symbol disclosure on ``Aspose::Cells_FOSS::Cell`` (``get_symbol`` / ``find_examples``).
+#   Disclosure-only.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -440,6 +461,8 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "WORDS-NET-005",
         "PDF-NET-009",
         "WORDS-PY-004",
+        "3D-JAVA-007",
+        "CELLS-CPP-004",
     }
 )
 
@@ -550,8 +573,9 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-856 (2026-11-21) this real count is
-    # 68 (67 as of TC-853, plus TC-856's own additive ``WORDS-PY-004``); earlier, as of G3/TC-853 (2026-11-20) it was
+    # Sanity anchor only, not a floor on the future: as of G3/TC-857 (2026-11-23) this real count is
+    # 70 (68 as of TC-856, plus TC-857's own additive ``3D-JAVA-007`` and ``CELLS-CPP-004``); earlier, as of
+    # G3/TC-856 (2026-11-21) it was 68 (67 as of TC-853, plus TC-856's own additive ``WORDS-PY-004``); earlier, as of G3/TC-853 (2026-11-20) it was
     # 67 (68 as of TC-828, minus the retired ``TEX-PYTHON-001``, see ``_RETIRED_FIXED_UPSTREAM_IDS``); earlier, as of
     # G3/TC-828 (2026-11-14) this real union
     # count was 68 (67 as of TC-815, plus TC-828's own additive ``PDF-NET-009``); earlier, as of
@@ -572,7 +596,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 68
+    assert len(upstream_issue_ids) == 70
 
 
 # --------------------------------------------------------------------------------------------
@@ -590,7 +614,8 @@ def test_glob_finds_the_real_current_registry_file_count() -> None:
     # This only proves the glob pattern itself is correct against today's real, committed tree.
     # re-pinned by TC-853: 27 -> 26 (config/known_defects/tex__python.yaml was deleted: its only entry, TEX-PYTHON-001, was
     # re-verified fixed at the new pin 07db3203, see ``_RETIRED_FIXED_UPSTREAM_IDS``).
-    assert len(files) == 26, f"expected 26 real registry files today, found {len(files)}: {files}"
+    # re-pinned by TC-857: 26 -> 27 (config/known_defects/cells__cpp.yaml is new: CELLS-CPP-004, cells/cpp's first entry).
+    assert len(files) == 27, f"expected 27 real registry files today, found {len(files)}: {files}"
 
 
 # --------------------------------------------------------------------------------------------

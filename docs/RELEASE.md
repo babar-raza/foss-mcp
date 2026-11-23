@@ -493,7 +493,10 @@ the oracle covers, and the real result of covering it, is now stated here rather
   `RD2-269`). Each was already individually investigated and correctly left `OPEN` by `TC-780`'s own I14 pass
   minutes before this card ran, for its own distinct, already-recorded reason (`docs/DECISION_LOG.md`'s
   2026-11-13 I14 entry) - O10 does not re-touch, re-count, or re-disposition any of them.
-- **The TC-641 (KD4) library-level `known_defects` merge into `get_product_reference`'s "limitations" answer
+- **RESOLVED by G3/TC-783 (`load_manifest_sidecar` now reads the sidecar's `family` back); re-verified live by G3/TC-857 on
+  2026-11-23: through the real serving wiring, a `subject.kind: package` entry such as `3D-JAVA-004` (3d/java has no
+  manifest `known_hazards`) now reaches `get_product_reference`'s "limitations" answer. The paragraph below is the
+  historical record of the defect as G3/TC-782 found it.** **The TC-641 (KD4) library-level `known_defects` merge into `get_product_reference`'s "limitations" answer
   is wired but structurally dead for every deployment, because `inputs.family` is never populated** (G3/TC-782,
   found while live-verifying C11's own 80 real `docs/ROUND2_REVIEW.md` C-series rows, not carded separately since
   the fix is a production-source change out of this pure-ledger card's own scope). `_known_defects_for_limitations`

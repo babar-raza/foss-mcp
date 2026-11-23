@@ -194,3 +194,30 @@ defects:
       version: 26.5.0
       date: '2026-10-29'
   status: open
+- id: 3D-JAVA-007
+  subject:
+    kind: method
+    refs:
+    - com.aspose.threed.Mesh
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: >-
+    Mesh.isManifold() is an unimplemented stub in aspose-3d-foss 26.5.0: its bytecode is a bare
+    constant false, so it returns false for every mesh, including a closed, genuinely manifold one
+    such as a box.
+  user_action: >-
+    Do not use Mesh.isManifold() to check a mesh in aspose-3d-foss 26.5.0; its false result carries
+    no information. Validate watertightness with your own edge-pairing check instead.
+  evidence:
+    repro: >-
+      Downloaded org.aspose:aspose-3d-foss:26.5.0 from Maven Central (the only published version, per
+      its maven-metadata.xml) and ran javap -c -p on com.aspose.threed.Mesh: isManifold() is the two
+      instructions 'iconst_0; ireturn', a constant false that never reads the mesh's polygons or
+      control points (a static bytecode read, no upstream code was executed). Round-2 (RD2-007)
+      additionally observed new Box(2,2,2).toMesh().isManifold() return false for a closed box.
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-11-23'
+  status: open

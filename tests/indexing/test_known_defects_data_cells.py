@@ -136,7 +136,7 @@ def _real_cells_upstream_library_bug_ids() -> set[str]:
     from both audits' own committed data, never a hand-copied id list, so drift in any of the
     three files (round2, round3, the registry) is caught by the tests below. ``cells/cpp`` is
     deliberately excluded from this set in EITHER round (see
-    ``test_cells_cpp_has_no_upstream_library_bug_findings_and_is_not_written`` below for why).
+    ``test_cells_cpp_has_no_upstream_library_bug_findings_and_one_disclosure_only_entry`` below for why).
 
     This union is 14 real ids as of 2026-11-02: the 12 round-2 findings TC-645 wrote entries for,
     plus ``CELLS-TYPESCRIPT-013`` (this card's own, genuinely new in round3) and ``CELLS-GO-012``
@@ -256,12 +256,13 @@ def test_every_real_cells_upstream_library_bug_finding_has_a_written_entry() -> 
 # --------------------------------------------------------------------------------------------
 
 
-def test_cells_cpp_has_no_upstream_library_bug_findings_and_is_not_written() -> None:
+def test_cells_cpp_has_no_upstream_library_bug_findings_and_one_disclosure_only_entry() -> None:
     """``CELLS-CPP-001`` is real round-2 data, but its ``category`` is ``"honesty"`` (a false FAQ
     claim), not ``"upstream-library-bug"`` - confirmed directly against the audit's own data, not
-    assumed. ``cells/cpp`` has zero upstream-library-bug findings in EITHER round, so it correctly
-    has no written registry file (an absent file is a valid, defect-free pilot, per the loader's
-    own docstring), and ``load_known_defects`` for it returns ``[]`` without error. Round3's own
+    assumed. ``cells/cpp`` has zero upstream-library-bug findings in EITHER round, so none of the
+    entries this module's own card wrote is for it (until TC-857 it had no registry file at all, which
+    the loader's own docstring says is a valid, defect-free pilot); its one entry today,
+    ``CELLS-CPP-004``, is a disclosure-only addition asserted at the bottom of this test. Round3's own
     ``cells/cpp`` record (``CELLS-CPP-002`` through ``CELLS-CPP-011``) was read fresh and confirmed
     to carry zero ``upstream-library-bug`` category entries either."""
     round2_issues = _real_round2_issues()
@@ -287,8 +288,12 @@ def test_cells_cpp_has_no_upstream_library_bug_findings_and_is_not_written() -> 
         "cells/cpp must have zero real round-3 upstream-library-bug findings"
     )
 
-    assert not (REGISTRY_DIR / "cells__cpp.yaml").exists()
-    assert load_known_defects("cells", "cpp") == []
+    # TC-857: cells/cpp still has zero upstream-library-bug findings in either round, but it now carries ONE
+    # registry file, for ``CELLS-CPP-004`` (round-2 category ``"mcp-content-missing"``: no formula-calculation
+    # engine, re-verified 2026-11-23 by a static source read at the pinned commit 9f852d0f). That id is the only
+    # entry, and it is a disclosure of a finding the audit did not classify as an upstream-library-bug.
+    assert (REGISTRY_DIR / "cells__cpp.yaml").exists()
+    assert [defect.id for defect in load_known_defects("cells", "cpp")] == ["CELLS-CPP-004"]
 
 
 def test_cells_cpp_001_never_appears_among_any_written_entry_id() -> None:

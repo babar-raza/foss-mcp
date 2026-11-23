@@ -1,0 +1,336 @@
+# TC-857 (G3, KD11 part 1 of 3): replayable probes for the 22 workstream-J rows of docs/ROUND2_REVIEW.md
+# dispositioned by this card. Each entry's probe runs in-process against infra/demo-manifests (and against a
+# running container); `expect` describes the CURRENT served behaviour that justifies the disposition.
+# result_contains substrings are checked against the tool result serialised as JSON (ensure_ascii=False).
+- id: 3D-JAVA-002
+  row: RD2-002
+  pilot: 3d/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: com.aspose.threed.Scene
+  expect:
+    found: true
+    result_contains:
+    - Scene.save() to STL (STL_BINARY or STLASCII) discards all vertex geometry
+  evidence: 'Registry entry 3D-JAVA-002 (config/known_defects/3d__java.yaml, verified on org.aspose:aspose-3d-foss
+    26.5.0 2026-10-29) surfaces live in get_symbol''s known_defects for 3d/java: Scene.save() to STL (STL_BINARY
+    or STLASCII) discards all vertex geometry; reloading the saved file gives 0 co...'
+- id: 3D-JAVA-003
+  row: RD2-003
+  pilot: 3d/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: com.aspose.threed.Scene
+  expect:
+    found: true
+    result_contains:
+    - FileFormat.STLASCII produces byte-for-byte identical output to FileFormat.STL_BINARY
+  evidence: 'Registry entry 3D-JAVA-003 (config/known_defects/3d__java.yaml, verified on org.aspose:aspose-3d-foss
+    26.5.0 2026-10-29) surfaces live in get_symbol''s known_defects for 3d/java: FileFormat.STLASCII produces byte-for-byte
+    identical output to FileFormat.STL_BINARY in aspose-3d-foss 26.5.0:...'
+- id: 3D-JAVA-004
+  row: RD2-004
+  pilot: 3d/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - 0 of the ~37 documented FileFormat export constants
+    - canImport/canExport always report true
+  evidence: 'Registry entry 3D-JAVA-004 (config/known_defects/3d__java.yaml, verified on org.aspose:aspose-3d-foss
+    26.5.0 2026-10-29) surfaces live in get_product_reference(limitations) for 3d/java: 0 of the ~37 documented
+    FileFormat export constants in aspose-3d-foss 26.5.0 produce a usable 3D file; canImpo...'
+- id: 3D-JAVA-006
+  row: RD2-006
+  pilot: 3d/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: com.aspose.threed.Mesh.triangulate
+  expect:
+    found: true
+    result_contains:
+    - Mesh.triangulate() is a no-op in aspose-3d-foss 26.5.0
+  evidence: 'Registry entry 3D-JAVA-006 (config/known_defects/3d__java.yaml, verified on org.aspose:aspose-3d-foss
+    26.5.0 2026-10-29) surfaces live in get_symbol''s known_defects for 3d/java: Mesh.triangulate() is a no-op in
+    aspose-3d-foss 26.5.0: a 6-quad box mesh still has 6 polygons after calling i...'
+- id: 3D-JAVA-007
+  row: RD2-007
+  pilot: 3d/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: com.aspose.threed.Mesh.isManifold
+  expect:
+    found: true
+    result_contains:
+    - Mesh.isManifold() is an unimplemented stub in aspose-3d-foss 26.5.0
+  evidence: 'No registry entry existed; re-verified upstream by static bytecode read (javap -c -p on the Maven Central
+    org.aspose:aspose-3d-foss:26.5.0 jar: isManifold() is iconst_0; ireturn), added 3D-JAVA-007 (config/known_defects/3d__java.yaml),
+    which now surfaces in get_symbol''s known_defects; list_members also tags isManifold() as not implemented.'
+- id: 3D-NET-003
+  row: RD2-013
+  pilot: 3d/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.ThreeD.Scene
+  expect:
+    found: true
+    result_contains:
+    - silently loses all scene content on reopen
+  evidence: 'Registry entry 3D-NET-003 (config/known_defects/3d__net.yaml, verified on Aspose.3D.FOSS 26.1.0 2026-10-29)
+    surfaces live in get_symbol''s known_defects for 3d/net: Scene.Save() to FBX in Aspose.3D.FOSS 26.1.0 silently
+    loses all scene content on reopen: a saved 3483-byte fil...'
+- id: 3D-NET-004
+  row: RD2-014
+  pilot: 3d/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - writes primitives.indices as an inline object instead of an integer accessor index
+  evidence: 'Registry entry 3D-NET-004 (config/known_defects/3d__net.yaml, verified on Aspose.3D.FOSS 26.1.0 2026-10-29)
+    surfaces live in get_product_reference(limitations) for 3d/net: Scene.Save() to glTF/GLB in Aspose.3D.FOSS 26.1.0
+    writes primitives.indices as an inline object instead of an...'
+- id: 3D-NET-006
+  row: RD2-016
+  pilot: 3d/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - writes duplicate 'node-0' ids for every node
+  evidence: 'Registry entry 3D-NET-006 (config/known_defects/3d__net.yaml, verified on Aspose.3D.FOSS 26.1.0 2026-10-29)
+    surfaces live in get_product_reference(limitations) for 3d/net: COLLADA (.dae) export in Aspose.3D.FOSS 26.1.0
+    writes duplicate ''node-0'' ids for every node, both referencing...'
+- id: 3D-NET-008
+  row: RD2-018
+  pilot: 3d/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - the declared triangle count implies 1284 bytes
+  evidence: 'Registry entry 3D-NET-008 (config/known_defects/3d__net.yaml, verified on Aspose.3D.FOSS 26.1.0 2026-10-29)
+    surfaces live in get_product_reference(limitations) for 3d/net: Binary STL files written by Aspose.3D.FOSS 26.1.0
+    have an internally inconsistent header: the declared triangl...'
+- id: 3D-PYTHON-001
+  row: RD2-026
+  pilot: 3d/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - Scene.save() to OBJ in aspose-3d-foss 26.1.0 always raises TypeError
+  evidence: 'Registry entry 3D-PYTHON-001 (config/known_defects/3d__python.yaml, verified on aspose-3d-foss 26.1.0
+    2026-10-29) surfaces live in get_product_reference(limitations) for 3d/python: Scene.save() to OBJ in aspose-3d-foss
+    26.1.0 always raises TypeError(''a bytes-like object is required, not str...'
+- id: 3D-PYTHON-002
+  row: RD2-027
+  pilot: 3d/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - serializes the second mesh's 'name' field as the integer 10
+  evidence: 'Registry entry 3D-PYTHON-002 (config/known_defects/3d__python.yaml, verified on aspose-3d-foss 26.1.0
+    2026-10-29) surfaces live in get_product_reference(limitations) for 3d/python: glTF export in aspose-3d-foss
+    26.1.0 serializes the second mesh''s ''name'' field as the integer 10 instead of a...'
+- id: 3D-PYTHON-006
+  row: RD2-031
+  pilot: 3d/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - missing [Content_Types].xml and _rels/.rels
+  evidence: 'Registry entry 3D-PYTHON-006 (config/known_defects/3d__python.yaml, verified on aspose-3d-foss 26.1.0
+    2026-10-29) surfaces live in get_product_reference(limitations) for 3d/python: 3MF export in aspose-3d-foss
+    26.1.0 writes a zip containing only 3D/3dmodel.model, missing [Content_Types].xml...'
+- id: 3D-PYTHON-008
+  row: RD2-033
+  pilot: 3d/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - collapses all nodes into a single unnamed node
+  evidence: 'Registry entry 3D-PYTHON-008 (config/known_defects/3d__python.yaml, verified on aspose-3d-foss 26.1.0
+    2026-10-29) surfaces live in get_product_reference(limitations) for 3d/python: Reloading a multi-node scene
+    exported to STL by aspose-3d-foss 26.1.0 collapses all nodes into a single unname...'
+- id: 3D-PYTHON-010
+  row: RD2-035
+  pilot: 3d/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - raises NotImplementedError from an unrelated exporter's supports_format()
+  evidence: 'Registry entry 3D-PYTHON-010 (config/known_defects/3d__python.yaml, verified on aspose-3d-foss 26.1.0
+    2026-10-29) surfaces live in get_product_reference(limitations) for 3d/python: OBJ export via Scene.save() with
+    an in-memory stream raises NotImplementedError from an unrelated exporter''s s...'
+- id: 3D-TYPESCRIPT-008
+  row: RD2-044
+  pilot: 3d/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.threed.entities.Mesh.Mesh
+  expect:
+    found: true
+    result_contains:
+    - Mesh.createPolygon(indices, offset, length) is unreachable dead code
+  evidence: 'Registry entry 3D-TYPESCRIPT-008 (config/known_defects/3d__typescript.yaml, verified on @aspose/3d
+    24.12.0 2026-10-29) surfaces live in get_symbol''s known_defects for 3d/typescript: Mesh.createPolygon(indices,
+    offset, length) is unreachable dead code in @aspose/3d 24.12.0: any 3-argument cal...'
+- id: BARCODE-PY-006
+  row: RD2-051
+  pilot: barcode/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_barcode_foss.upce
+  expect:
+    found: true
+    result_contains:
+    - requires an 11 or 12 digit input
+  evidence: 'Registry entry BARCODE-PY-006 (config/known_defects/barcode__python.yaml, verified on aspose-barcode-foss
+    0.1.0 2026-10-29) surfaces live in get_symbol''s known_defects for barcode/python: upce() in aspose-barcode-foss
+    0.1.0 requires an 11 or 12 digit input and raises InvalidInputError for the conv...'
+- id: CELLS-CPP-004
+  row: RD2-055
+  pilot: cells/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose::Cells_FOSS::Cell
+  expect:
+    found: true
+    result_contains:
+    - never calculate or cache a formula result
+  evidence: No registry entry existed; re-verified upstream by static source read at pinned commit 9f852d0f (Cell::SetFormula
+    stores a string only, the XLSX writer emits <v> only from a stored value; no evaluator exists), added CELLS-CPP-004
+    (config/known_defects/cells__cpp.yaml), which now surfaces in get_symbol's known_defects; get_product_reference(limitations)
+    already carries the TC-796 known_hazards text for the same finding.
+- id: CELLS-GO-001
+  row: RD2-061
+  pilot: cells/go
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Cell
+  expect:
+    found: true
+    result_contains:
+    - comes back as a Go string, not float64
+  evidence: 'Registry entry CELLS-GO-001 (config/known_defects/cells__go.yaml, verified on github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26
+    v26.7.1 2026-10-29) surfaces live in get_symbol''s known_defects for cells/go: A numeric cell value (float64)
+    saved via Cells().Set() and reloaded via Load() in aspose-cells-foss for Go v26...'
+- id: CELLS-GO-011
+  row: RD2-071
+  pilot: cells/go
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: CalculateFormula
+  expect:
+    found: true
+    result_contains:
+    - reports a misleading 'not numeric' error for an unsupported function
+  evidence: 'Registry entry CELLS-GO-011 (config/known_defects/cells__go.yaml, verified on github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26
+    v26.7.1 2026-10-29) surfaces live in get_symbol''s known_defects for cells/go: CalculateFormula() in aspose-cells-foss
+    for Go v26.7.1 reports a misleading ''not numeric'' error for an unsuppo...'
+- id: CELLS-JAVA-001
+  row: RD2-072
+  pilot: cells/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: org.aspose.cells_foss.Workbook
+  expect:
+    found: true
+    result_contains:
+    - ignores the file extension
+  evidence: 'Registry entry CELLS-JAVA-001 (config/known_defects/cells__java.yaml, verified on org.aspose:aspose-cells-foss
+    26.7.0 2026-10-29) surfaces live in get_symbol''s known_defects for cells/java: Workbook.save(fileName) in org.aspose:aspose-cells-foss
+    26.7.0 ignores the file extension: paths ending .pdf o...'
+- id: CELLS-NET-002
+  row: RD2-077
+  pilot: cells/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Cells_FOSS.Workbook
+  expect:
+    found: true
+    result_contains:
+    - silently writes a full XLSX/OOXML binary with no error or warning
+  evidence: 'Registry entry CELLS-NET-002 (config/known_defects/cells__net.yaml, verified on Aspose.Cells.FOSS 26.10.0
+    2026-10-29) surfaces live in get_symbol''s known_defects for cells/net: Workbook.Save(path) in Aspose.Cells.FOSS
+    26.10.0 with an unrecognized extension (e.g. .csv) silently writes a...'
+- id: CELLS-PY-003
+  row: RD2-085
+  pilot: cells/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.cells_foss.Workbook
+  expect:
+    found: true
+    result_contains:
+    - PDF export requires skia-python
+  evidence: 'Registry entry CELLS-PY-003 (config/known_defects/cells__python.yaml, verified on aspose-cells-foss
+    26.10.0 2026-10-29) surfaces live in get_symbol''s known_defects for cells/python: Workbook.save_as_pdf() in
+    aspose-cells-foss 26.10.0 raises RuntimeError(''PDF export requires skia-python'') und...'

@@ -1,0 +1,35 @@
+schema_version: 1
+pilot: cells_cpp
+defects:
+- id: CELLS-CPP-004
+  subject:
+    kind: method
+    refs:
+    - Aspose::Cells_FOSS::Cell
+  applies_to:
+    package_versions:
+    - 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2
+  summary: >-
+    Cell::SetFormula() and Workbook::Save() in Aspose.Cells FOSS for C++ (commit 9f852d0f) never
+    calculate or cache a formula result: a formula-only cell is saved as <f> with no <v>, and
+    GetValue() on it is empty.
+  user_action: >-
+    Do not expect a formula's result from this library. Compute it in your own code, call PutValue()
+    with it BEFORE SetFormula() on the same cell (the reverse order erases the formula), and re-
+    store it whenever an input changes.
+  evidence:
+    repro: >-
+      Read the source at the pinned commit 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2 (a static read, no
+      upstream code was executed in this verification). Cell::SetFormula() in
+      src/aspose/cells_foss/Cell.cpp only stores the normalized formula string and sets the record
+      kind to Formula; no source file implements an evaluator. The XLSX writer in
+      XlsxWorkbookSerializerCommon.cpp writes <f> from the formula and writes <v> only from a value
+      already stored on the record, so a formula-only cell is saved with no <v>. Cell::PutValue() goes
+      through SetScalar(), which clears the formula, while SetFormula() leaves any stored value in
+      place (hence the PutValue-then-SetFormula order). The same finding was verified by a built and
+      run program on 2026-11-14 (TC-796, config/products/cells/cpp.yaml known_hazards).
+    verified_on:
+      package: aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp
+      version: 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2
+      date: '2026-11-23'
+  status: open
