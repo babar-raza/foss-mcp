@@ -1,0 +1,53 @@
+id: TC-874
+gate: G3
+lane: storage-retrieval
+purpose: 'Serve-time follow-up to TC-872 (found by its worker, outside its write_paths): TC-872 lets a pilot sidecar publish `kind: upstream-sample` examples whose chunk carries `Provenance: upstream-sample`, a label line starting ''Upstream sample:'' and a `Sample-Source: <path>@<commit7>` line. Two serving-side consumers do not know them yet: (1) src/foss_mcp/mcp/tools/find_examples.py `_provenance()` returns ''authored'' only for the exact line `Provenance: authored`, so an upstream-sample chunk would be described to users as an upstream README example (README_NOTE_TAIL) - wrong: add a third provenance ''upstream-sample'' with its own honest verification note (it states: adapted from the upstream repository file named in Sample-Source at the pinned commit, MIT, verified by running/compiling it here; keep the existing runtime-label wording such as ''compiled and ran, produced N bytes''), and make every branch that today tests for ''readme'' or ''authored'' (the places around _provenance
+  at lines ~552, ~901, ~1065, ~1145, ~1263: re-read them) treat ''upstream-sample'' deliberately, never by falling into the README path by accident (the README-only present_terms/title-anchor rules at ~1065 must be decided consciously: an upstream sample is title-anchored like an authored one, not like a README example, unless the code shows otherwise - read it and explain in a comment). The ExampleMatch.provenance field then carries ''upstream-sample''. (2) src/foss_mcp/mcp/tools/relevance.py `example_prose` / `example_lead_in` skip the `Verification:` and `Authored example:` header lines of an authored chunk but not the new `Upstream sample:` label line, the `Provenance:` line or the `Sample-Source:` line, so their text would leak into the prose that retrieval matches queries against (and into the lead-in sentence): extend the skipped prefixes so an upstream-sample chunk''s prose and lead-in equal what the same chunk would give without those header lines; the word ''Upstream'' or a repository
+  file name must never become a retrieval term. Reproduce first with a synthetic upstream-sample example chunk (build it with the real rendering from TC-872, infra/build_chunks.py, or hand-write the exact header lines from the TC-872 commit''s tests/infra/test_build_chunks_upstream_samples.py): show the wrong provenance note and the leaked prose, then fix. Every existing chunk must behave byte-identically: all committed pilots are authored/README only, so tests/mcp/tools (the retrieval ratchets, forgiveness acceptance, round3 corpus, title anchor, rare-code-word, verification-record and label tests) must pass unchanged; any such test that legitimately needs a new case belongs in the new test file. No data changes in this card.'
+depends_on:
+- TC-853
+- TC-855
+- TC-856
+- TC-857
+- TC-858
+- TC-866
+- TC-868
+- TC-869
+- TC-870
+- TC-872
+write_paths:
+- src/foss_mcp/mcp/tools/find_examples.py
+- src/foss_mcp/mcp/tools/relevance.py
+- tests/mcp/tools/test_find_examples_upstream_sample.py
+satisfies:
+- REQ-G3-014
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+- 'READ FIRST: the TC-872 commit (git log --grep TC-872; its report: label text UPSTREAM_SAMPLE_LABEL / upstream_sample_label(path), chunk lines Kind / Provenance: upstream-sample / Verification / label / Verification-Level / Verified-With / Sample-Source / runtime lines, candidate field sample_source), src/foss_mcp/indexing/authored_examples.py, infra/build_chunks.py (rendering), src/foss_mcp/mcp/tools/find_examples.py (_provenance, README_NOTE_TAIL, AUTHORED_NOTE_TAIL, the verification note builder near line 552, ExampleMatch), src/foss_mcp/mcp/tools/relevance.py (example_prose, example_lead_in, _AUTHORED_HEADER_LINE_PREFIXES, _CHUNK_METADATA_LINE_PREFIXES) and the existing tests tests/mcp/tools/test_find_examples_verification_record.py, test_find_examples_verification_level_label.py, test_find_examples_generic_title_lead_in.py.'
+- 'Write only inside write_paths. If a legitimately stale pin outside write_paths breaks, report file + test + what it pins and stop. After your final edit run the FULL directory sweeps WITHOUT -x, one directory at a time, PowerShell activated (dot-source scripts\toolchain\activate.ps1 in the same command): tests/mcp tests/indexing tests/extraction tests/conformance tests/config tests/release tests/infra tests/deploy tests/poc tests/normalization; tests/infra must be green; also ruff check/format and mypy on the touched src files (report only errors you introduced). No docker. In a worktree without a venv use E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.venv/Scripts/python.exe with PYTHONPATH = worktree root, src and infra. One commit with FOSS_MCP_WORKER=TC-874; report once with before/after behaviour of the synthetic chunk and the sweep results.'
+actions:
+- Make the serving tools treat upstream-sample example chunks as their own provenance and keep their header lines out of retrieval prose.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_find_examples_upstream_sample.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verification_level_label.py tests/mcp/tools/test_find_examples_generic_title_lead_in.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-014
+min_tests: 40
+requires:
+- python
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import subprocess; paths = [''src'']; patch = subprocess.run([''git'', ''show'', ''--format='', ''HEAD'', ''--''] + paths, capture_output=True, check=True).stdout; assert patch.strip(), ''the worker commit changes none of the production paths - the fix is missing''; subprocess.run([''git'', ''apply'', ''-R'', ''--whitespace=nowarn'', ''-''], input=patch, check=True)"
+
+    '
+  rationale: Reverse-applies the worker's own commit restricted to src (the serving fix), keeping the new tests; they must then fail. Anchored on the real diff. The worker must commit exactly one commit.
+evidence:
+- evidence/build/G3/TC-874/receipt.json
+closeout:
+- An upstream-sample example is served with its own provenance note and its header lines never become retrieval terms.
+recovery: Re-run from a clean tree.
