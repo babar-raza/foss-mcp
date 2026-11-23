@@ -1,0 +1,346 @@
+# TC-858 (G3, KD11 part 2 of 3): replayable probes for the 22 workstream-J rows of docs/ROUND2_REVIEW.md
+# dispositioned by this card. Each entry's probe runs in-process against infra/demo-manifests (and against a
+# running container); `expect` describes the CURRENT served behaviour that justifies the disposition.
+# result_contains substrings are checked against the tool result serialised as JSON (ensure_ascii=False).
+- id: CELLS-PY-004
+  row: RD2-086
+  pilot: cells/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.cells_foss.formula_evaluator.FormulaEvaluator
+  expect:
+    found: true
+    result_contains:
+    - FormulaEvaluator.evaluate() in aspose-cells-foss 26.10.0 silently returns None, with no ex
+  evidence: No registry entry existed (the card said so); the upstream defect was re-verified by a static read of the PyPI
+    aspose-cells-foss 26.10.0 wheel (latest version; formula_evaluator.py dispatches only 11 functions then returns None;
+    no upstream code executed), added CELLS-PY-004 (config/known_defects/cells__python.yaml), which now surfaces in get_symbol
+    known_defects on FormulaEvaluator; get_product_reference(limitations) already carries the TC-721 known_hazards text for
+    the same finding.
+- id: CELLS-PY-005
+  row: RD2-087
+  pilot: cells/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.cells_foss.cell.Cell
+  expect:
+    found: true
+    result_contains:
+    - A Python datetime cell value silently loses its date-ness across Workbook.save()+reload in
+  evidence: 'Registry entry CELLS-PY-005 (config/known_defects/cells__python.yaml, verified on aspose-cells-foss 26.10.0 2026-10-29)
+    surfaces live in get_symbol''s known_defects for cells/python: A Python datetime cell value silently loses its date-ness
+    across Workbook.save()+reload in aspose-cells-foss 26.10.0: it becomes a bare float with no ...'
+- id: CELLS-RUST-003
+  row: RD2-096
+  pilot: cells/rust
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - there is no formula-calculation engine anywhere in its real indexed API
+    - put_formula_with_cached_value
+  evidence: 'No registry entry exists and none was added: a project-verified known_hazards entry (config/products/cells/rust.yaml,
+    TC-725, verified 2026-11-07) already discloses it in get_product_reference(limitations), the surface the row names. Upstream
+    re-verified by a static read of Aspose.Cells-FOSS-for-Rust at the pinned commit 1a6004af (no fn named recalculate/evaluate/calculate_formula
+    anywhere in src; Cell::put_formula_with_cached_value only stores the supplied cached value).'
+- id: CELLS-RUST-006
+  row: RD2-099
+  pilot: cells/rust
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: CellsMut
+  expect:
+    found: true
+    result_contains:
+    - CellsMut::merge(first_row, first_column, total_rows, total_columns) in aspose-cells-foss-r
+  evidence: No registry entry existed (the card said so); upstream re-verified by a static read of Aspose.Cells-FOSS-for-Rust
+    at the pinned commit 1a6004af (Cells.rs merge() computes end = first + total - 1, zero-based, doc comment silent on counts),
+    added CELLS-RUST-006 (config/known_defects/cells__rust.yaml), which now surfaces in get_symbol known_defects on CellsMut;
+    get_product_reference(limitations) already carries the TC-796 known_hazards text.
+- id: CELLS-RUST-011
+  row: RD2-104
+  pilot: cells/rust
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - SaveFormat enum has exactly one variant (Xlsx)
+  evidence: 'Registry entry CELLS-RUST-011 (config/known_defects/cells__rust.yaml, verified on aspose-cells-foss-rust 26.7.0
+    2026-10-29) surfaces live in get_product_reference(limitations) for cells/rust: aspose-cells-foss-rust 26.7.0''s SaveFormat
+    enum has exactly one variant (Xlsx): the crate has no PDF or CSV export at all, the only cells-family platf...'
+- id: CELLS-TYPESCRIPT-001
+  row: RD2-105
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - Formulas are write-only in excel-cells 1.0.0
+    - Workbook.load() never reads <f>
+  evidence: 'No registry entry exists and none was added: a project-verified known_hazards entry (config/products/cells/typescript.yaml,
+    TC-796, verified 2026-11-14) already discloses it in get_product_reference(limitations), the surface the row names. Upstream
+    re-verified by a static read of Aspose.Cells-FOSS-for-TypeScript at the pinned commit fc186507 (cell.ts toXml writes <f>
+    verbatim with no cached <v>; workbook.ts loadWorksheetData reads only <v> and <is>).'
+- id: CELLS-TYPESCRIPT-003
+  row: RD2-107
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.worksheet.Worksheet
+  expect:
+    found: true
+    result_contains:
+    - 'Worksheet.mergeCells() in excel-cells 1.0.0 has zero effect on the saved file: toXml() nev'
+  evidence: 'Registry entry CELLS-TYPESCRIPT-003 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-10-29) surfaces live in get_symbol''s known_defects for cells/typescript: Worksheet.mergeCells() in excel-cells 1.0.0
+    has zero effect on the saved file: toXml() never references the private _mergedCells array it populates, s...'
+- id: CELLS-TYPESCRIPT-004
+  row: RD2-108
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.cell.Cell
+  expect:
+    found: true
+    result_contains:
+    - 'Cell.setHyperlink() in excel-cells 1.0.0 has zero effect on the saved file: Cell.toXml() n'
+  evidence: 'Registry entry CELLS-TYPESCRIPT-004 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-10-29) surfaces live in get_symbol''s known_defects for cells/typescript: Cell.setHyperlink() in excel-cells 1.0.0
+    has zero effect on the saved file: Cell.toXml() never references the private _hyperlink field it sets, and xl...'
+- id: CELLS-TYPESCRIPT-005
+  row: RD2-109
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.comment.Comment
+  expect:
+    found: true
+    result_contains:
+    - Worksheet.addDataValidation()/addConditionalFormat()/addComment() in excel-cells 1.0.0 all
+  evidence: 'Registry entry CELLS-TYPESCRIPT-005 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-10-29) surfaces live in get_symbol''s known_defects for cells/typescript: Worksheet.addDataValidation()/addConditionalFormat()/addComment()
+    in excel-cells 1.0.0 all have zero effect on the saved file: writeToZip never refere...'
+- id: CELLS-TYPESCRIPT-006
+  row: RD2-110
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.workbook.Workbook
+  expect:
+    found: true
+    result_contains:
+    - Workbook.toCsv() and toMarkdown() in excel-cells 1.0.0 export only the first worksheet (th
+  evidence: 'Registry entry CELLS-TYPESCRIPT-006 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-11-14) surfaces live in get_symbol''s known_defects for cells/typescript: Workbook.toCsv() and toMarkdown() in excel-cells
+    1.0.0 export only the first worksheet (this._sheets.worksheets[0]); every other sheet is silently omi...'
+- id: CELLS-TYPESCRIPT-008
+  row: RD2-112
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.style.Style
+  expect:
+    found: true
+    result_contains:
+    - Style.setNumberFormat() in excel-cells 1.0.0 silently drops a builtin-looking format strin
+  evidence: 'Registry entry CELLS-TYPESCRIPT-008 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-10-29) surfaces live in get_symbol''s known_defects for cells/typescript: Style.setNumberFormat() in excel-cells
+    1.0.0 silently drops a builtin-looking format string back to General: workbook.ts''s generateStyles() never maps...'
+- id: CELLS-TYPESCRIPT-009
+  row: RD2-113
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.workbook.Workbook
+  expect:
+    found: true
+    result_contains:
+    - Workbook.save(path) in excel-cells 1.0.0 writes an XLSX zip for every path except .html/.h
+  evidence: 'Registry entry CELLS-TYPESCRIPT-009 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-11-14) surfaces live in get_symbol''s known_defects for cells/typescript: Workbook.save(path) in excel-cells 1.0.0
+    writes an XLSX zip for every path except .html/.htm, including .pdf, .txt, .xls and even .csv/.json/.md, with...'
+- id: CELLS-TYPESCRIPT-011
+  row: RD2-115
+  pilot: cells/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_cells.cell.Cell
+  expect:
+    found: true
+    result_contains:
+    - Cell.putValue(ref, Date) in excel-cells 1.0.0 writes an Excel serial date that is one day
+  evidence: 'Registry entry CELLS-TYPESCRIPT-011 (config/known_defects/cells__typescript.yaml, verified on excel-cells 1.0.0
+    2026-10-29) surfaces live in get_symbol''s known_defects for cells/typescript: Cell.putValue(ref, Date) in excel-cells
+    1.0.0 writes an Excel serial date that is one day short, because dateToExcelSerial() subtracts two local-time ...'
+- id: EMAIL-CPP-001
+  row: RD2-117
+  pilot: email/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose::email::foss::msg::mapi_message
+  expect:
+    found: true
+    result_contains:
+    - mapi_message::save_to_eml at commit c844a467 serializes an embedded message attachment as
+  evidence: 'Registry entry EMAIL-CPP-001 (config/known_defects/email__cpp.yaml, verified on aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+    c844a467cf7f2503819b655f4d6ceaef91056c40 2026-10-29) surfaces live in get_symbol''s known_defects for email/cpp: mapi_message::save_to_eml
+    at commit c844a467 serializes an embedded message attachment as a base64 CFB/.msg blob mislabeled message/rfc822, not
+    a real...'
+- id: EMAIL-CPP-002
+  row: RD2-118
+  pilot: email/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose::email::foss::msg::mapi_message
+  expect:
+    found: true
+    result_contains:
+    - mapi_message::save_to_eml at commit c844a467 writes only the To header; Cc and Bcc recipie
+  evidence: 'Registry entry EMAIL-CPP-002 (config/known_defects/email__cpp.yaml, verified on aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+    c844a467cf7f2503819b655f4d6ceaef91056c40 2026-10-29) surfaces live in get_symbol''s known_defects for email/cpp: mapi_message::save_to_eml
+    at commit c844a467 writes only the To header; Cc and Bcc recipients are silently dropped entirely, with no error, warning,
+    o...'
+- id: EMAIL-CPP-003
+  row: RD2-119
+  pilot: email/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose::email::foss::msg::mapi_message
+  expect:
+    found: true
+    result_contains:
+    - mapi_message::load_from_eml at commit c844a467 leaves a trailing space on every parsed Fro
+  evidence: 'Registry entry EMAIL-CPP-003 (config/known_defects/email__cpp.yaml, verified on aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+    c844a467cf7f2503819b655f4d6ceaef91056c40 2026-10-29) surfaces live in get_symbol''s known_defects for email/cpp: mapi_message::load_from_eml
+    at commit c844a467 leaves a trailing space on every parsed From/To display name, e.g. ''Alice Example '' (len 15) instead
+    of...'
+- id: EMAIL-CPP-004
+  row: RD2-120
+  pilot: email/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose::email::foss::msg::mapi_message
+  expect:
+    found: true
+    result_contains:
+    - mapi_message::add_attachment, add_recipient and add_embedded_message_attachment at commit
+  evidence: No registry entry existed (the card said so); upstream re-verified by a static read of Aspose.Email-FOSS-for-Cpp
+    at the pinned commit c844a467 (add_attachment/add_recipient/add_embedded_message_attachment push_back onto a std::vector
+    member and return .back(); no reserve() anywhere), added EMAIL-CPP-004 (config/known_defects/email__cpp.yaml), which now
+    surfaces in get_symbol known_defects on mapi_message; get_product_reference(limitations) already carries the TC-722 known_hazards
+    text.
+- id: EML-NET-003
+  row: RD2-127
+  pilot: email/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Email.Foss.Msg.MapiMessage
+  expect:
+    found: true
+    result_contains:
+    - MapiMessage.SaveToEml in Aspose.Email.Foss 26.7.0 writes the Bcc header verbatim into the
+  evidence: 'Registry entry EML-NET-003 (config/known_defects/email__net.yaml, verified on Aspose.Email.Foss 26.7.0 2026-11-02)
+    surfaces live in get_symbol''s known_defects for email/net: MapiMessage.SaveToEml in Aspose.Email.Foss 26.7.0 writes the
+    Bcc header verbatim into the serialized message, with no stripping and no documentation t...'
+- id: EMAIL-PY-006
+  row: RD2-136
+  pilot: email/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.email_foss.msg.MapiMessage
+  expect:
+    found: true
+    result_contains:
+    - MapiMessage.to_email_message()/to_email_bytes() in aspose-email-foss 26.3 unconditionally
+  evidence: 'Registry entry EMAIL-PY-006 (config/known_defects/email__python.yaml, verified on aspose-email-foss 26.3 2026-10-29)
+    surfaces live in get_symbol''s known_defects for email/python: MapiMessage.to_email_message()/to_email_bytes() in aspose-email-foss
+    26.3 unconditionally write Bcc recipients into a plainly visible Bcc header, defe...'
+- id: IMAGING-NET-001
+  row: RD2-146
+  pilot: imaging/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Imaging.Foss.ImageProbe
+  expect:
+    found: true
+    result_contains:
+    - ImageProbe.DetectFormat(Stream) at commit c5e77bdc throws NotSupportedException on a non-s
+  evidence: 'Registry entry IMAGING-NET-001 (config/known_defects/imaging__net.yaml, verified on Aspose.Imaging.Foss c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+    2026-10-29) surfaces live in get_symbol''s known_defects for imaging/net: ImageProbe.DetectFormat(Stream) at commit c5e77bdc
+    throws NotSupportedException on a non-seekable stream instead of detecting the format, contradictin...'
+- id: IMAGING-NET-002
+  row: RD2-147
+  pilot: imaging/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Imaging.Foss.ImageInfo
+  expect:
+    found: true
+    result_contains:
+    - ImageProbe.Probe at commit c5e77bdc returns fabricated non-null Width/Height/BitDepth for
+  evidence: 'Registry entry IMAGING-NET-002 (config/known_defects/imaging__net.yaml, verified on Aspose.Imaging.Foss c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+    2026-10-29) surfaces live in get_symbol''s known_defects for imaging/net: ImageProbe.Probe at commit c5e77bdc returns
+    fabricated non-null Width/Height/BitDepth for a truncated PNG/BMP/ICO/WebP/EMF/PSD/WMF file instead of the...'
+- id: IMAGING-NET-003
+  row: RD2-148
+  pilot: imaging/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Imaging.Foss.ImageProbe
+  expect:
+    found: true
+    result_contains:
+    - ImageProbe.Probe at commit c5e77bdc misreads BitsPerSample for any multi-sample (e.g. RGB)
+  evidence: 'Registry entry IMAGING-NET-003 (config/known_defects/imaging__net.yaml, verified on Aspose.Imaging.Foss c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+    2026-10-29) surfaces live in get_symbol''s known_defects for imaging/net: ImageProbe.Probe at commit c5e77bdc misreads
+    BitsPerSample for any multi-sample (e.g. RGB) TIFF, returning BitDepth=134 instead of 8, because ReadIfdV...'

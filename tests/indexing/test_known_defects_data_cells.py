@@ -93,11 +93,16 @@ _ALL_PLATFORMS = ("go", "java", "net", "python", "rust", "typescript")
 # and CELLS-GO-012 (go 2 -> 3, round-3 rework attempt 3). This written-registry total now equals
 # the "findings that need an entry" union total below (both 14) - TC-656 attempt 3 closed the
 # CELLS-GO-012 gap attempt 2 found and reported rather than working around.
-_EXPECTED_COUNTS = {"go": 3, "java": 1, "net": 1, "python": 2, "rust": 1, "typescript": 8}
+# G3/TC-858: python 2 -> 3 (CELLS-PY-004), rust 1 -> 2 (CELLS-RUST-006); total 16 -> 18.
+_EXPECTED_COUNTS = {"go": 3, "java": 1, "net": 1, "python": 3, "rust": 2, "typescript": 8}
 # G3/TC-796: two more written typescript entries (typescript 6 -> 8, total 14 -> 16) whose real
 # ledger category is not "upstream-library-bug", so they are not in the category-filtered union
 # below; see this module's docstring.
-_ROUND2_GAP_DISCLOSURE_IDS = frozenset({"CELLS-TYPESCRIPT-006", "CELLS-TYPESCRIPT-009"})
+# G3/TC-858 adds ``CELLS-PY-004`` (RD2-086, ledger category ``mcp-content-missing``) and ``CELLS-RUST-006``
+# (RD2-099, ``mcp-docs-quality``), the same shape: real round-2 ledger ids, not ``upstream-library-bug``.
+_ROUND2_GAP_DISCLOSURE_IDS = frozenset(
+    {"CELLS-TYPESCRIPT-006", "CELLS-TYPESCRIPT-009", "CELLS-PY-004", "CELLS-RUST-006"}
+)
 
 
 def _load_schema() -> dict:
@@ -189,13 +194,13 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platfo
 
 
 def test_sixteen_entries_total_across_all_six_cells_pilots() -> None:
-    """16 real written entries: 14 as of TC-656 attempt 3 (the 12 round-2 findings TC-645 wrote,
-    plus ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - equal to the real "findings needing an
-    entry" union total (also 14, see
+    """18 real written entries (the test name keeps its history): 14 as of TC-656 attempt 3 (the 12 round-2
+    findings TC-645 wrote, plus ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - equal to the real "findings
+    needing an entry" union total (also 14, see
     ``test_every_real_cells_upstream_library_bug_finding_has_a_written_entry`` below) - plus G3/TC-796's
-    two ``_ROUND2_GAP_DISCLOSURE_IDS`` entries."""
+    two and G3/TC-858's two ``_ROUND2_GAP_DISCLOSURE_IDS`` entries."""
     total = sum(len(load_known_defects("cells", platform)) for platform in _ALL_PLATFORMS)
-    assert total == 16
+    assert total == 18
     assert total == len(_real_cells_upstream_library_bug_ids()) + len(_ROUND2_GAP_DISCLOSURE_IDS)
 
 
@@ -246,7 +251,7 @@ def test_every_real_cells_upstream_library_bug_finding_has_a_written_entry() -> 
         f"{expected_ids - written_ids}"
     )
     # The written set equals the union (14 members, the real count as of 2026-11-02) PLUS exactly
-    # the two G3/TC-796 round-2-gap disclosure ids - nothing more, nothing less.
+    # the four round-2-gap disclosure ids (G3/TC-796's two, G3/TC-858's two) - nothing more, nothing less.
     assert expected_ids | _ROUND2_GAP_DISCLOSURE_IDS == written_ids
     assert len(expected_ids) == 14
 
@@ -428,3 +433,56 @@ def test_get_product_reference_end_to_end_surfaces_real_written_rust_package_def
     assert "aspose-cells-foss-rust 26.7.0's SaveFormat enum has exactly one variant (Xlsx)" in result.text
     assert "aspose-cells-foss-rust" in result.text
     assert result.untrusted_upstream_content is False
+
+
+# --------------------------------------------------------------------------------------------
+# G3/TC-858 (REQ-G3-015): CELLS-PY-004 and CELLS-RUST-006, the two entries this card added for round-2 rows RD2-086
+# and RD2-099 (each also disclosed in get_product_reference's limitations by a config/products known_hazards entry)
+# --------------------------------------------------------------------------------------------
+
+_TC858_ENTRIES = {
+    "python": (
+        "CELLS-PY-004",
+        "aspose.cells_foss.formula_evaluator.FormulaEvaluator",
+        "26.10.0",
+        ("returns none", "sum", "average", "arithmetic"),
+    ),
+    "rust": (
+        "CELLS-RUST-006",
+        "CellsMut",
+        "26.7.0",
+        ("counts", "end indices", "zero-based", "merge("),
+    ),
+}
+
+
+@pytest.mark.parametrize("platform", sorted(_TC858_ENTRIES))
+def test_tc858_entry_is_a_real_open_method_entry_that_states_its_trigger(platform: str) -> None:
+    defect_id, ref, version, phrases = _TC858_ENTRIES[platform]
+    (defect,) = [d for d in load_known_defects("cells", platform) if d.id == defect_id]
+    assert defect.status == "open"
+    assert defect.subject.kind == "method"
+    assert defect.subject.refs == (ref,)
+    assert defect.applies_to.package_versions == (version,)
+    assert defect.evidence.verified_on.version == version
+    assert defect.evidence.verified_on.date == "2026-11-23"
+    assert len(defect.summary) <= 240
+    assert defect.user_action.strip()
+    text = " ".join((defect.summary, defect.user_action)).lower()
+    for phrase in phrases:
+        assert phrase in text, (defect_id, phrase)
+    # The upstream re-verification is a static source read, and the entry says so rather than claiming a run.
+    assert "statically" in defect.evidence.repro
+
+
+@pytest.mark.parametrize("platform", sorted(_TC858_ENTRIES))
+def test_tc858_entry_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus(
+    platform: str, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    from tests.conformance.corpus import load_demo_manifests_corpus
+
+    corpus = load_demo_manifests_corpus(tmp_path_factory.mktemp(f"tc858-cells-{platform}"))
+    pilot = corpus.pilots[f"cells__{platform}"]
+    real_fqns = {fqn for chunk in pilot.symbol_chunks() if (fqn := extract_fqn(chunk["text"])) is not None}
+    assert _TC858_ENTRIES[platform][1] in real_fqns

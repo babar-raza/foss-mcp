@@ -26,6 +26,33 @@ defects:
       version: 26.10.0
       date: '2026-10-29'
   status: open
+- id: CELLS-PY-004
+  subject:
+    kind: method
+    refs:
+    - aspose.cells_foss.formula_evaluator.FormulaEvaluator
+  applies_to:
+    package_versions:
+    - 26.10.0
+  summary: 'FormulaEvaluator.evaluate() in aspose-cells-foss 26.10.0 silently returns None, with no
+    exception, for SUM, AVERAGE and raw arithmetic: only CONCATENATE/CONCAT, TEXT, IF, AND, OR, NOT,
+    LEN, TRIM, UPPER and LOWER are implemented.'
+  user_action: Never read a None from FormulaEvaluator.evaluate() in aspose-cells-foss 26.10.0 as a
+    computed zero or empty result; unless the formula's top-level function is one of the 11 implemented
+    ones, None means unsupported, so compute SUM, AVERAGE and arithmetic in your own code.
+  evidence:
+    repro: 'Downloaded aspose-cells-foss 26.10.0 from PyPI (the latest published version) and read
+      aspose/cells_foss/formula_evaluator.py statically; no upstream code was executed in this pass
+      (the auto-mode classifier denied running it). _evaluate_function dispatches only CONCATENATE/CONCAT,
+      TEXT, IF, AND, OR, NOT, LEN, TRIM, UPPER and LOWER and ends with an unconditional return None;
+      _evaluate_expression handles only literals, cell references and defined names, so =B2+B3 also
+      falls through to None. The earlier 2026-11-07 direct run (TC-721, known_hazards in config/products/cells/python.yaml)
+      returned None for =SUM(A1:A3), =B2+B3 and =AVERAGE(A1:A3) and ''foobar'' for =CONCATENATE("foo","bar").'
+    verified_on:
+      package: aspose-cells-foss
+      version: 26.10.0
+      date: '2026-11-23'
+  status: open
 - id: CELLS-PY-005
   subject:
     kind: method

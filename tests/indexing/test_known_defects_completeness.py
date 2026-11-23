@@ -237,6 +237,15 @@ re-verification against the real pinned package and commit). The real new union 
 assertions above still hold exactly, just against this slightly wider set; the real registry file count is now 27
 (not 26): ``CELLS-CPP-004`` lands in a brand-new ``cells__cpp.yaml`` file, this pilot's first known-defects entry
 (``3D-JAVA-007`` lands in the already-existing ``3d__java.yaml``).
+
+**Widened again (G3/TC-858, 2026-11-23):** ``CELLS-PY-004`` (round-2 category ``"mcp-content-missing"``; ledger row
+RD2-086), ``CELLS-RUST-006`` (``"mcp-docs-quality"``; RD2-099) and ``EMAIL-CPP-004`` (``"coverage-gap"``; RD2-120)
+are real, cited, committed audit findings this module's own category-filtered id source would otherwise never admit;
+all three are added to ``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way (see that frozenset's own
+in-code comment for the re-verification against the real pinned package and commits). The real new union count is
+73 (not 70): both equality assertions above still hold exactly, just against this slightly wider set; the real
+registry file count is unchanged at 27 (all three land in already-existing files: ``cells__python.yaml``,
+``cells__rust.yaml``, ``email__cpp.yaml``).
 """
 
 from __future__ import annotations
@@ -443,6 +452,27 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   disclosed in ``get_product_reference``'s limitations by ``config/products/cells/cpp.yaml``'s ``known_hazards`` (TC-796);
 #   this entry adds the per-symbol disclosure on ``Aspose::Cells_FOSS::Cell`` (``get_symbol`` / ``find_examples``).
 #   Disclosure-only.
+# - ``CELLS-PY-004`` (G3/TC-858, REQ-G3-015, round-2 audit finding, category ``"mcp-content-missing"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-086): re-verified on 2026-11-23 by a static read of ``formula_evaluator.py``
+#   in the real PyPI ``aspose-cells-foss`` 26.10.0 wheel (the latest published version): ``_evaluate_function`` dispatches
+#   only CONCATENATE/CONCAT, TEXT, IF, AND, OR, NOT, LEN, TRIM, UPPER and LOWER and ends in an unconditional
+#   ``return None``, and ``_evaluate_expression`` handles only literals, cell references and defined names, so SUM,
+#   AVERAGE and raw arithmetic silently return None. No upstream code was executed. Already disclosed in
+#   ``get_product_reference``'s limitations by ``config/products/cells/python.yaml``'s ``known_hazards`` (TC-721); this
+#   entry adds the per-symbol disclosure on ``FormulaEvaluator``. Disclosure-only.
+# - ``CELLS-RUST-006`` (G3/TC-858, REQ-G3-015, round-2 audit finding, category ``"mcp-docs-quality"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-099): re-verified on 2026-11-23 by a static read of ``Cells.rs`` at the
+#   pinned commit ``1a6004af`` of ``Aspose.Cells-FOSS-for-Rust``: ``CellsMut::merge`` computes ``end = first + total - 1``
+#   (zero-based counts, not end indices) and its only doc comment says "zero-based coordinates". Already disclosed in
+#   ``get_product_reference``'s limitations by ``config/products/cells/rust.yaml``'s ``known_hazards`` (TC-796); this
+#   entry adds the per-symbol disclosure on ``CellsMut``. Disclosure-only.
+# - ``EMAIL-CPP-004`` (G3/TC-858, REQ-G3-015, round-2 audit finding, category ``"coverage-gap"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-120): re-verified on 2026-11-23 by a static read of
+#   ``src/msg/mapi_message.cpp`` at the pinned commit ``c844a467`` of ``Aspose.Email-FOSS-for-Cpp``: ``add_attachment``,
+#   ``add_recipient`` and ``add_embedded_message_attachment`` ``push_back`` onto a ``std::vector`` member and return
+#   ``.back()``, with no ``reserve()`` anywhere. Already disclosed in ``get_product_reference``'s limitations by
+#   ``config/products/email/cpp.yaml``'s ``known_hazards`` (TC-722); this entry adds the per-symbol disclosure on
+#   ``mapi_message``. Disclosure-only.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -463,6 +493,9 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "WORDS-PY-004",
         "3D-JAVA-007",
         "CELLS-CPP-004",
+        "CELLS-PY-004",
+        "CELLS-RUST-006",
+        "EMAIL-CPP-004",
     }
 )
 
@@ -573,7 +606,9 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-857 (2026-11-23) this real count is
+    # Sanity anchor only, not a floor on the future: as of G3/TC-858 (2026-11-23) this real count is
+    # 73 (70 as of TC-857, plus TC-858's own additive ``CELLS-PY-004``, ``CELLS-RUST-006`` and ``EMAIL-CPP-004``);
+    # earlier, as of G3/TC-857 (2026-11-23) it was
     # 70 (68 as of TC-856, plus TC-857's own additive ``3D-JAVA-007`` and ``CELLS-CPP-004``); earlier, as of
     # G3/TC-856 (2026-11-21) it was 68 (67 as of TC-853, plus TC-856's own additive ``WORDS-PY-004``); earlier, as of G3/TC-853 (2026-11-20) it was
     # 67 (68 as of TC-828, minus the retired ``TEX-PYTHON-001``, see ``_RETIRED_FIXED_UPSTREAM_IDS``); earlier, as of
@@ -596,7 +631,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 70
+    assert len(upstream_issue_ids) == 73
 
 
 # --------------------------------------------------------------------------------------------

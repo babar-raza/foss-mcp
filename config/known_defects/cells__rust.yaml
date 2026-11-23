@@ -25,3 +25,28 @@ defects:
       version: 26.7.0
       date: '2026-10-29'
   status: open
+- id: CELLS-RUST-006
+  subject:
+    kind: method
+    refs:
+    - CellsMut
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: 'CellsMut::merge(first_row, first_column, total_rows, total_columns) in aspose-cells-foss-rust
+    26.7.0 is zero-based and takes COUNTS, not end indices: merge(0, 0, 1, 3) merges A1:C1, and end-index
+    arguments silently merge a different range.'
+  user_action: Pass counts, not end indices. To merge rows r1..r2 and columns c1..c2 (zero-based, inclusive)
+    call merge(r1, c1, r2 - r1 + 1, c2 - c1 + 1), then read merged_cells() back to confirm the range.
+  evidence:
+    repro: 'Cloned Aspose.Cells-FOSS-for-Rust at the pinned commit 1a6004af and read src/Aspose.Cells_FOSS/Cells.rs
+      statically (no upstream code was executed in this pass): merge() rejects a negative first_row or
+      first_column and a total_rows or total_columns of zero or less, then computes end_row = first_row
+      + total_rows - 1 and end_column = first_column + total_columns - 1; its only doc comment says
+      ''zero-based coordinates''. The earlier 2026-11-14 run of the crate (TC-796, known_hazards in
+      config/products/cells/rust.yaml) merged A1:C1 for merge(0, 0, 1, 3) and A6:B10 for merge(5, 0, 5, 2).'
+    verified_on:
+      package: aspose-cells-foss-rust
+      version: 26.7.0
+      date: '2026-11-23'
+  status: open

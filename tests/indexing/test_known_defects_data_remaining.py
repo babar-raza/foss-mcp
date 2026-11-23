@@ -131,10 +131,10 @@ _PILOTS: tuple[tuple[str, str], ...] = (
 # findings TC-647 wrote, plus TC-656's own PAGE-PYTHON-010 (page/python 1 -> 2), plus TC-767's own
 # project-minted PAGE-PYTHON-011 (page/python 2 -> 3), plus TC-772's own project-minted
 # WORDS-PY-013 (words/python 1 -> 2), plus (after TC-853 removed tex/python, 18 -> 17) TC-856's own
-# WORDS-PY-004 (words/python 2 -> 3; 17 -> 18).
+# WORDS-PY-004 (words/python 2 -> 3; 17 -> 18), plus TC-858's own EMAIL-CPP-004 (email/cpp 3 -> 4; 18 -> 19).
 _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("barcode", "python"): 1,
-    ("email", "cpp"): 3,
+    ("email", "cpp"): 4,
     ("email", "python"): 1,
     ("imaging", "net"): 5,
     ("note", "python"): 2,
@@ -170,7 +170,14 @@ IMAGING_NET_COMMIT = "c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa"
 #   class, function or assignment of that name; the only ``document_builder`` module holds the internal
 #   ``MarkdownDocumentBuilder``/``HtmlInsertOptions``). A missing class, not a bug, so the audit never filed it
 #   as ``"upstream-library-bug"``.
-_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"PAGE-PYTHON-011", "WORDS-PY-013", "WORDS-PY-004"})
+# - ``EMAIL-CPP-004`` (G3/TC-858): the round-2 finding (category ``"coverage-gap"``, RD2-120) that the references
+#   returned by ``add_attachment``/``add_recipient``/``add_embedded_message_attachment`` point into a ``std::vector``
+#   member and are invalidated by the next ``add_*`` call; re-verified 2026-11-23 by a static read of
+#   ``src/msg/mapi_message.cpp`` at the indexed commit ``c844a467`` (``push_back`` then ``.back()``, no ``reserve()``
+#   anywhere). A missing documentation caveat, so the audit never filed it as ``"upstream-library-bug"``.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
+    {"PAGE-PYTHON-011", "WORDS-PY-013", "WORDS-PY-004", "EMAIL-CPP-004"}
+)
 
 
 def _registry_path(family: str, platform: str) -> Path:
@@ -259,8 +266,9 @@ def test_sixteen_entries_total_across_all_eight_pilots() -> None:
     # Name kept for the record (TC-767 added a 17th entry additively, TC-772 an 18th; renaming
     # would obscure the history of this module's own counts the way every other widening comment
     # here documents).
-    # re-pinned by TC-853: 18 -> 17 (TEX-PYTHON-001 retired, see _PILOTS); by TC-856: 17 -> 18 (WORDS-PY-004).
-    assert len(_all_written_defects()) == 18
+    # re-pinned by TC-853: 18 -> 17 (TEX-PYTHON-001 retired, see _PILOTS); by TC-856: 17 -> 18 (WORDS-PY-004);
+    # by TC-858: 18 -> 19 (EMAIL-CPP-004).
+    assert len(_all_written_defects()) == 19
 
 
 def test_tex_python_has_no_registry_file_any_more() -> None:
@@ -301,14 +309,16 @@ def test_every_real_upstream_library_bug_finding_has_a_written_entry() -> None:
     # Both sets equal, and both have exactly 18 members (17 after TC-853, plus TC-856's own ``WORDS-PY-004``) - the
     # real union count as of G3/TC-772 (2026-11-12): 17 as of TC-767 (16 as of TC-656, plus TC-767's own
     # project-minted ``PAGE-PYTHON-011``), plus TC-772's own project-minted ``WORDS-PY-013``.
+    # re-pinned by TC-858: 18 -> 19 (TC-858's own project-allowlisted ``EMAIL-CPP-004``).
     assert expected_ids == written_ids
-    assert len(expected_ids) == 18
+    assert len(expected_ids) == 19
 
 
 def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
-    """The exact 18 ids this module's own history named (the 15 original round-2 ids, plus
+    """The exact 19 ids this module's own history named (the 15 original round-2 ids, plus
     TC-656's own ``PAGE-PYTHON-010``, plus TC-767's own project-minted ``PAGE-PYTHON-011``, plus
-    TC-772's own project-minted ``WORDS-PY-013``, plus TC-856's own ``WORDS-PY-004``; test name kept for the record rather than
+    TC-772's own project-minted ``WORDS-PY-013``, plus TC-856's own ``WORDS-PY-004``, plus TC-858's own
+    ``EMAIL-CPP-004``; test name kept for the record rather than
     renamed, the same way every other widening in this module's sibling
     ``test_known_defects_completeness.py`` keeps its own prior counts visible in
     comments/docstrings rather than rewriting history) - a second, independent cross-check
@@ -319,6 +329,7 @@ def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
         "EMAIL-CPP-001",
         "EMAIL-CPP-002",
         "EMAIL-CPP-003",
+        "EMAIL-CPP-004",
         "EMAIL-PY-006",
         "IMAGING-NET-001",
         "IMAGING-NET-002",
@@ -487,3 +498,31 @@ def test_imaging_net_004_does_not_surface_through_report_index_freshness_when_co
 
     assert report.indexed_source_commit == other_commit
     assert not any("5131c44a" in line for line in report.known_defects), report.known_defects
+
+
+# --------------------------------------------------------------------------------------------
+# G3/TC-858 (REQ-G3-015): EMAIL-CPP-004, added for round-2 row RD2-120 (also disclosed in get_product_reference's
+# limitations by config/products/email/cpp.yaml's known_hazards entry)
+# --------------------------------------------------------------------------------------------
+
+
+def test_email_cpp_004_is_a_real_open_method_entry_scoped_to_the_indexed_commit() -> None:
+    (defect,) = [d for d in load_known_defects("email", "cpp") if d.id == "EMAIL-CPP-004"]
+    assert defect.status == "open"
+    assert defect.subject.kind == "method"
+    assert defect.subject.refs == ("aspose::email::foss::msg::mapi_message",)
+    assert defect.applies_to.package_versions == ("c844a467cf7f2503819b655f4d6ceaef91056c40",)
+    assert defect.evidence.verified_on.date == "2026-11-23"
+    assert len(defect.summary) <= 240
+    text = " ".join((defect.summary, defect.user_action)).lower()
+    for phrase in (
+        "add_attachment",
+        "add_recipient",
+        "add_embedded_message_attachment",
+        "std::vector",
+        "dangling",
+    ):
+        assert phrase in text, phrase
+    assert "attachments()" in defect.user_action and "recipients()" in defect.user_action
+    # A static source read, said plainly: the entry never claims it ran upstream code.
+    assert "statically" in defect.evidence.repro

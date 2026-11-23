@@ -65,3 +65,30 @@ defects:
       version: c844a467cf7f2503819b655f4d6ceaef91056c40
       date: '2026-10-29'
   status: open
+- id: EMAIL-CPP-004
+  subject:
+    kind: method
+    refs:
+    - aspose::email::foss::msg::mapi_message
+  applies_to:
+    package_versions:
+    - c844a467cf7f2503819b655f4d6ceaef91056c40
+  summary: mapi_message::add_attachment, add_recipient and add_embedded_message_attachment at commit
+    c844a467 return a reference into a std::vector member; the next add_* call can reallocate it and
+    leave every earlier returned reference dangling.
+  user_action: Do not keep the mapi_attachment& or mapi_recipient& returned by an add_* call across a
+    later add_* call on the same mapi_message; finish configuring each one first, or re-fetch it by index
+    from attachments() or recipients() afterwards.
+  evidence:
+    repro: 'Cloned Aspose.Email-FOSS-for-Cpp at commit c844a467 and read src/msg/mapi_message.cpp and
+      include/aspose/email/foss/msg/mapi_message.hpp statically (no upstream code was executed in this
+      pass): all three methods push_back onto the recipients_ or attachments_ std::vector member and
+      return .back(); no reserve() call exists in the library source, so a later push_back can reallocate
+      the vector. The round-2 audit''s own run (RD2-120) read an empty content_id through a reference held
+      across a later add_embedded_message_attachment; the same mechanism is disclosed in get_product_reference
+      limitations by the TC-722 known_hazards (config/products/email/cpp.yaml).'
+    verified_on:
+      package: aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+      version: c844a467cf7f2503819b655f4d6ceaef91056c40
+      date: '2026-11-23'
+  status: open
