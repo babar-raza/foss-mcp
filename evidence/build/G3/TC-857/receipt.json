@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-857",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-23T08:27:44Z",
+  "base_rev": "c110881ef661003123b4915c28be2db17b9e4cf7",
+  "head_rev": "1dff52b7cfa02b117e2c7d883a66ff3799e6d173",
+  "card_sha256": "9766faec95169936f450e90b91af8d21e8f5d2f43c440dc39bc22f1142e0a712",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/3d__java.yaml",
+      "config/known_defects/cells__cpp.yaml",
+      "docs/RELEASE.md",
+      "docs/ROUND2_REVIEW.md",
+      "tests/audit/probes/ws_j_a.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/indexing/test_known_defects_data_3d.py",
+      "tests/indexing/test_known_defects_data_cells.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 363.895,
+          "stdout_sha256": "c42bc1dcf3d10acea1a8ec00930fb77dd0ec47a79a450a1ffd72e07025d063c8",
+          "tests": 92,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 332.618,
+          "stdout_sha256": "c42bc1dcf3d10acea1a8ec00930fb77dd0ec47a79a450a1ffd72e07025d063c8",
+          "tests": 92,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-002 |'; assert s.count(old) == 1, 'row marker not found exactly once'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; p.write_text(s[:idx] + corrupted + s[line_end:], encoding='utf-8')\"\n",
+    "patch_sha256": "8dc3a10c65975b8bfbab7f9e9c85c67e9d296e4ac8ae74507d90a0426d1e8e08",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docs/ROUND2_REVIEW.md",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
