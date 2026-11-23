@@ -1,0 +1,56 @@
+id: TC-872
+gate: G3
+lane: storage-retrieval
+purpose: 'P4-B infrastructure (plan XA10-XA17 in its smallest useful form). TC-866 measured that 27 of 32 (84.4%) of cells/python''s upstream example programs verify, so DG-3 says PROCEED with bringing the 14 pilots below their Appendix C minimum up to it. Today the only route for example code that is not in a pilot''s README is the authored sidecar tests/fixtures/furnished/<pilot>/authored_examples.yaml, capped at 6 entries (src/foss_mcp/indexing/authored_examples.py _MAX_EXAMPLES, TC-837), every entry hand-written, labelled AUTHORED_LABEL. Add a second, additive entry kind to the SAME sidecar: an UPSTREAM SAMPLE - example code adapted from a file of the pilot''s own upstream repository at the pinned commit, with a mandatory `source` block {path: <repo-relative path>, commit: <40-hex, must equal the sidecar''s library_commit>, license: MIT, adaptation: <one sentence: what was changed to make it standalone, e.g. ''removed unittest scaffolding, inlined fixture''>} and `kind: upstream-sample`
+  (absent kind = authored, exactly as today). Rules: authored entries keep the cap of 6 and every existing rule (title <= 12 words, forbidden patterns, symbols must exist, ...); upstream-sample entries have their own cap of 40 per sidecar, the same title/forbidden-pattern/symbol rules, must not duplicate another entry''s normalised code, and a sidecar must hold at least 1 entry in total. The two kinds share the one verifier and honest-publish path (TC-802): an upstream sample whose run failed or printed nothing is not published. A published upstream sample carries its own label constant UPSTREAM_SAMPLE_LABEL (''Upstream sample: adapted from <path> of the pinned upstream repository (MIT); published only after the ingestion verifier ran it against that commit.'') and a `Sample-Source: <path>@<commit7>` line in the chunk text next to the existing Verification-Level / Verified-With lines; provenance ''upstream-sample'' flows through merge_authored_candidates/CandidateExample exactly like ''authored''.
+  Update schemas/product/authored-examples.schema.json to the same structure (a test already proves the plain-Python validator and the schema agree: extend it). Nothing in this card regenerates data or changes a committed pilot: every existing authored sidecar must load, validate and publish byte-identically (prove it with the committed data: the post-regeneration simulation tests/mcp/tools/test_post_regen_retrieval_ratchets.py and tests/deploy still pass unchanged). Document the entry shape and caps in the module docstring of authored_examples.py (docs/RELEASE.md is refreshed later by the release-docs card). Do NOT add any example to any pilot here; the per-pilot adoption cards (cells/python first) follow.'
+depends_on:
+- TC-853
+- TC-855
+- TC-856
+- TC-857
+- TC-868
+- TC-869
+- TC-870
+write_paths:
+- src/foss_mcp/indexing/authored_examples.py
+- src/foss_mcp/indexing/example_candidates.py
+- infra/build_chunks.py
+- schemas/product/authored-examples.schema.json
+- tests/indexing/test_authored_examples.py
+- tests/indexing/test_authored_examples_upstream_samples.py
+- tests/infra/test_build_chunks.py
+- tests/infra/test_build_chunks_upstream_samples.py
+satisfies:
+- REQ-G3-014
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+- 'READ FIRST: src/foss_mcp/indexing/authored_examples.py (loader, validator, caps, AUTHORED_LABEL, builtin path), schemas/product/authored-examples.schema.json, src/foss_mcp/indexing/example_candidates.py (CandidateExample, merge_authored_candidates, provenance handling), infra/build_chunks.py (how authored candidates are verified and rendered; where Verification-Level / Verified-With / the authored label are written), tests/indexing/test_authored_examples.py (schema-vs-validator agreement test, cap tests), tests/infra/test_build_chunks.py, docs/P4B_YIELD.md (TC-866''s measurement: the decision and the 5 next gap pilots; it is on worker/TC-866 until that card integrates, so read the decision from this card''s purpose), and one existing sidecar such as tests/fixtures/furnished/cells_python/authored_examples.yaml.'
+- 'REPRODUCE FIRST: add a failing test that a sidecar with a 7th authored entry is refused (today''s cap), and that a sidecar entry with kind: upstream-sample is refused as an unknown field today; then implement. Keep the change additive and minimal: no pilot''s committed output may change.'
+- 'If a test elsewhere pins the old cap or label set and breaks legitimately, re-pin it to the confirmed new real value ONLY when it is inside write_paths; anything outside write_paths that breaks: report file + test + what it pins and stop. After your final edit run the FULL directory sweeps WITHOUT -x, one directory at a time, PowerShell activated (tests/mcp tests/indexing tests/extraction tests/conformance tests/config tests/release tests/infra tests/deploy tests/poc tests/normalization); tests/infra must be green. No docker is needed. In a worktree without a venv use E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.venv/Scripts/python.exe with PYTHONPATH = worktree root, src and infra. One commit with FOSS_MCP_WORKER=TC-872; report once with before/after and the sweep results.'
+actions:
+- Add the upstream-sample entry kind to the authored sidecar (loader, schema, candidate provenance, chunk rendering) without changing any committed pilot.
+checks:
+- command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_upstream_samples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_upstream_samples.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-014
+min_tests: 60
+requires:
+- python
+network: true
+negative_control:
+  mutate: 'python -X utf8 -c "import subprocess; paths = [''src'', ''infra'', ''schemas'']; patch = subprocess.run([''git'', ''show'', ''--format='', ''HEAD'', ''--''] + paths, capture_output=True, check=True).stdout; assert patch.strip(), ''the worker commit changes none of the production paths - the feature is missing''; subprocess.run([''git'', ''apply'', ''-R'', ''--whitespace=nowarn'', ''-''], input=patch, check=True)"
+
+    '
+  rationale: Reverse-applies the worker's own commit restricted to src, infra and schemas (the feature itself), keeping the tests; the new upstream-sample tests must then fail. Anchored on the real diff, so it cannot be vacuous. The worker must commit exactly one commit.
+evidence:
+- evidence/build/G3/TC-872/receipt.json
+closeout:
+- A pilot sidecar can carry up to 40 verified, labelled, source-attributed upstream samples besides its 6 authored examples.
+recovery: Re-run from a clean tree.

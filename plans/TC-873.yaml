@@ -1,0 +1,127 @@
+id: TC-873
+gate: G3
+lane: verification
+purpose: 'P4-B adoption, pilot cells/python (the largest gap: 10 served examples against the Appendix C minimum of 30). TC-866 measured the real yield of the pilot''s upstream examples/ directory at the pinned commit 4f6768a7b349a1309644f456eb43bc35f70c16d7: 27 of 32 verify (23 ran-produced-output, 4 ran-exit0; rejected: __init__.py empty, test_xlsx_to_json.py and test_xlsx_to_markdown.py need input/*.xlsx fixtures, test_create_all_charts.py needs pytest, test_csv_import_export.py asserts a FileNotFoundError the library does not raise) - see docs/P4B_YIELD.md on main after TC-866 integrates. TC-872 added the `kind: upstream-sample` entry type to the authored sidecar (cap 40, mandatory source block, UPSTREAM_SAMPLE_LABEL, Sample-Source line). This card adopts at least 20 FOCUSED upstream samples into tests/fixtures/furnished/cells_python/authored_examples.yaml and regenerates cells_python so the pilot serves at least 30 examples. ''Focused'' matters: the upstream files are unittest modules;
+  each adopted entry must be ONE standalone program that shows ONE capability (take one test method or script section, remove the unittest/pytest scaffolding and asserts that only guard the test, inline any fixture via the product''s example_fixtures generators or build the workbook in code), with a title of at most 12 words that names the task a user would ask for (not ''test_xyz''), distinct from every README and authored title, and a `source` block {path, commit, license: MIT, adaptation}. Prefer samples that exercise symbols the pilot''s current examples do not cover (read the pilot''s served symbol list and its current examples first); never adopt a sample twice under two titles. Regenerate with the cluster-free route scripts/release/regenerate_local.py --only cells_python (image built from THIS worktree, gateway 4096-dim vectors), then compare old and new with scripts/release/generation_diff.py and scripts/release/answer_diff.py: no removed symbol, no lost answer (lost must be 0),
+  every adopted example chunk carries Verification-Level / Verified-With / Sample-Source lines, one example per chunk and a 4096-dim vector point. Every example whose run fails or prints nothing is honestly NOT published (TC-802): if fewer than 20 verify, adapt more samples until the served total reaches 30 or report the measured shortfall with the reasons - never lower the pilot''s floor or publish an unverified example. No pilot ever gets worse: the retrieval ratchets (hit@3, wrong-confident ceilings, forgiveness 23/14, recall pairs, nonsense-miss, title-anchor) must hold, the DG-1 guard applies to the conformance baselines (only prefix-3 / probe-artefact / sentence-wrapped sample-key churn with 0 pass->fail; any other regression class stops the card), and the baked-tree budgets in tests/deploy/test_compact_demo_manifests.py and test_demo_manifests_sidecars.py are re-pinned only upward to the measured value rounded up to the next 10k (report the margin to LEAN_CEILING_BYTES 55_000_000,
+  which a worker never raises; about 33 KB per 4096-dim example point).'
+depends_on:
+- TC-537
+- TC-575
+- TC-576
+- TC-579
+- TC-597
+- TC-602
+- TC-615
+- TC-678
+- TC-695
+- TC-698
+- TC-699
+- TC-730
+- TC-731
+- TC-739
+- TC-759
+- TC-774
+- TC-776
+- TC-777
+- TC-778
+- TC-792
+- TC-799
+- TC-808
+- TC-809
+- TC-813
+- TC-820
+- TC-829
+- TC-831
+- TC-839
+- TC-841
+- TC-842
+- TC-846
+- TC-848
+- TC-849
+- TC-850
+- TC-851
+- TC-852
+- TC-853
+- TC-855
+- TC-856
+- TC-857
+- TC-866
+- TC-868
+- TC-869
+- TC-870
+- TC-872
+write_paths:
+- infra/demo-manifests/cells__python__self_extracted/**
+- tests/fixtures/verified_examples/cells_python.json
+- infra/demo-inputs/embeddings/cells__python.json
+- tests/fixtures/furnished/cells_python/authored_examples.yaml
+- tests/indexing/test_authored_examples_cells_python.py
+- tests/deploy/test_adopted_samples_cells_python.py
+- tests/deploy/test_fleet_consistency.py
+- tests/poc/*
+- tests/furnished_content/*
+- tests/conformance/*
+- tests/fixtures/conformance/*
+- tests/mcp/tools/test_post_regen_retrieval_ratchets.py
+- tests/mcp/tools/post_regen_simulation.py
+- tests/mcp/tools/test_find_examples_generic_title_lead_in.py
+- tests/mcp/tools/test_find_examples_symbol_aware_matching.py
+- tests/mcp/tools/test_find_examples_round2_recall_ratchet.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+- tests/mcp/tools/test_find_examples_verification_record.py
+- tests/mcp/tools/test_forgiveness_acceptance.py
+- tests/mcp/tools/test_relevance_doc_scope_weights.py
+- tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
+- tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py
+- tests/indexing/test_cached_embedding_provider.py
+- tests/indexing/test_example_titles_description_derived.py
+- tests/indexing/test_round3_example_runtime_truth.py
+- tests/release/test_claims_ledger.py
+- tests/mcp/tools/test_find_examples_verification_level_label.py
+- tests/mcp/tools/test_find_examples_rare_code_word.py
+- tests/mcp/tools/test_relevance_floor.py
+- tests/deploy/test_compact_demo_manifests.py
+- tests/deploy/test_demo_manifests_sidecars.py
+- tests/deploy/test_regenerated_cohort_c0.py
+- tests/deploy/test_regenerated_cohort_c1.py
+- tests/deploy/test_regenerated_cohort_c2.py
+- tests/deploy/test_regenerated_cohort_c3.py
+- tests/deploy/test_regenerated_cohort_c4.py
+- tests/deploy/test_regenerated_cohort_c5.py
+- tests/deploy/test_regenerated_tex_python_repin.py
+satisfies:
+- REQ-G3-014
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks'
+  sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+- 'READ FIRST: docs/P4B_YIELD.md (TC-866''s per-sample classification of the 32 upstream samples; if it is not on main yet read worker/TC-866''s file via git show worker/TC-866:docs/P4B_YIELD.md), plans/TC-872.yaml and src/foss_mcp/indexing/authored_examples.py (the upstream-sample entry shape), tests/fixtures/furnished/cells_python/authored_examples.yaml (the current 6 authored entries), scripts/release/regenerate_local.py and plans/TC-852.yaml (regeneration recipe and the LESSONS inputs of TC-849..TC-852: they apply here unchanged: honest losses, cache handling, ManifestImmutableError, DG-1 baselines, budgets, embeddings replay file rebuild, full sweeps).'
+- 'SAMPLE SOURCE: clone aspose-cells-foss/Aspose.Cells-FOSS-for-Python with the authenticated gh CLI or git over https into a scratch directory OUTSIDE the repository and OneDrive, check out the pinned commit exactly, read examples/*.py there, delete the clone when done. The repository is MIT and bundles no font or image. NEVER print or write GITHUB_TOKEN / GPT_OSS_* values. If the auto-mode classifier denies an action do not work around it: report it.'
+- 'ENVIRONMENT: PowerShell, dot-source scripts\toolchain\activate.ps1 in the SAME command as any docker/helm/test run (bash activation is a no-op). Docker Desktop is running. Build the ingestion image from YOUR worktree (docker build -f Dockerfile.ingestion -t foss-mcp-ingestion:regen-cp .) and remove it when done. No venv in the worktree: use E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.venv/Scripts/python.exe with PYTHONPATH = worktree root, src and infra. The image bakes tests/fixtures/verified_examples at build time: rebuild after dropping cache entries.'
+- 'DEFINITION OF DONE: after your final edit run the FULL directory sweeps WITHOUT -x, one directory at a time (tests/mcp tests/indexing tests/extraction tests/conformance tests/config tests/release tests/infra tests/deploy tests/poc tests/normalization tests/test_container_build.py) then tests/e2e ALONE and LAST with no other docker work; tests/infra must be green; fix every stale pin that is in write_paths to a confirmed real value (never loosen/skip/delete); a failure outside write_paths: report file + test + what it pins and stop. Add tests/deploy/test_adopted_samples_cells_python.py (offline, committed files only): cells_python serves >= 30 examples (or the reported measured number), every adopted entry has a source block with the pinned commit, every example chunk has Verification-Level / Verified-With, one example per chunk, 4096-dim vector point per example chunk. One commit with FOSS_MCP_WORKER=TC-873; report once with before/after counts, honest losses, generation_diff / answer_diff
+  results, DG-1 churn by class with the pass->fail count, tree size and margins, check and sweep results.'
+actions:
+- Adopt at least 20 focused, verified upstream samples for cells/python and regenerate the pilot so it serves at least 30 examples without any pilot getting worse.
+checks:
+- command: '{python} -m pytest tests/deploy tests/poc tests/furnished_content tests/mcp/tools/test_post_regen_retrieval_ratchets.py tests/indexing/test_authored_examples_cells_python.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-014
+min_tests: 1000
+requires:
+- python
+network: true
+negative_control:
+  mutate: 'python -X utf8 -c "import subprocess; paths = [''infra/demo-manifests'', ''tests/fixtures/verified_examples'', ''infra/demo-inputs'']; patch = subprocess.run([''git'', ''show'', ''--format='', ''HEAD'', ''--''] + paths, capture_output=True, check=True).stdout; assert patch.strip(), ''the worker commit changes none of the production paths - the fix is missing''; subprocess.run([''git'', ''apply'', ''-R'', ''--whitespace=nowarn'', ''-''], input=patch, check=True)"
+
+    '
+  rationale: Reverse-applies the worker's own commit restricted to the production data paths (generation, verification cache, embeddings), keeping the tests; the adopted-samples test must then fail. Anchored on the real committed diff. The worker must commit exactly one commit.
+evidence:
+- evidence/build/G3/TC-873/receipt.json
+closeout:
+- cells/python serves at least 30 verified examples, 20+ of them labelled upstream samples with their source.
+recovery: Re-run from a clean tree.
