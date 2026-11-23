@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "card": "TC-872",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-23T10:47:20Z",
+  "base_rev": "014007af722da6afd37338a7b7ac575143b0d77a",
+  "head_rev": "842cb14c56f78e85a97e5990d403bbcc0a4caf01",
+  "card_sha256": "5035edbcf7005f597b0d48470b6ab3502cc2c97ac07a7d8d5814408dc08c7410",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "schemas/product/authored-examples.schema.json",
+      "src/foss_mcp/indexing/authored_examples.py",
+      "src/foss_mcp/indexing/example_candidates.py",
+      "tests/indexing/test_authored_examples.py",
+      "tests/indexing/test_authored_examples_upstream_samples.py",
+      "tests/infra/test_build_chunks_upstream_samples.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_upstream_samples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_upstream_samples.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 442.482,
+          "stdout_sha256": "12577c8e4fbcd32cbcf5b3a179492f11a913db7720483131ac9f24a09613e5d3",
+          "tests": 377,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_upstream_samples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_upstream_samples.py tests/mcp/tools/test_post_regen_retrieval_ratchets.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 416.998,
+          "stdout_sha256": "12577c8e4fbcd32cbcf5b3a179492f11a913db7720483131ac9f24a09613e5d3",
+          "tests": 377,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src', 'infra', 'schemas']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the feature is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "b14f173c9d9c8dda207a68fd50defb71800a45c837d661fa072ecd2524bd614c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "M schemas/product/authored-examples.schema.json",
+      "M src/foss_mcp/indexing/authored_examples.py",
+      "M src/foss_mcp/indexing/example_candidates.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
