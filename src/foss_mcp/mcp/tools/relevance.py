@@ -1076,7 +1076,12 @@ _CHUNK_METADATA_LINE_PREFIXES = (
     "Runtime-Produced-Bytes:",
     "Runtime-Error:",
     "Source-Commit:",
+    # TC-874: the line an upstream-sample chunk (TC-872) names its upstream file and commit on.
+    "Sample-Source:",
 )
+# TC-874: the label line of an upstream-sample chunk (``UPSTREAM_SAMPLE_LABEL``, TC-872). It names an upstream
+# repository file, which must never become a retrieval term or the lead-in sentence.
+_UPSTREAM_SAMPLE_HEADER_LINE_PREFIXES = ("Upstream sample:",)
 _SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
 
 # TC-797: the longest lead-in sentence, in words, that may stand in for a generic title. Measured over the
@@ -1102,7 +1107,8 @@ def example_lead_in(text: str) -> str:
     The paragraph is the run of non-blank lines nearest above the LAST line that is exactly ``Example:``
     (the marker ``find_examples._extract_example`` splits at), without the chunk's own ``FQN:`` / ``Kind:``
     / ``Provenance:`` / ``Harness:`` / ``Verification-Level:`` / ``Verified-With:`` / ``Runtime-Status:`` /
-    ``Runtime-Produced-Bytes:`` / ``Runtime-Error:`` / ``Source-Commit:`` metadata lines. It is cut after its first
+    ``Runtime-Produced-Bytes:`` / ``Runtime-Error:`` / ``Source-Commit:`` / ``Sample-Source:`` metadata lines and
+    the ``Upstream sample:`` label of an upstream-sample chunk (TC-874). It is cut after its first
     sentence and a trailing ``:`` is dropped. Only prose BEFORE the marker is read, never the code.
     """
     lines = text.splitlines()
@@ -1118,7 +1124,7 @@ def example_lead_in(text: str) -> str:
             if paragraph:
                 break
             continue
-        if line.startswith(_CHUNK_METADATA_LINE_PREFIXES):
+        if line.startswith(_CHUNK_METADATA_LINE_PREFIXES + _UPSTREAM_SAMPLE_HEADER_LINE_PREFIXES):
             break
         paragraph.append(line.strip())
     sentence = " ".join(reversed(paragraph))
@@ -1136,7 +1142,8 @@ def example_prose(text: str) -> str:
     ``Example:`` (the marker ``find_examples._extract_example`` splits at), without the chunk's own header -
     the ``FQN:`` / ``Kind:`` / ``Provenance:`` / ``Verification-Level:`` ... metadata lines of
     ``_CHUNK_METADATA_LINE_PREFIXES`` and the ``Verification:`` / ``Authored example:`` lines an authored
-    chunk adds (a ``Harness:`` line lists staged file names, a version line a toolchain: neither says what the
+    chunk adds, and the ``Upstream sample:`` label an upstream-sample chunk adds (TC-874; its
+    ``Sample-Source:`` line is a metadata line) (a ``Harness:`` line lists staged file names, a version line a toolchain: neither says what the
     example is about). "" when the chunk has no marker. The text AFTER the marker (the code) is never read."""
     lines = text.splitlines()
     marker = next(
@@ -1145,7 +1152,9 @@ def example_prose(text: str) -> str:
     )
     if marker is None:
         return ""
-    skipped = _CHUNK_METADATA_LINE_PREFIXES + _AUTHORED_HEADER_LINE_PREFIXES
+    skipped = (
+        _CHUNK_METADATA_LINE_PREFIXES + _AUTHORED_HEADER_LINE_PREFIXES + _UPSTREAM_SAMPLE_HEADER_LINE_PREFIXES
+    )
     return "\n".join(line for line in lines[:marker] if line.strip() and not line.startswith(skipped))
 
 

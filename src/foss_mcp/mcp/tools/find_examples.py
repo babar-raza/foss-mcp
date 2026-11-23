@@ -291,6 +291,10 @@ def _is_generic_example_title(title: str) -> bool:
 
 _VERIFIED_KIND_LINE = "Kind: verified_example"
 _AUTHORED_PROVENANCE_LINE = "Provenance: authored"
+# TC-874: the line TC-872 writes for an upstream sample (``Provenance: upstream-sample``), and the line naming
+# the upstream file and the first 7 hex digits of the commit it was adapted from.
+_UPSTREAM_SAMPLE_PROVENANCE_LINE = "Provenance: upstream-sample"
+_SAMPLE_SOURCE_PREFIX = "Sample-Source:"
 _VERIFICATION_PASSED_LINE = "Verification: passed"
 
 # TC-544: the language an example is written in, from the deployment's platform (unknown: empty).
@@ -338,6 +342,12 @@ README_NOTE_TAIL = (
     "add the imports and entry point your language needs."
 )
 AUTHORED_NOTE_TAIL = (
+    "checked by the ingestion verifier against the library at source_commit; add the imports and entry "
+    "point your language needs."
+)
+# TC-874: an upstream sample is neither the README's own snippet (so no "the verifier may have added the README's
+# imports" sentence) nor written for this index: it was adapted from a file of the upstream repository.
+UPSTREAM_SAMPLE_NOTE_TAIL = (
     "checked by the ingestion verifier against the library at source_commit; add the imports and entry "
     "point your language needs."
 )
@@ -457,7 +467,8 @@ def is_verified_example_text(text: str) -> bool:
     True only when ALL hold: the chunk's ``FQN:`` line starts with ``Example: ``; some line is
     exactly ``Kind: verified_example`` (the verifier's own line - a symbol chunk whose Javadoc merely
     says ``Example:`` never has it); some line is exactly ``Example:``; and, when some line is
-    exactly ``Provenance: authored``, some line is also exactly ``Verification: passed``.
+    exactly ``Provenance: authored`` (or, TC-874, ``Provenance: upstream-sample``), some line is also exactly
+    ``Verification: passed``.
     """
     fqn = extract_fqn(text)
     if fqn is None or not fqn.startswith(_EXAMPLE_FQN_PREFIX):
@@ -465,15 +476,34 @@ def is_verified_example_text(text: str) -> bool:
     lines = {line.rstrip("\r\n") for line in text.splitlines()}
     if _VERIFIED_KIND_LINE not in lines or _EXAMPLE_MARKER not in lines:
         return False
-    if _AUTHORED_PROVENANCE_LINE in lines and _VERIFICATION_PASSED_LINE not in lines:
+    if (
+        _AUTHORED_PROVENANCE_LINE in lines or _UPSTREAM_SAMPLE_PROVENANCE_LINE in lines
+    ) and _VERIFICATION_PASSED_LINE not in lines:
         return False
     return True
 
 
 def _provenance(text: str) -> str:
-    """``authored`` when the chunk has the line ``Provenance: authored``, ``readme`` otherwise."""
+    """``authored`` when the chunk has the line ``Provenance: authored``, ``upstream-sample`` (TC-874) when it has
+    the line ``Provenance: upstream-sample``, ``readme`` otherwise."""
     lines = {line.rstrip("\r\n") for line in text.splitlines()}
-    return "authored" if _AUTHORED_PROVENANCE_LINE in lines else "readme"
+    if _AUTHORED_PROVENANCE_LINE in lines:
+        return "authored"
+    return "upstream-sample" if _UPSTREAM_SAMPLE_PROVENANCE_LINE in lines else "readme"
+
+
+def _sample_source(text: str) -> tuple[str, str]:
+    """TC-874: the ``(path, commit7)`` of the first line ``Sample-Source: <path>@<commit7>`` of an upstream-sample
+    chunk; ``("", "")`` when there is no such line or it does not have the ``<path>@<commit>`` shape."""
+    lines = text.splitlines()
+    marker = next(
+        (index for index in range(len(lines) - 1, -1, -1) if lines[index].rstrip() == _EXAMPLE_MARKER), None
+    )
+    for line in lines[: len(lines) if marker is None else marker]:  # the header only, never the code
+        if line.startswith(_SAMPLE_SOURCE_PREFIX):
+            path, at, commit = line[len(_SAMPLE_SOURCE_PREFIX) :].strip().rpartition("@")
+            return (path.strip(), commit.strip()) if at and path.strip() and commit.strip() else ("", "")
+    return ("", "")
 
 
 def _source_commit(text: str) -> str:
@@ -551,6 +581,12 @@ def _verification_note(text: str) -> str:
         label = f"{label} (verified with {tool})"
     if _provenance(text) == "authored":
         return f"Authored for this index; {label}; {AUTHORED_NOTE_TAIL}"
+    if _provenance(text) == "upstream-sample":
+        # TC-874: say what it is - a file of the upstream repository, adapted - and never describe it as the
+        # upstream README's example. The label (what running it proved) is the same derived one.
+        path, commit = _sample_source(text)
+        origin = f"{path} at {commit}" if path else "a file"
+        return f"Adapted from {origin} of the upstream repository (MIT); {label}; {UPSTREAM_SAMPLE_NOTE_TAIL}"
     return f"{label}; {README_NOTE_TAIL}"
 
 
@@ -1062,6 +1098,11 @@ def find_examples(
                 if scope_above_rare_cap:
                     # TC-839: a scope past the cap admits the word only for an example whose description names it
                     # too; that mention stands in for the recurrence / uniqueness bar below.
+                    # TC-874: README-derived ONLY, decided consciously for an upstream sample: its description is
+                    # prose written here around an adapted upstream test/sample (a workflow summary, like an
+                    # authored one), not the upstream author's own words tying the example to the word, so it is
+                    # NOT evidence and falls through to the unmodified bar below. (The title anchor itself is not
+                    # provenance-gated: an upstream sample is title-anchored exactly like an authored example.)
                     if _provenance(text) == "readme" and present_terms(
                         rare_hits, tokenize(example_prose(text))
                     ):
