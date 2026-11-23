@@ -157,6 +157,10 @@ class CandidateExample:
 
     TC-460 adds ``provenance`` (``"readme"`` for everything extracted from a page, ``"authored"``
     for a sidecar example), also excluded from equality.
+
+    TC-872 adds ``"upstream-sample"`` to the provenances (a sidecar example adapted from a file of the
+    pilot's upstream repository) and ``sample_source``, the ``(repo-relative path, commit)`` of that file
+    (``()`` for every other candidate), also excluded from equality.
     """
 
     title: str
@@ -170,6 +174,7 @@ class CandidateExample:
     imports_only: bool = field(default=False, compare=False, repr=False)
     import_prefix: tuple[str, ...] = field(default=(), compare=False, repr=False)
     provenance: str = field(default="readme", compare=False, repr=False)
+    sample_source: tuple[str, ...] = field(default=(), compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -866,6 +871,10 @@ def merge_authored_candidates(
     can borrow README using / include / import lines for it. Its ``code_sha256`` is kept (the
     sidecar's) or computed when empty. Returns ``(merged, skipped_titles)``; there are never two
     candidates with one title.
+
+    TC-872: a candidate whose ``provenance`` is ``"upstream-sample"`` keeps that provenance (and its
+    ``sample_source``) and is normalised in every other respect exactly like an authored one; any other
+    provenance becomes ``"authored"``, with no ``sample_source``.
     """
     merged = list(candidates)
     used_titles = {candidate.title for candidate in merged}
@@ -875,6 +884,7 @@ def merge_authored_candidates(
             skipped.append(candidate.title)
             continue
         used_titles.add(candidate.title)
+        upstream = candidate.provenance == "upstream-sample"
         merged.append(
             dataclasses.replace(
                 candidate,
@@ -884,7 +894,8 @@ def merge_authored_candidates(
                 starts_example=True,
                 imports_only=False,
                 import_prefix=(),
-                provenance="authored",
+                provenance="upstream-sample" if upstream else "authored",
+                sample_source=candidate.sample_source if upstream else (),
             )
         )
     return merged, skipped

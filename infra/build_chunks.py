@@ -71,11 +71,13 @@ import yaml
 
 from foss_mcp.indexing.authored_examples import (
     AUTHORED_LABEL,
+    KIND_UPSTREAM_SAMPLE,
     SIDECAR_NAME,
     AuthoredExamplesError,
     has_builtin_authored_examples,
     load_authored_examples,
     load_builtin_authored_examples,
+    upstream_sample_label,
 )
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface, parse_failures_over_threshold
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
@@ -1357,6 +1359,7 @@ def _build_verified_example_chunks(
     verified_chunks: list[Chunk] = []
     verified_count = 0
     authored_verified = 0
+    upstream_verified = 0
     cached_count = 0
     # TC-802: whether a cpp example was RUN (the default) or only compiled (``--library-cpp-verify-mode compile``).
     cpp_run = getattr(args, "library_cpp_verify_mode", None) != "compile"
@@ -1469,7 +1472,11 @@ def _build_verified_example_chunks(
                 "verified": verified,
                 "output": output,
                 "index": index,
-                "kind": "authored" if candidate.provenance == "authored" else "candidate",
+                "kind": (
+                    candidate.provenance
+                    if candidate.provenance in ("authored", KIND_UPSTREAM_SAMPLE)
+                    else "candidate"
+                ),
             }
             if runtime.ran is not None:
                 record.update(runtime.as_cache_fields())
@@ -1525,7 +1532,9 @@ def _build_verified_example_chunks(
             compiled
             and not rejected
             and not not_published
-            and (verified or candidate.provenance != "authored")
+            and (verified or candidate.provenance not in ("authored", KIND_UPSTREAM_SAMPLE))
+            # TC-872: an upstream sample that cannot name its source file is never published unlabelled.
+            and not (candidate.provenance == KIND_UPSTREAM_SAMPLE and len(candidate.sample_source) != 2)
         ):
             # TC-802: only an example that compiled and did not fail or come out empty at runtime is published;
             # an authored one only when verified. ``Verification-Level`` / ``Verified-With`` say how far it went.
@@ -1537,11 +1546,22 @@ def _build_verified_example_chunks(
             # directly above ``Example:``, up to a recognised header line). ``Verification-Level:`` and
             # ``Verified-With:`` are not recognised header lines, so a blank line closes the header whenever they
             # are written: the prose stays its own paragraph and is never prefixed by them.
-            header_end = "\n" if level_lines else ""
+            sample_source_line = ""
             if candidate.provenance == "authored":
                 authored_verified += 1
                 # TC-460: a verified authored example says so, in three lines directly after Kind.
                 authored_lines = f"Provenance: authored\nVerification: passed\n{AUTHORED_LABEL}\n"
+            elif candidate.provenance == KIND_UPSTREAM_SAMPLE and len(candidate.sample_source) == 2:
+                upstream_verified += 1
+                # TC-872: a verified upstream sample says so in the same three lines (its own label), and names the
+                # upstream file and the commit it was adapted from next to the Verification-Level / Verified-With lines.
+                sample_path, sample_commit = candidate.sample_source
+                authored_lines = (
+                    f"Provenance: {KIND_UPSTREAM_SAMPLE}\nVerification: passed\n"
+                    f"{upstream_sample_label(sample_path)}\n"
+                )
+                sample_source_line = f"Sample-Source: {sample_path}@{sample_commit[:7]}\n"
+            header_end = "\n" if level_lines or sample_source_line else ""
             doc = make_document(
                 source_kind=SourceKind.FURNISHED,
                 content_type="example",
@@ -1558,6 +1578,7 @@ def _build_verified_example_chunks(
                     f"Kind: verified_example\n"
                     f"{authored_lines}"
                     f"{level_lines}"
+                    f"{sample_source_line}"
                     f"{runtime_lines}"
                     f"{harness_line}"
                     f"{header_end}"
@@ -1570,7 +1591,11 @@ def _build_verified_example_chunks(
     cache_suffix = f" ({cached_count} from cache)" if cache_active else ""
     print(f"verified {verified_count}/{len(active)} candidate examples{cache_suffix}")
     if authored:
-        print(f"authored examples: {authored_verified} of {len(authored)} verified")
+        upstream_total = sum(1 for item in authored if item.provenance == KIND_UPSTREAM_SAMPLE)
+        if len(authored) > upstream_total:
+            print(f"authored examples: {authored_verified} of {len(authored) - upstream_total} verified")
+        if upstream_total:
+            print(f"upstream samples: {upstream_verified} of {upstream_total} verified")
     return verified_chunks
 
 

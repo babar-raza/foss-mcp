@@ -13,6 +13,27 @@ with ``AUTHORED_LABEL``.
 The structural rules are also written down as ``schemas/product/authored-examples.schema.json``; the
 schema file is not copied into the ingestion image, so ``validate_authored_examples`` enforces the
 same structure in plain Python, and a test proves the two agree.
+
+Two kinds of entry share the one ``examples`` list (TC-872, REQ-G3-014)
+-----------------------------------------------------------------------
+* **authored** (``kind`` absent or ``authored``): example code written for foss-mcp. At most
+  ``_MAX_EXAMPLES`` (6) per sidecar. Keys: ``title``, ``description``, ``symbols``, ``code``,
+  ``code_sha256``. The first non-blank line of the code is a comment containing ``Authored example``.
+  Published with ``AUTHORED_LABEL`` and ``Provenance: authored``.
+* **upstream sample** (``kind: upstream-sample``): example code adapted from one file of the pilot's own
+  upstream repository at the pinned commit. At most ``_MAX_UPSTREAM_SAMPLES`` (40) per sidecar. The
+  authored keys plus a mandatory ``source`` mapping ``{path, commit, license, adaptation}``: ``path`` is the
+  repo-relative path of the upstream file (no leading ``/``, no backslash, no ``..`` segment), ``commit`` is
+  40 lowercase hex and equals the sidecar's ``library_commit``, ``license`` is ``MIT`` and ``adaptation`` is
+  one non-blank sentence saying what was changed to make the file standalone. The ``Authored example``
+  header comment is NOT required (the code is upstream's, not authored). Published with
+  ``UPSTREAM_SAMPLE_LABEL``, ``Provenance: upstream-sample`` and a ``Sample-Source: <path>@<commit7>`` line.
+
+Both kinds obey the same title (at most 12 words, unique across the whole file), forbidden-pattern and symbol
+rules; an upstream sample's normalised code must not equal any other entry's; a sidecar holds at least one
+entry in total. Both go through the one verifier and the honest-publish path of TC-802: an example whose run
+failed or printed nothing is never published. A sidecar with no ``upstream-sample`` entry loads, validates
+and publishes exactly as before.
 """
 
 from __future__ import annotations
@@ -29,6 +50,9 @@ from foss_mcp.normalization.citation import qualified_symbol_index_from_api_surf
 
 __all__ = [
     "AUTHORED_LABEL",
+    "KIND_AUTHORED",
+    "KIND_UPSTREAM_SAMPLE",
+    "UPSTREAM_SAMPLE_LABEL",
     "FORBIDDEN_CODE_PATTERNS",
     "LANGUAGE_BY_PLATFORM",
     "SIDECAR_NAME",
@@ -37,6 +61,7 @@ __all__ = [
     "has_builtin_authored_examples",
     "load_authored_examples",
     "load_builtin_authored_examples",
+    "upstream_sample_label",
     "validate_authored_examples",
 ]
 
@@ -46,6 +71,21 @@ AUTHORED_LABEL = (
     "Authored example: written for foss-mcp against the pinned library, not taken from the upstream "
     "README; published only after the ingestion verifier compiled or ran it against that commit."
 )
+
+# TC-872: the label of a published upstream sample; ``{path}`` is the repo-relative upstream file.
+UPSTREAM_SAMPLE_LABEL = (
+    "Upstream sample: adapted from {path} of the pinned upstream repository (MIT); published only after "
+    "the ingestion verifier ran it against that commit."
+)
+
+KIND_AUTHORED = "authored"
+KIND_UPSTREAM_SAMPLE = "upstream-sample"
+
+
+def upstream_sample_label(path: str) -> str:
+    """``UPSTREAM_SAMPLE_LABEL`` for the upstream file ``path``."""
+    return UPSTREAM_SAMPLE_LABEL.replace("{path}", path)
+
 
 # The one language tag a sidecar may carry for each build_chunks ``--library-platform`` value.
 LANGUAGE_BY_PLATFORM: Mapping[str, str] = {
@@ -63,7 +103,16 @@ _TOP_LEVEL_KEYS = frozenset(
     {"schema_version", "pilot", "library_repository", "library_commit", "language", "examples"}
 )
 _EXAMPLE_KEYS = frozenset({"title", "description", "symbols", "code", "code_sha256"})
-_MAX_EXAMPLES = 6
+_MAX_EXAMPLES = 6  # authored entries (TC-837)
+_MAX_UPSTREAM_SAMPLES = 40  # upstream-sample entries (TC-872)
+_UPSTREAM_EXAMPLE_KEYS = _EXAMPLE_KEYS | {"kind", "source"}
+_AUTHORED_EXAMPLE_KEYS = _EXAMPLE_KEYS | {"kind"}
+_SOURCE_KEYS = frozenset({"path", "commit", "license", "adaptation"})
+_SOURCE_LICENSE = "MIT"
+# A repo-relative path: no leading slash or drive letter, no backslash, no ``..`` segment, no line break, no
+# leading or trailing blank. The SAME pattern (anchors added) is in the JSON schema.
+_SOURCE_PATH_PATTERN = r"(?!/)(?![A-Za-z]:)(?!.*\\)(?!.*[\r\n])(?!(?:.*/)?\.\.(?:/|$))\S(?:.*\S)?"
+_SOURCE_PATH_RE = re.compile(_SOURCE_PATH_PATTERN)
 _MAX_TITLE_CHARS = 120
 # A title is wrapped in conversational sentence frames by tests/conformance/test_sentence_wrapped_retrieval.py;
 # the tightest frame leaves room for 12 title words before the rendered sentence exceeds its 35-word bound.
@@ -159,6 +208,38 @@ def _non_blank(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def _example_kind(example: object) -> str:
+    """``KIND_UPSTREAM_SAMPLE`` for an entry whose ``kind`` is exactly that, ``KIND_AUTHORED`` otherwise (an
+    absent or unknown ``kind`` is judged as an authored entry; an unknown value is also reported)."""
+    if isinstance(example, Mapping) and example.get("kind") == KIND_UPSTREAM_SAMPLE:
+        return KIND_UPSTREAM_SAMPLE
+    return KIND_AUTHORED
+
+
+def _source_problems(label: str, source: object) -> list[str]:
+    """Rule 1 for the ``source`` block of an upstream sample (the JSON schema says the same)."""
+    prefix = f"rule 1 (structure): {label}"
+    if not isinstance(source, Mapping):
+        return [f"{prefix} must be a mapping"]
+    problems: list[str] = []
+    keys = set(source)
+    for missing in sorted(_SOURCE_KEYS - keys):
+        problems.append(f"{prefix} is missing key {missing!r}")
+    for extra in sorted(keys - _SOURCE_KEYS, key=str):
+        problems.append(f"{prefix} has unexpected key {extra!r}")
+    path = source.get("path")
+    if "path" in source and not (isinstance(path, str) and _SOURCE_PATH_RE.fullmatch(path)):
+        problems.append(f"{prefix}.path must be a repo-relative path (no leading '/', no backslash, no '..')")
+    commit = source.get("commit")
+    if "commit" in source and not (isinstance(commit, str) and _COMMIT_RE.fullmatch(commit)):
+        problems.append(f"{prefix}.commit must be 40 lowercase hex characters")
+    if "license" in source and source["license"] != _SOURCE_LICENSE:
+        problems.append(f"{prefix}.license must be {_SOURCE_LICENSE!r}")
+    if "adaptation" in source and not _non_blank(source["adaptation"]):
+        problems.append(f"{prefix}.adaptation must be a non-empty string")
+    return problems
+
+
 def _structure_problems(document: Any) -> list[str]:
     """Rule 1: the structural shape, exactly what the JSON schema file says."""
     prefix = "rule 1 (structure): "
@@ -187,8 +268,21 @@ def _structure_problems(document: Any) -> list[str]:
     if not isinstance(examples, list):
         problems.append(f"{prefix}examples must be a list")
         return problems
-    if not 1 <= len(examples) <= _MAX_EXAMPLES:
-        problems.append(f"{prefix}examples must hold 1 to {_MAX_EXAMPLES} items, not {len(examples)}")
+    upstream_count = sum(1 for example in examples if _example_kind(example) == KIND_UPSTREAM_SAMPLE)
+    authored_count = len(examples) - upstream_count
+    if upstream_count == 0:
+        if not 1 <= len(examples) <= _MAX_EXAMPLES:
+            problems.append(f"{prefix}examples must hold 1 to {_MAX_EXAMPLES} items, not {len(examples)}")
+    else:
+        if authored_count > _MAX_EXAMPLES:
+            problems.append(
+                f"{prefix}examples must hold at most {_MAX_EXAMPLES} authored items, not {authored_count}"
+            )
+        if upstream_count > _MAX_UPSTREAM_SAMPLES:
+            problems.append(
+                f"{prefix}examples must hold at most {_MAX_UPSTREAM_SAMPLES} upstream-sample items, "
+                f"not {upstream_count}"
+            )
     titles_seen: set[str] = set()
     for number, example in enumerate(examples, start=1):
         label = f"{prefix}example {number}"
@@ -196,10 +290,17 @@ def _structure_problems(document: Any) -> list[str]:
             problems.append(f"{label} must be a mapping")
             continue
         example_keys = set(example)
-        for missing in sorted(_EXAMPLE_KEYS - example_keys):
+        kind = _example_kind(example)
+        if "kind" in example and kind != KIND_UPSTREAM_SAMPLE and example["kind"] != KIND_AUTHORED:
+            problems.append(f"{label}: kind must be {KIND_AUTHORED!r} or {KIND_UPSTREAM_SAMPLE!r}")
+        allowed_keys = _UPSTREAM_EXAMPLE_KEYS if kind == KIND_UPSTREAM_SAMPLE else _AUTHORED_EXAMPLE_KEYS
+        required_keys = _UPSTREAM_EXAMPLE_KEYS if kind == KIND_UPSTREAM_SAMPLE else _EXAMPLE_KEYS
+        for missing in sorted(required_keys - example_keys):
             problems.append(f"{label} is missing key {missing!r}")
-        for extra in sorted(example_keys - _EXAMPLE_KEYS, key=str):
+        for extra in sorted(example_keys - allowed_keys, key=str):
             problems.append(f"{label} has unexpected key {extra!r}")
+        if kind == KIND_UPSTREAM_SAMPLE and "source" in example:
+            problems.extend(_source_problems(f"{label}: source", example["source"]))
         if "title" in example:
             title = example["title"]
             if not (_non_blank(title) and len(title) <= _MAX_TITLE_CHARS):
@@ -250,8 +351,10 @@ def validate_authored_examples(
     every symbol has a declaration in the api_surface (a namespace alone does not count) and its
     last dotted segment appears in the code as a whole word; (7) the first non-blank line of the
     code is a comment (``#`` for python, ``//`` otherwise) containing ``Authored example``; (8) no
-    ``FORBIDDEN_CODE_PATTERNS`` match and no URL literal has a non-reserved host. Nothing is
-    imported, compiled or run.
+    ``FORBIDDEN_CODE_PATTERNS`` match and no URL literal has a non-reserved host. TC-872 adds the
+    ``upstream-sample`` entry kind (see the module docstring): rule 7 does not apply to it, its
+    ``source.commit`` must equal the sidecar's ``library_commit`` (rule 3) and its normalised code must not
+    equal any other entry's (rule 9). Nothing is imported, compiled or run.
     """
     problems = _structure_problems(document)
     if not isinstance(document, Mapping):
@@ -277,13 +380,34 @@ def validate_authored_examples(
     examples = document.get("examples")
     if not isinstance(examples, list):
         return problems
+    sidecar_commit = document.get("library_commit")
+    code_hashes = [
+        normalised_code_sha256(example["code"])
+        if isinstance(example, Mapping) and isinstance(example.get("code"), str)
+        else None
+        for example in examples
+    ]
     for number, example in enumerate(examples, start=1):
         if not isinstance(example, Mapping):
             continue
         label = f"example {number}"
+        upstream = _example_kind(example) == KIND_UPSTREAM_SAMPLE
+        source = example.get("source")
+        if upstream and isinstance(source, Mapping):
+            source_commit = source.get("commit")
+            if isinstance(source_commit, str) and source_commit != sidecar_commit:
+                problems.append(
+                    f"rule 3 (commit): {label}: source.commit is {source_commit!r}, "
+                    f"expected the sidecar's library_commit {sidecar_commit!r}"
+                )
         code = example.get("code")
         if not isinstance(code, str):
             continue
+        own_hash = code_hashes[number - 1]
+        if upstream and any(
+            other == own_hash for position, other in enumerate(code_hashes) if position != number - 1
+        ):
+            problems.append(f"rule 9 (duplicate code): {label}: its code duplicates another example's code")
         digest = example.get("code_sha256")
         if isinstance(digest, str) and digest != normalised_code_sha256(code):
             problems.append(f"rule 5 (code hash): {label}: code_sha256 does not match the code")
@@ -304,7 +428,9 @@ def validate_authored_examples(
                         "does not appear in the code as a whole word"
                     )
         first_line = next((line.strip() for line in code.splitlines() if line.strip()), "")
-        if not (first_line.startswith(comment_prefix) and _AUTHORED_HEADER_WORDS in first_line):
+        if not upstream and not (
+            first_line.startswith(comment_prefix) and _AUTHORED_HEADER_WORDS in first_line
+        ):
             problems.append(
                 f"rule 7 (header): {label}: the first non-blank line must be a {comment_prefix} comment "
                 f"containing {_AUTHORED_HEADER_WORDS!r}"
@@ -324,7 +450,8 @@ def load_authored_examples(
 ) -> tuple[CandidateExample, ...]:
     """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
 
-    The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+    The candidates are in file order, with ``provenance`` ``"authored"`` (``"upstream-sample"`` and a
+    ``sample_source`` of ``(path, commit)`` for an upstream sample, TC-872), ``source`` ``"sidecar"``,
     ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
     holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
     whose message lists every problem when the file cannot be read or parsed or any rule of
@@ -355,6 +482,7 @@ def _candidates_from_document(document: Mapping[str, Any]) -> tuple[CandidateExa
     candidates: list[CandidateExample] = []
     for example in document["examples"]:
         code = example["code"].strip()
+        upstream = _example_kind(example) == KIND_UPSTREAM_SAMPLE
         candidates.append(
             CandidateExample(
                 title=example["title"],
@@ -367,7 +495,8 @@ def _candidates_from_document(document: Mapping[str, Any]) -> tuple[CandidateExa
                 starts_example=True,
                 imports_only=False,
                 import_prefix=(),
-                provenance="authored",
+                provenance=KIND_UPSTREAM_SAMPLE if upstream else KIND_AUTHORED,
+                sample_source=(example["source"]["path"], example["source"]["commit"]) if upstream else (),
             )
         )
     return tuple(candidates)

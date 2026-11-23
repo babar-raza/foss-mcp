@@ -159,7 +159,8 @@ def test_the_loader_reuses_the_one_hash_function_of_example_candidates() -> None
 
 def test_candidate_provenance_defaults_to_readme_is_last_and_excluded_from_equality() -> None:
     fields = [field.name for field in dataclasses.fields(CandidateExample)]
-    assert fields[-1] == "provenance"
+    # TC-872 appended ``sample_source`` (the upstream-sample file and commit) after ``provenance``.
+    assert fields[-2:] == ["provenance", "sample_source"]
     plain = CandidateExample("t", "d", "python", "x = 1")
     assert plain.provenance == "readme"
     assert plain == dataclasses.replace(plain, provenance="authored")
@@ -501,8 +502,11 @@ def _numbered_examples(count: int) -> list[dict]:
 def test_the_example_cap_is_six() -> None:
     # TC-837: raised from 5 to 6 so a pilot's examples are not dropped merely to make room.
     assert authored_examples._MAX_EXAMPLES == 6
+    # TC-872: the schema caps the two entry kinds separately (maxContains) and the whole list at their sum.
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    assert schema["properties"]["examples"]["maxItems"] == authored_examples._MAX_EXAMPLES
+    examples = schema["properties"]["examples"]
+    assert examples["maxItems"] == authored_examples._MAX_EXAMPLES + authored_examples._MAX_UPSTREAM_SAMPLES
+    assert examples["allOf"][0]["maxContains"] == authored_examples._MAX_EXAMPLES
 
 
 def test_the_schema_and_the_validator_agree_on_a_maximal_valid_document() -> None:

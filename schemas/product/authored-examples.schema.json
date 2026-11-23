@@ -2,10 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/babar-raza/foss-mcp/schemas/product/authored-examples.schema.json",
   "title": "foss-mcp authored examples sidecar",
-  "description": "The structural contract of tests/fixtures/furnished/<pilot>/authored_examples.yaml (REQ-G3-007, TC-460): the single source of reviewed, worker-written example code for a pilot whose README cannot supply two verified examples. The runtime loader (src/foss_mcp/indexing/authored_examples.py) enforces the same structural rules in plain Python and adds the rules a schema cannot express: title uniqueness, the code hash, the pilot and commit being the expected ones, every symbol existing in the api_surface, the Authored example header comment and the forbidden-pattern scan. An authored example is published only after the ingestion verifier has verified it.",
+  "description": "The structural contract of tests/fixtures/furnished/<pilot>/authored_examples.yaml (REQ-G3-007, TC-460): the single source of reviewed, worker-written example code for a pilot whose README cannot supply two verified examples. The runtime loader (src/foss_mcp/indexing/authored_examples.py) enforces the same structural rules in plain Python and adds the rules a schema cannot express: title uniqueness, the code hash, the pilot and commit being the expected ones, every symbol existing in the api_surface, the Authored example header comment and the forbidden-pattern scan. An authored example is published only after the ingestion verifier has verified it. TC-872 adds a second, additive entry kind, kind: upstream-sample (example code adapted from a file of the pilot's own upstream repository, with a mandatory source block), published under the same rule; a sidecar may hold up to 6 authored entries and up to 40 upstream samples.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "pilot", "library_repository", "library_commit", "language", "examples"],
+  "required": [
+    "schema_version",
+    "pilot",
+    "library_repository",
+    "library_commit",
+    "language",
+    "examples"
+  ],
   "properties": {
     "schema_version": {
       "const": 1,
@@ -34,44 +41,169 @@
     "examples": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 6,
+      "maxItems": 46,
+      "description": "At most 6 authored entries plus at most 40 upstream-sample entries, at least 1 in total. An entry without kind is authored.",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["title", "description", "symbols", "code", "code_sha256"],
-        "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120,
-            "pattern": "\\S",
-            "description": "The example's title; unique within the file (enforced by the loader)."
+        "oneOf": [
+          {
+            "$ref": "#/$defs/authoredExample"
           },
-          "description": {
-            "type": "string",
-            "pattern": "\\S",
-            "description": "Non-empty plain text shown before the code."
-          },
-          "symbols": {
-            "type": "array",
-            "minItems": 1,
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "pattern": "\\S"
-            },
-            "description": "The API symbols (qualified names from the pilot's api_surface) the example exercises."
-          },
-          "code": {
-            "type": "string",
-            "pattern": "\\S",
-            "description": "The example program. Its first non-blank line is a comment containing the words Authored example."
-          },
-          "code_sha256": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "description": "sha256 of the code after the whitespace normalisation of example_candidates.normalised_code_sha256."
+          {
+            "$ref": "#/$defs/upstreamSample"
           }
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "$ref": "#/$defs/authoredExample"
+          },
+          "minContains": 0,
+          "maxContains": 6
+        },
+        {
+          "contains": {
+            "$ref": "#/$defs/upstreamSample"
+          },
+          "minContains": 0,
+          "maxContains": 40
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "authoredExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "description",
+        "symbols",
+        "code",
+        "code_sha256"
+      ],
+      "properties": {
+        "kind": {
+          "const": "authored",
+          "description": "Optional; an entry without kind is an authored entry."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S",
+          "description": "The example's title; unique within the file (enforced by the loader)."
+        },
+        "description": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Non-empty plain text shown before the code."
+        },
+        "symbols": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "description": "The API symbols (qualified names from the pilot's api_surface) the example exercises."
+        },
+        "code": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "The example program. Its first non-blank line is a comment containing the words Authored example."
+        },
+        "code_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the code after the whitespace normalisation of example_candidates.normalised_code_sha256."
+        }
+      }
+    },
+    "upstreamSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "title",
+        "description",
+        "symbols",
+        "code",
+        "code_sha256",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "const": "upstream-sample",
+          "description": "Marks an example adapted from a file of the pilot's own upstream repository (TC-872)."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S",
+          "description": "The example's title; unique within the file (enforced by the loader)."
+        },
+        "description": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Non-empty plain text shown before the code."
+        },
+        "symbols": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "description": "The API symbols (qualified names from the pilot's api_surface) the example exercises."
+        },
+        "code": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "The adapted upstream program. No header comment is required."
+        },
+        "code_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the code after the whitespace normalisation of example_candidates.normalised_code_sha256."
+        },
+        "source": {
+          "$ref": "#/$defs/upstreamSource"
+        }
+      }
+    },
+    "upstreamSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "commit",
+        "license",
+        "adaptation"
+      ],
+      "description": "Where an upstream sample came from. The loader also requires commit to equal the sidecar's library_commit, which a schema cannot express.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*[\\r\\n])(?!(?:.*/)?\\.\\.(?:/|$))\\S(?:.*\\S)?$",
+          "description": "Repo-relative path of the upstream file: no leading slash or drive letter, no backslash, no '..' segment."
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "The upstream commit the file was read at (40 lowercase hex); equal to library_commit."
+        },
+        "license": {
+          "const": "MIT",
+          "description": "The upstream file's license."
+        },
+        "adaptation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "One sentence: what was changed to make the file a standalone example."
         }
       }
     }
