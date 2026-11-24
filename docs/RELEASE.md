@@ -397,6 +397,18 @@ the oracle covers, and the real result of covering it, is now stated here rather
   (merging two PDFs, for example, reaches `PdfFileEditor.Concatenate` on one platform and `Document.Merge` or
   `Merger` on another), so the miss is spread across many query/API pairs rather than concentrated in one fixable
   bug. This is a retrieval-coverage ceiling of the fixed corpus, not a defect, and no fix date is set. (G3/TC-579.)
+- **L-143** Through the public Cloudflare quick tunnel that fronts the operator-local demo hosting stack, an
+  occasional call stalls for about 7, 15 or 21 seconds (and, rarely, longer) while identical neighbouring calls answer in
+  tens of milliseconds, whatever the tool or pilot; a validation error that needs no index lookup can stall too. The
+  round-2 audits recorded this as seven performance findings. It was measured on 2026-11-05 (RT4): 48 concurrent
+  sessions through the tunnel clustered at 7.0 to 8.8 seconds per call, the identical load through the nginx gateway
+  alone stayed at about 0.9 seconds, serial traffic never stalled on any hop, and the tunnel container logged its own
+  reconnects, so the cause is the anonymous quick tunnel's concurrency ceiling and not this server or its gateway.
+  Re-measured in-process for this release, 160 sequential calls across eight pilot and tool pairs (including a
+  validation error) never exceeded 86 ms. No latency fix was made, because none can be measured here: a durable fix
+  needs a Cloudflare named tunnel or a dedicated host, which only an owner can provision (OWNER-17), and the public
+  URL proof is to be repeated on the internal cluster ingress instead. A peer who runs the container directly, or
+  behind their own ingress, does not go through this hop. (G3/TC-860.)
 - **tex/python** serves one verified example, not two. The pinned upstream library (aspose-tex-foss, commit 181015d2,
   which is also the upstream head) does not import: `src/aspose_tex/_input/catcode.py` has an IndentationError at line
   66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is

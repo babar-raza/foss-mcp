@@ -1,0 +1,189 @@
+# TC-860 (G3, RT5): replayable probes for the 7 workstream-L (latency) and 3 workstream-K (tool contract) rows of
+# docs/ROUND2_REVIEW.md dispositioned by this card. Each entry's probe runs in-process against infra/demo-manifests
+# (and against a running container); `expect` describes the CURRENT served behaviour that justifies the disposition.
+# result_contains substrings are checked against the tool result serialised as JSON (ensure_ascii=False).
+# The latency rows are DISCLOSED by docs/RELEASE.md L-143: the stall sits in the public quick tunnel, so the probe
+# proves the served call is correct and fast, and the tail itself is only measurable through the tunnel (OWNER-17).
+- id: 3D-NET-010
+  row: RD2-020
+  pilot: 3d/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.ThreeD.Scene
+  expect:
+    found: true
+    result_contains:
+    - Aspose.ThreeD.Scene
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, p50 10.4 ms, p95 12.8 ms, max 36.7 ms (audit: p50 91 ms, max 21120 ms). This call is the row''s
+    own repro and answers correctly; a runner against a container may add timing.'
+- id: CELLS-NET-004
+  row: RD2-079
+  pilot: cells/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Cells_FOSS.Workbook
+  expect:
+    found: true
+    result_contains:
+    - Aspose.Cells_FOSS.Workbook
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, p50 8.4 ms, p95 10.3 ms, max 21.7 ms (audit: spikes 15107 and 21121 ms). This call is the
+    row''s own repro and answers correctly; a runner against a container may add timing.'
+- id: CELLS-PY-011
+  row: RD2-093
+  pilot: cells/python
+  disposition: DISCLOSED
+  probe:
+    tool: search_symbols
+    args:
+      query: Cells
+      top_k: 5
+  expect:
+    min_results: 5
+    max_results: 5
+    result_contains:
+    - Cells
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, p50 39.0 ms, p95 62.1 ms, max 85.7 ms (audit: max 7126 ms). This call is the row''s own repro
+    and answers correctly; a runner against a container may add timing.'
+- id: IMAGING-NET-009
+  row: RD2-154
+  pilot: imaging/net
+  disposition: DISCLOSED
+  probe:
+    tool: search_symbols
+    args:
+      query: ImageProbe
+  expect:
+    min_results: 1
+    result_contains:
+    - ImageProbe
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, p50 17.5 ms, p95 20.8 ms, max 36.2 ms (audit: 4 of 20 calls 7.0-42.1 s). This call is the
+    row''s own repro and answers correctly; a runner against a container may add timing.'
+- id: PAGE-PYTHON-009
+  row: RD2-175
+  pilot: page/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.page.ps.PsDocument
+  expect:
+    found: true
+    result_contains:
+    - aspose.page.ps.PsDocument
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, p50 20.0 ms, p95 27.5 ms, max 41.1 ms (audit: one call 21147 ms). This call is the row''s
+    own repro and answers correctly; a runner against a container may add timing.'
+- id: PDF-PYTHON-007
+  row: RD2-216
+  pilot: pdf/python
+  disposition: DISCLOSED
+  probe:
+    tool: search_symbols
+    args:
+      query: Document
+      top_k: 1000000
+  expect:
+    result_contains:
+    - 'top_k: Input should be less than or equal to 100'
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, the row''s own validation-error repro (top_k=1000000, 28217 ms through the tunnel) answers
+    in p50 1.9 ms, max 5.0 ms; get_product_reference(install) p50 14.3 ms, max 33.3 ms. This call is the row''s own repro
+    and answers correctly; a runner against a container may add timing.'
+- id: PDF-TS-010
+  row: RD2-226
+  pilot: pdf/typescript
+  disposition: DISCLOSED
+  probe:
+    tool: search_symbols
+    args:
+      query: Page
+      top_k: 3
+  expect:
+    min_results: 3
+    max_results: 3
+    result_contains:
+    - Page
+  evidence: 'Latency tail is a property of the public Cloudflare quick tunnel, not of the served call: RT4 measurement (docs/DECISION_LOG.md
+    2026-11-05, OWNER-17) put 48 concurrent sessions at 7.0-8.8 s through the tunnel versus ~0.9 s through nginx alone, serial
+    traffic never stalled; disclosed as docs/RELEASE.md L-143. Re-measured in-process on 2026-11-24 over demo-manifests: 20
+    sequential identical calls, p50 20.0 ms, p95 25.2 ms, max 58.4 ms (audit: one call 7097 ms). This call is the row''s own
+    repro and answers correctly; a runner against a container may add timing.'
+- id: 3D-NET-014
+  row: RD2-024
+  pilot: 3d/net
+  disposition: FIXED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.ThreeD.Animation.KeyFrame
+  expect:
+    found: true
+    result_contains:
+    - Aspose.ThreeD.Animation.KeyFrame
+    result_not_contains:
+    - raw_text
+  evidence: 'Fixed by TC-688 (RT3, include_raw_text): the default get_symbol answer carries no raw_text key (1110 bytes live)
+    and with include_raw_text=true carries it (1957 bytes, the full chunk text), through serve_stdio.build_stdio_server and
+    an MCP client; the tool description and the include_raw_text input description in server.py both document the opt-in.
+    The empty members array the finding also mentions is the enum-member field, empty for a class by design (the empty-members
+    complaint is filed separately as RD2-272).'
+- id: CELLS-CPP-009
+  row: RD2-060
+  pilot: cells/cpp
+  disposition: ACCEPTED(P3)
+  probe:
+    tool: search_symbols
+    args:
+      query: Workbook
+      top_k: 0
+  expect:
+    result_contains:
+    - 'top_k: Input should be greater than 0'
+    result_not_contains:
+    - Traceback
+    - site-packages
+  evidence: 'Positive finding (the audit''s own expected is ''N/A''), no defect to fix: re-verified live that malformed input
+    still gets the short parameter-level error (top_k 0 and 101, empty query, control characters, bogus section, unknown fqn),
+    no stack trace or path, and two repeated search_symbols calls are byte-identical (5081 bytes each). The behaviour is pinned
+    by tests/mcp/test_tool_input_hardening.py and the bogus-session message by tests/infra/test_round3_serving_robustness.py
+    (the ''F6'' pin the plan names does not exist as such).'
+- id: SLIDES-NET-005
+  row: RD2-248
+  pilot: slides/net
+  disposition: FIXED
+  probe:
+    tool: find_examples
+    args:
+      query: effect
+  expect:
+    found: true
+    min_results: 1
+    result_contains:
+    - '"confidence": "confident"'
+    result_not_contains:
+    - '"confidence": ""'
+  evidence: 'Fixed by TC-688 (RT3): find_examples'' confidence is set for every source; live, query=effect returns Example:
+    Effects with confidence confident (match_basis title_word_and_example_text, coverage 1.0) and query=table returns Example:
+    Tables with confidence confident; no example carries an empty confidence. A miss now carries the named reason (query ''zzqxv
+    nonsense bake a cake'': reason ''no verified example matches this query (semantic search is not configured in this deployment:
+    ...)'', vector_fallback not_configured).'
