@@ -104,3 +104,30 @@ defects:
       version: 26.9.0
       date: '2026-11-12'
   status: open
+- id: PAGE-PYTHON-005
+  subject:
+    kind: method
+    refs:
+    - aspose.page.xps.editing.XpsGlyphs
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: XpsGlyphs.font_uri in aspose-page-foss 26.9.0 accepts any string, including a font part never
+    added to the XPS package; to_pdf() raises nothing and silently renders the text in a fallback font.
+  user_action: 'Do not assume the font named by XpsGlyphs.font_uri was used: a font_uri that does not
+    resolve to a part in the XPS package neither raises nor warns, and the text is drawn in a default
+    fallback font. Add the font part to the package, and check the rendered glyphs if the typeface matters.'
+  evidence:
+    repro: Installed aspose-page-foss 26.9.0 from PyPI into a scratch directory and ran it. XpsDocument.create()
+      then add_page(612, 792) then page.elements.append(XpsGlyphs(font_uri='/Resources/Fonts/font1.odttf',
+      font_size=24.0, origin_x=72.0, origin_y=100.0, unicode_string='Hello XPS')); the saved package held
+      only /FixedDocSeq.fdseq, /Documents/1/FixedDoc.fdoc, /Documents/1/Pages/1.fpage and /_rels/.rels
+      (no font part). XpsDocument.from_bytes(doc.save()).to_pdf() returned a 1-page PDF with no exception
+      whose content stream was 'BT /F1 24 Tf <48656C6C6F20585053> Tj ET', i.e. the requested text in the
+      PDF's own default font F1. Also disclosed in get_product_reference limitations by the 2026-11-07
+      known_hazards entry in config/products/page/python.yaml.
+    verified_on:
+      package: aspose-page-foss
+      version: 26.9.0
+      date: '2026-11-23'
+  status: open

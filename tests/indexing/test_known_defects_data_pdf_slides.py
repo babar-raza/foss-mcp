@@ -77,14 +77,20 @@ _FILES_BY_PILOT = {
     ("slides", "python"): "slides__python.yaml",
 }
 # The real entry count this card wrote per pilot (1 + 2 + 1 + 1 + 1 = 6, matching the 6 real
-# round-2 findings selected below).
+# round-2 findings selected below), plus G3/TC-859's three ``_ROUND2_GAP_DISCLOSURE_IDS`` entries
+# (slides/cpp 1 -> 2, slides/net 1 -> 2, slides/python 1 -> 2; total 6 -> 9).
 _EXPECTED_COUNTS = {
     ("pdf", "cpp"): 1,
     ("pdf", "java"): 2,
-    ("slides", "cpp"): 1,
-    ("slides", "net"): 1,
-    ("slides", "python"): 1,
+    ("slides", "cpp"): 2,
+    ("slides", "net"): 2,
+    ("slides", "python"): 2,
 }
+# G3/TC-859: three further written entries whose real round-2 ledger category is not "upstream-library-bug"
+# (``SLIDES-CPP-003`` RD2-229 ``mcp-docs-quality``, ``SLIDES-NET-007`` RD2-250 ``coverage-gap``, ``SLIDES-PY-005``
+# RD2-256 ``mcp-docs-quality``), so they are not in the category-filtered union below; see
+# ``tests/indexing/test_known_defects_completeness.py``'s ``_ADDITIONAL_DISCLOSABLE_IDS`` for their re-verification.
+_ROUND2_GAP_DISCLOSURE_IDS = frozenset({"SLIDES-CPP-003", "SLIDES-NET-007", "SLIDES-PY-005"})
 
 
 def _load_schema() -> dict:
@@ -146,8 +152,11 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(family
 
 
 def test_six_entries_total_across_all_five_pdf_slides_pilots() -> None:
+    """9 real written entries (the test name keeps its history): the 6 round-2 upstream-library-bug findings plus
+    G3/TC-859's three ``_ROUND2_GAP_DISCLOSURE_IDS`` entries."""
     total = sum(len(load_known_defects(family, platform)) for family, platform in _PILOTS)
-    assert total == 6
+    assert total == 9
+    assert total == len(_real_round2_pdf_slides_upstream_library_bug_ids()) + len(_ROUND2_GAP_DISCLOSURE_IDS)
 
 
 def test_no_duplicate_ids_across_the_entire_pdf_slides_scope() -> None:
@@ -165,9 +174,9 @@ def test_no_duplicate_ids_across_the_entire_pdf_slides_scope() -> None:
 def test_every_written_defect_id_is_a_real_round2_pdf_slides_upstream_library_bug_finding() -> None:
     expected_ids = _real_round2_pdf_slides_upstream_library_bug_ids()
     written_ids = {defect.id for defect in _all_written_defects()}
-    assert written_ids <= expected_ids, (
+    assert written_ids - _ROUND2_GAP_DISCLOSURE_IDS <= expected_ids, (
         f"written ids not found among real round-2 pdf/slides upstream-library-bug findings: "
-        f"{written_ids - expected_ids}"
+        f"{written_ids - _ROUND2_GAP_DISCLOSURE_IDS - expected_ids}"
     )
 
 
@@ -178,8 +187,9 @@ def test_every_real_round2_pdf_slides_upstream_library_bug_finding_has_a_written
         f"real round-2 pdf/slides upstream-library-bug findings with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 6 members - the real count named in this card.
-    assert expected_ids == written_ids
+    # The written set equals the 6 real findings named in this card PLUS exactly the three G3/TC-859
+    # round-2-gap disclosure ids - nothing more, nothing less.
+    assert expected_ids | _ROUND2_GAP_DISCLOSURE_IDS == written_ids
     assert len(expected_ids) == 6
 
 
@@ -236,9 +246,7 @@ def test_slides_python_001_has_no_confirmed_public_fqn_so_is_package_scoped() ->
     for the collection ``add_clone`` is called on - so this one entry is ``subject.kind:
     "package"``, per this card's own judgment-call convention (package when no real FQN is
     confirmed)."""
-    defects = load_known_defects("slides", "python")
-    assert len(defects) == 1
-    defect = defects[0]
+    (defect,) = [d for d in load_known_defects("slides", "python") if d.id == "SLIDES-PY-001"]
     assert defect.id == "SLIDES-PY-001"
     assert defect.subject.kind == "package"
     # G3/TC-660: widened to add the real SlideCollection/NotesSlideManager siblings this entry's
@@ -342,3 +350,77 @@ def test_get_symbol_end_to_end_does_not_surface_the_defect_for_a_different_commi
 
     assert isinstance(result, ResolvedSignature)
     assert result.known_defects == ()
+
+
+# --------------------------------------------------------------------------------------------
+# G3/TC-859 (REQ-G3-015): SLIDES-CPP-003, SLIDES-NET-007 and SLIDES-PY-005, the three entries this card added for
+# round-2 rows RD2-229, RD2-250 and RD2-256
+# --------------------------------------------------------------------------------------------
+
+_TC859_ENTRIES = {
+    ("slides", "cpp"): (
+        "SLIDES-CPP-003",
+        ("Aspose::Slides::Foss::ShapeCollection",),
+        ("indexed_commit", "469ce77a07b988c49deb930632b8276c89ec6b66"),
+        ("add_table()", "shapes().size()", "table_count()", "table_at("),
+        "statically",
+    ),
+    ("slides", "net"): (
+        "SLIDES-NET-007",
+        (
+            "Aspose.Slides.Foss.IShape",
+            "Aspose.Slides.Foss.Shape",
+            "Aspose.Slides.Foss.IPlaceholder",
+            "Aspose.Slides.Foss.Placeholder",
+        ),
+        ("indexed_commit", "86c441b5d81e707f2ea9e01b197dbb6ff7a3859b"),
+        ("ishape.placeholder", "null", "no members", "name"),
+        "statically",
+    ),
+    ("slides", "python"): (
+        "SLIDES-PY-005",
+        (
+            "aspose.slides_foss.IShape",
+            "aspose.slides_foss.IShape.IShape",
+            "aspose.slides_foss.Shape",
+            "aspose.slides_foss.Shape.Shape",
+            "aspose.slides_foss.AutoShape",
+            "aspose.slides_foss.AutoShape.AutoShape",
+        ),
+        ("package_versions", ("26.8.0",)),
+        ("shape.placeholder", "none", "shape.name", "text_frame.text"),
+        "ran it",
+    ),
+}
+
+
+@pytest.mark.parametrize(("family", "platform"), sorted(_TC859_ENTRIES))
+def test_tc859_entry_is_a_real_open_method_entry_that_states_its_trigger(family: str, platform: str) -> None:
+    defect_id, refs, (scope_field, scope_value), phrases, how = _TC859_ENTRIES[(family, platform)]
+    (defect,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+    assert defect.status == "open"
+    assert defect.subject.kind == "method"
+    assert defect.subject.refs == refs
+    assert getattr(defect.applies_to, scope_field) == scope_value
+    assert defect.evidence.verified_on.date == "2026-11-23"
+    assert len(defect.summary) <= 240
+    assert defect.user_action.strip()
+    text = " ".join((defect.summary, defect.user_action)).lower()
+    for phrase in phrases:
+        assert phrase in text, (defect_id, phrase)
+    # The evidence says how the upstream was re-verified: a run on the real PyPI wheel, or a static read.
+    assert how in defect.evidence.repro
+
+
+@pytest.mark.parametrize(("family", "platform"), sorted(_TC859_ENTRIES))
+def test_tc859_entry_refs_resolve_to_real_indexed_fqns_in_the_real_corpus(
+    family: str, platform: str, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    from tests.conformance.corpus import load_demo_manifests_corpus
+
+    corpus = load_demo_manifests_corpus(tmp_path_factory.mktemp(f"tc859-{family}-{platform}"))
+    pilot = corpus.pilots[f"{family}__{platform}"]
+    real_fqns = {fqn for chunk in pilot.symbol_chunks() if (fqn := extract_fqn(chunk["text"])) is not None}
+    refs = _TC859_ENTRIES[(family, platform)][1]
+    assert set(refs) <= real_fqns, sorted(set(refs) - real_fqns)

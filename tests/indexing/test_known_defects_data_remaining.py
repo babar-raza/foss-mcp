@@ -131,15 +131,16 @@ _PILOTS: tuple[tuple[str, str], ...] = (
 # findings TC-647 wrote, plus TC-656's own PAGE-PYTHON-010 (page/python 1 -> 2), plus TC-767's own
 # project-minted PAGE-PYTHON-011 (page/python 2 -> 3), plus TC-772's own project-minted
 # WORDS-PY-013 (words/python 1 -> 2), plus (after TC-853 removed tex/python, 18 -> 17) TC-856's own
-# WORDS-PY-004 (words/python 2 -> 3; 17 -> 18), plus TC-858's own EMAIL-CPP-004 (email/cpp 3 -> 4; 18 -> 19).
+# WORDS-PY-004 (words/python 2 -> 3; 17 -> 18), plus TC-858's own EMAIL-CPP-004 (email/cpp 3 -> 4; 18 -> 19), plus
+# TC-859's own PAGE-PYTHON-005 (page/python 3 -> 4) and WORDS-PY-009 (words/python 3 -> 4; 19 -> 21).
 _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("barcode", "python"): 1,
     ("email", "cpp"): 4,
     ("email", "python"): 1,
     ("imaging", "net"): 5,
     ("note", "python"): 2,
-    ("page", "python"): 3,
-    ("words", "python"): 3,
+    ("page", "python"): 4,
+    ("words", "python"): 4,
 }
 
 IMAGING_NET_COMMIT = "c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa"
@@ -175,8 +176,17 @@ IMAGING_NET_COMMIT = "c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa"
 #   member and are invalidated by the next ``add_*`` call; re-verified 2026-11-23 by a static read of
 #   ``src/msg/mapi_message.cpp`` at the indexed commit ``c844a467`` (``push_back`` then ``.back()``, no ``reserve()``
 #   anywhere). A missing documentation caveat, so the audit never filed it as ``"upstream-library-bug"``.
+# - ``PAGE-PYTHON-005`` (G3/TC-859): the round-2 finding (category ``"mcp-docs-quality"``, RD2-171) that
+#   ``XpsGlyphs.font_uri`` accepts a font part that was never added to the package and the renderer silently falls back
+#   to a default font; re-verified 2026-11-23 on the real PyPI ``aspose-page-foss`` 26.9.0 (installed into a scratch
+#   directory and run: a 1-page PDF with the text in the default font ``F1`` and no error). Not a library crash, so the
+#   audit never filed it as ``"upstream-library-bug"``.
+# - ``WORDS-PY-009`` (G3/TC-859): the round-2 finding (category ``"coverage-gap"``, RD2-283) that
+#   ``Paragraph(children=[...])`` works only through a private wrap-validator on a private ``_children`` slot; re-verified
+#   2026-11-23 by a static read of ``light_document_model.py`` at the indexed commit ``2d2efee2`` (26.7.0 is not on PyPI).
+#   A missing documentation caveat, so the audit never filed it as ``"upstream-library-bug"``.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
-    {"PAGE-PYTHON-011", "WORDS-PY-013", "WORDS-PY-004", "EMAIL-CPP-004"}
+    {"PAGE-PYTHON-011", "WORDS-PY-013", "WORDS-PY-004", "EMAIL-CPP-004", "PAGE-PYTHON-005", "WORDS-PY-009"}
 )
 
 
@@ -267,8 +277,8 @@ def test_sixteen_entries_total_across_all_eight_pilots() -> None:
     # would obscure the history of this module's own counts the way every other widening comment
     # here documents).
     # re-pinned by TC-853: 18 -> 17 (TEX-PYTHON-001 retired, see _PILOTS); by TC-856: 17 -> 18 (WORDS-PY-004);
-    # by TC-858: 18 -> 19 (EMAIL-CPP-004).
-    assert len(_all_written_defects()) == 19
+    # by TC-858: 18 -> 19 (EMAIL-CPP-004); by TC-859: 19 -> 21 (PAGE-PYTHON-005, WORDS-PY-009).
+    assert len(_all_written_defects()) == 21
 
 
 def test_tex_python_has_no_registry_file_any_more() -> None:
@@ -310,15 +320,16 @@ def test_every_real_upstream_library_bug_finding_has_a_written_entry() -> None:
     # real union count as of G3/TC-772 (2026-11-12): 17 as of TC-767 (16 as of TC-656, plus TC-767's own
     # project-minted ``PAGE-PYTHON-011``), plus TC-772's own project-minted ``WORDS-PY-013``.
     # re-pinned by TC-858: 18 -> 19 (TC-858's own project-allowlisted ``EMAIL-CPP-004``).
+    # re-pinned by TC-859: 19 -> 21 (TC-859's own project-allowlisted ``PAGE-PYTHON-005`` and ``WORDS-PY-009``).
     assert expected_ids == written_ids
-    assert len(expected_ids) == 19
+    assert len(expected_ids) == 21
 
 
 def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
-    """The exact 19 ids this module's own history named (the 15 original round-2 ids, plus
+    """The exact 21 ids this module's own history named (the 15 original round-2 ids, plus
     TC-656's own ``PAGE-PYTHON-010``, plus TC-767's own project-minted ``PAGE-PYTHON-011``, plus
     TC-772's own project-minted ``WORDS-PY-013``, plus TC-856's own ``WORDS-PY-004``, plus TC-858's own
-    ``EMAIL-CPP-004``; test name kept for the record rather than
+    ``EMAIL-CPP-004``, plus TC-859's own ``PAGE-PYTHON-005`` and ``WORDS-PY-009``; test name kept for the record rather than
     renamed, the same way every other widening in this module's sibling
     ``test_known_defects_completeness.py`` keeps its own prior counts visible in
     comments/docstrings rather than rewriting history) - a second, independent cross-check
@@ -338,11 +349,13 @@ def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
         "IMAGING-NET-008",
         "NOTE-PY-002",
         "NOTE-PY-008",
+        "PAGE-PYTHON-005",
         "PAGE-PYTHON-006",
         "PAGE-PYTHON-010",
         "PAGE-PYTHON-011",
         "WORDS-PY-004",
         "WORDS-PY-008",
+        "WORDS-PY-009",
         "WORDS-PY-013",
     }
     written_ids = {defect.id for defect in _all_written_defects()}
@@ -526,3 +539,58 @@ def test_email_cpp_004_is_a_real_open_method_entry_scoped_to_the_indexed_commit(
     assert "attachments()" in defect.user_action and "recipients()" in defect.user_action
     # A static source read, said plainly: the entry never claims it ran upstream code.
     assert "statically" in defect.evidence.repro
+
+
+# --------------------------------------------------------------------------------------------
+# G3/TC-859 (REQ-G3-015): PAGE-PYTHON-005 and WORDS-PY-009, the two entries this card added for round-2 rows RD2-171 and
+# RD2-283 (each also disclosed in get_product_reference's limitations by a config/products known_hazards entry)
+# --------------------------------------------------------------------------------------------
+
+_TC859_ENTRIES = {
+    ("page", "python"): (
+        "PAGE-PYTHON-005",
+        "aspose.page.xps.editing.XpsGlyphs",
+        "26.9.0",
+        ("font_uri", "never added", "fallback font", "raises nothing"),
+        "ran it",
+    ),
+    ("words", "python"): (
+        "WORDS-PY-009",
+        "aspose.words_foss.light_document_model.Paragraph",
+        "26.7.0",
+        ("children", "private", "wrap-validator", "unsupported"),
+        "statically",
+    ),
+}
+
+
+@pytest.mark.parametrize(("family", "platform"), sorted(_TC859_ENTRIES))
+def test_tc859_entry_is_a_real_open_method_entry_that_states_its_trigger(family: str, platform: str) -> None:
+    defect_id, ref, version, phrases, how = _TC859_ENTRIES[(family, platform)]
+    (defect,) = [d for d in load_known_defects(family, platform) if d.id == defect_id]
+    assert defect.status == "open"
+    assert defect.subject.kind == "method"
+    assert defect.subject.refs == (ref,)
+    assert defect.applies_to.package_versions == (version,)
+    assert defect.evidence.verified_on.version == version
+    assert defect.evidence.verified_on.date == "2026-11-23"
+    assert len(defect.summary) <= 240
+    assert defect.user_action.strip()
+    text = " ".join((defect.summary, defect.user_action)).lower()
+    for phrase in phrases:
+        assert phrase in text, (defect_id, phrase)
+    # The evidence says how the upstream package was re-verified: a run on the real PyPI wheel, or a static read.
+    assert how in defect.evidence.repro
+
+
+@pytest.mark.parametrize(("family", "platform"), sorted(_TC859_ENTRIES))
+def test_tc859_entry_ref_resolves_to_a_real_indexed_fqn_in_the_real_corpus(
+    family: str, platform: str, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    from tests.conformance.corpus import load_demo_manifests_corpus
+
+    corpus = load_demo_manifests_corpus(tmp_path_factory.mktemp(f"tc859-{family}-{platform}"))
+    pilot = corpus.pilots[f"{family}__{platform}"]
+    real_fqns = {fqn for chunk in pilot.symbol_chunks() if (fqn := extract_fqn(chunk["text"])) is not None}
+    assert _TC859_ENTRIES[(family, platform)][1] in real_fqns

@@ -25,3 +25,28 @@ defects:
       version: 26.9.0
       date: '2026-10-29'
   status: open
+- id: SLIDES-NET-007
+  subject:
+    kind: method
+    refs:
+    - Aspose.Slides.Foss.IShape
+    - Aspose.Slides.Foss.Shape
+    - Aspose.Slides.Foss.IPlaceholder
+    - Aspose.Slides.Foss.Placeholder
+  applies_to:
+    indexed_commit: 86c441b5d81e707f2ea9e01b197dbb6ff7a3859b
+  summary: IShape.Placeholder at commit 86c441b5 is null for every shape and nothing ever creates a Placeholder;
+    IPlaceholder and Placeholder declare no members, so a placeholder can be neither detected nor read.
+  user_action: 'Do not use IShape.Placeholder to detect or read a placeholder shape: it is always null
+    and Placeholder exposes no type or index. Inspect the shape''s Name and text frame, or the p:ph element
+    in the saved slide XML, instead.'
+  evidence:
+    repro: 'Cloned Aspose.Slides-FOSS-for-.NET at commit 86c441b5 and read the C# source statically (no
+      upstream code was executed in this pass): Shape.cs line 50 is ''public virtual IPlaceholder? Placeholder
+      => null;'', Connector.cs overrides it with ''=> null'', no other class overrides it, ''new Placeholder''
+      appears nowhere under src, and IPlaceholder.cs and Placeholder.cs have empty bodies.'
+    verified_on:
+      package: Aspose.Slides.Foss
+      version: 86c441b5d81e707f2ea9e01b197dbb6ff7a3859b
+      date: '2026-11-23'
+  status: open

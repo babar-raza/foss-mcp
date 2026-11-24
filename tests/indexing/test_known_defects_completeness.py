@@ -246,6 +246,16 @@ in-code comment for the re-verification against the real pinned package and comm
 73 (not 70): both equality assertions above still hold exactly, just against this slightly wider set; the real
 registry file count is unchanged at 27 (all three land in already-existing files: ``cells__python.yaml``,
 ``cells__rust.yaml``, ``email__cpp.yaml``).
+
+**Widened again (G3/TC-859, 2026-11-23):** ``PAGE-PYTHON-005`` (round-2 category ``"mcp-docs-quality"``; ledger row
+RD2-171), ``SLIDES-CPP-003`` (``"mcp-docs-quality"``; RD2-229), ``WORDS-PY-009`` (``"coverage-gap"``; RD2-283),
+``SLIDES-NET-007`` (``"coverage-gap"``; RD2-250) and ``SLIDES-PY-005`` (``"mcp-docs-quality"``; RD2-256) are real, cited,
+committed audit findings this module's own category-filtered id source would otherwise never admit; all five are added to
+``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way (see that frozenset's own in-code comment for the
+re-verification against the real pinned packages and commits). The real new union count is 78 (not 73): both equality
+assertions above still hold exactly, just against this slightly wider set; the real registry file count is unchanged at
+27 (all five land in already-existing files: ``page__python.yaml``, ``slides__cpp.yaml``, ``words__python.yaml``,
+``slides__net.yaml``, ``slides__python.yaml``).
 """
 
 from __future__ import annotations
@@ -473,6 +483,35 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   ``.back()``, with no ``reserve()`` anywhere. Already disclosed in ``get_product_reference``'s limitations by
 #   ``config/products/email/cpp.yaml``'s ``known_hazards`` (TC-722); this entry adds the per-symbol disclosure on
 #   ``mapi_message``. Disclosure-only.
+# - ``PAGE-PYTHON-005`` (G3/TC-859, REQ-G3-015, round-2 audit finding, category ``"mcp-docs-quality"`` rather than
+#   ``"upstream-library-bug"``; ledger row RD2-171): re-verified on 2026-11-23 against the real PyPI ``aspose-page-foss``
+#   26.9.0 (installed into a scratch directory and run): an ``XpsGlyphs`` whose ``font_uri`` names a part that was never
+#   added to the package saves, reloads and renders through ``to_pdf()`` with no error, the PDF content stream drawing the
+#   text in its own default font ``F1``. Already disclosed in ``get_product_reference``'s limitations by
+#   ``config/products/page/python.yaml``'s ``known_hazards``; this entry adds the per-symbol disclosure on ``XpsGlyphs``.
+#   Disclosure-only.
+# - ``SLIDES-CPP-003`` (G3/TC-859, round-2 category ``"mcp-docs-quality"``; RD2-229): re-verified on 2026-11-23 by a static
+#   read of ``shape_collection.cpp`` at the indexed commit ``469ce77a`` of ``Aspose.Slides-FOSS-for-Cpp``: ``add_table_impl``
+#   stores the table in the separate ``tables_`` vector and ``ShapeCollection::size()`` returns ``shapes_.size()``; the served
+#   verified example asserts ``shapes.size() == 0`` and ``shapes.table_count() == 1`` after ``add_table()``. Already disclosed
+#   in ``get_product_reference``'s limitations by ``config/products/slides/cpp.yaml``'s ``known_hazards``; this entry adds the
+#   per-symbol disclosure on ``ShapeCollection``. Disclosure-only.
+# - ``WORDS-PY-009`` (G3/TC-859, round-2 category ``"coverage-gap"``; RD2-283): re-verified on 2026-11-23 by a static read of
+#   ``light_document_model.py`` at the indexed commit ``2d2efee2`` of ``Aspose.Words-FOSS-for-Python`` (26.7.0 is not on
+#   PyPI): ``Paragraph`` keeps its content on a private ``_children`` slot that a wrap-validator fills from a ``children``
+#   constructor key, and its docstring calls the collection "intentionally not part of the public attribute surface".
+#   Already disclosed in ``get_product_reference``'s limitations by ``config/products/words/python.yaml``'s
+#   ``known_hazards``; this entry adds the per-symbol disclosure on ``Paragraph``. Disclosure-only.
+# - ``SLIDES-NET-007`` (G3/TC-859, round-2 category ``"coverage-gap"``; RD2-250): re-verified on 2026-11-23 by a static read
+#   of the C# source at the indexed commit ``86c441b5`` of ``Aspose.Slides-FOSS-for-.NET``: ``Shape.Placeholder`` is
+#   ``=> null``, ``Connector`` overrides it with ``=> null``, nothing constructs a ``Placeholder`` and ``IPlaceholder`` /
+#   ``Placeholder`` have empty bodies (the audit saw the empty stubs; the stronger always-null fact is new). Not disclosed
+#   anywhere else. Disclosure-only.
+# - ``SLIDES-PY-005`` (G3/TC-859, round-2 category ``"mcp-docs-quality"``; RD2-256): re-verified on 2026-11-23 against the real
+#   PyPI ``aspose-slides-foss`` 26.8.0 (installed into a scratch directory and run) and by a static read of the indexed
+#   commit ``4e63447b``: ``IShape.placeholder`` is a bare stub, so ``shape.placeholder`` is ``None`` for the real layout
+#   placeholders of a slide made with ``add_empty_slide(layout)``, which are told apart only by ``shape.name``; their
+#   ``text_frame.text`` round-trips through save and reload. Not disclosed anywhere else. Disclosure-only.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -496,6 +535,11 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "CELLS-PY-004",
         "CELLS-RUST-006",
         "EMAIL-CPP-004",
+        "PAGE-PYTHON-005",
+        "SLIDES-CPP-003",
+        "WORDS-PY-009",
+        "SLIDES-NET-007",
+        "SLIDES-PY-005",
     }
 )
 
@@ -606,7 +650,9 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-858 (2026-11-23) this real count is
+    # Sanity anchor only, not a floor on the future: as of G3/TC-859 (2026-11-23) this real count is
+    # 78 (73 as of TC-858, plus TC-859's own additive ``PAGE-PYTHON-005``, ``SLIDES-CPP-003``, ``WORDS-PY-009``,
+    # ``SLIDES-NET-007`` and ``SLIDES-PY-005``); earlier, as of G3/TC-858 (2026-11-23) it was
     # 73 (70 as of TC-857, plus TC-858's own additive ``CELLS-PY-004``, ``CELLS-RUST-006`` and ``EMAIL-CPP-004``);
     # earlier, as of G3/TC-857 (2026-11-23) it was
     # 70 (68 as of TC-856, plus TC-857's own additive ``3D-JAVA-007`` and ``CELLS-CPP-004``); earlier, as of
@@ -631,7 +677,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 73
+    assert len(upstream_issue_ids) == 78
 
 
 # --------------------------------------------------------------------------------------------

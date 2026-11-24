@@ -95,3 +95,31 @@ defects:
       version: 26.7.0
       date: '2026-11-21'
   status: open
+- id: WORDS-PY-009
+  subject:
+    kind: method
+    refs:
+    - aspose.words_foss.light_document_model.Paragraph
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: Paragraph(children=[Run(...)]) in aspose-words-foss 26.7.0 works only through a private pydantic
+    wrap-validator onto a private _children slot; Paragraph declares no public children field, so the
+    idiom is unsupported.
+  user_action: 'Treat Paragraph(children=[...]) as an unsupported private idiom that can change in any
+    release: entries that are not Run, Shape, BookmarkStart/End or FieldStart/Separator/End are silently
+    dropped. Re-check it against the installed version before building on it.'
+  evidence:
+    repro: 'Read light_document_model.py statically at the indexed commit 2d2efee2 of Aspose.Words-FOSS-for-Python
+      (pyproject.toml says 26.7.0, which is not on PyPI; no upstream code was executed in this pass):
+      Paragraph keeps its content in ''_children: list[ChildNode] = PrivateAttr(...)'', its class docstring
+      says the collection ''is intentionally not part of the public attribute surface'', and a model_validator(mode=''wrap'')
+      named _absorb_children pops ''children'' from the constructor input and installs it on _children,
+      dropping any entry that _coerce_child_node maps to None. Also disclosed in get_product_reference
+      limitations by the 2026-11-14 known_hazards entry in config/products/words/python.yaml, which records
+      a direct reproduction on the real 26.7.0 source.'
+    verified_on:
+      package: aspose-words-foss
+      version: 26.7.0
+      date: '2026-11-23'
+  status: open

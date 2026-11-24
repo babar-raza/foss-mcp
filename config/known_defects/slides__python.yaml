@@ -29,3 +29,36 @@ defects:
       version: 26.8.0
       date: '2026-10-29'
   status: open
+- id: SLIDES-PY-005
+  subject:
+    kind: method
+    refs:
+    - aspose.slides_foss.IShape
+    - aspose.slides_foss.IShape.IShape
+    - aspose.slides_foss.Shape
+    - aspose.slides_foss.Shape.Shape
+    - aspose.slides_foss.AutoShape
+    - aspose.slides_foss.AutoShape.AutoShape
+  applies_to:
+    package_versions:
+    - 26.8.0
+  summary: In aspose-slides-foss 26.8.0 shape.placeholder is None even for a real layout placeholder (IShape.placeholder
+    is an unimplemented stub), so the placeholders on an add_empty_slide(layout) slide are told apart
+    only by name.
+  user_action: Do not look for shape.placeholder (always None). To fill a layout-based slide, enumerate
+    slide.shapes, pick the placeholders by shape.name ('Title 1', 'Content Placeholder 2', ...) and set
+    shape.text_frame.text; the text survives save and reload.
+  evidence:
+    repro: 'Installed aspose-slides-foss 26.8.0 from PyPI into a scratch directory and ran it: add_empty_slide(layout
+      ''Title and Content'') gave two AutoShapes named ''Title 1'' and ''Content Placeholder 2'', both
+      with shape.placeholder None (likewise the three shapes of a slide added from layout ''Content with
+      Caption'' and the six shapes of that layout itself); setting shapes[0].text_frame.text = ''My Title''
+      and shapes[1].text_frame.text = ''Body text'', saving, and reloading returned the same text, while
+      the saved slide XML carried <p:ph type="title"/> and <p:ph idx="1"/>. A static read of the indexed
+      commit 4e63447b shows IShape.placeholder is a bare stub (''...''), Connector and GroupShape return
+      None, and no class defines a Placeholder.'
+    verified_on:
+      package: aspose-slides-foss
+      version: 26.8.0
+      date: '2026-11-23'
+  status: open

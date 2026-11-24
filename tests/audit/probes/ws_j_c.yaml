@@ -1,0 +1,370 @@
+# TC-859 (G3, KD11 part 3 of 3): replayable probes for the 22 workstream-J rows of docs/ROUND2_REVIEW.md
+# dispositioned by this card. Each entry's probe runs in-process against infra/demo-manifests (and against a
+# running container); `expect` describes the CURRENT served behaviour that justifies the disposition.
+# result_contains substrings are checked against the tool result serialised as JSON (ensure_ascii=False).
+- id: IMAGING-NET-004
+  row: RD2-149
+  pilot: imaging/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - Known defect (c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa)
+    - 5131c44a
+    - Re-index past d947d11cc6b282443231c2025ee43bf974a335dd
+  evidence: Registry entry IMAGING-NET-004 (config/known_defects/imaging__net.yaml, subject.kind commit, verified on c5e77bdc
+    2026-10-29) surfaces live as a Known hazard paragraph in get_product_reference(limitations) and in report_index_freshness
+    known_defects; the served index is still pinned at c5e77bdc (indexed_source_commit c5e77bdc7b4a), so the disclosure is
+    current.
+- id: IMAGING-NET-008
+  row: RD2-153
+  pilot: imaging/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Imaging.Foss.ImageInfo
+  expect:
+    found: true
+    result_contains:
+    - always reports FrameCount=1 for WebP
+  evidence: Registry entry IMAGING-NET-008 (config/known_defects/imaging__net.yaml, verified on c5e77bdc 2026-10-29) surfaces
+    live in get_symbol known_defects on ImageInfo (and on ImageProbe); the served index is still pinned at c5e77bdc.
+- id: IMAGING-NET-012
+  row: RD2-157
+  pilot: imaging/net
+  disposition: ACCEPTED(P3)
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Imaging.Foss.ImageInfo
+  expect:
+    found: true
+    result_contains:
+    - 'FrameCount: int? (read-only)'
+    result_not_contains:
+    - ICONDIR
+  evidence: 'Cosmetic P3 docs gap, no registry entry (the card said so, and none is needed): a static read of Aspose.Imaging-FOSS-for-.NET
+    at c5e77bdc (src/Aspose.Imaging.Foss/Formats/IcoFormatHandler.cs, no code executed) confirms ReadInfo takes Width/Height/BitDepth
+    from the FIRST ICONDIR entry (0 means 256) and FrameCount from the entry count; the served ImageInfo symbol is accurate
+    and states no first-entry note.'
+- id: NOTE-PY-002
+  row: RD2-159
+  pilot: note/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.note.DocumentVisitor
+  expect:
+    found: true
+    result_contains:
+    - never dispatches into Table/TableRow/TableCell/AttachedFile/NumberList
+  evidence: Registry entry NOTE-PY-002 (config/known_defects/note__python.yaml, verified on aspose-note-foss 26.9.0 2026-10-29)
+    surfaces live in get_symbol known_defects on DocumentVisitor and on the find_examples results 'Count Nodes With a DocumentVisitor'
+    and 'Extract All Text'.
+- id: NOTE-PY-008
+  row: RD2-165
+  pilot: note/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.note.RichText
+  expect:
+    found: true
+    result_contains:
+    - U+FDDF field-separator
+    - HYPERLINK
+  evidence: Registry entry NOTE-PY-008 (config/known_defects/note__python.yaml, verified on aspose-note-foss 26.9.0 2026-10-29)
+    surfaces live in get_symbol known_defects on RichText and on the find_examples result 'Extract All Text' (the example
+    the row cites).
+- id: PAGE-PYTHON-003
+  row: RD2-169
+  pilot: page/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - PsDocument.create(is_eps=True) returns a document that already contains one page
+    - XpsDocument.create(), which genuinely starts at zero pages
+  evidence: 'No registry entry (the card said so) and none added: the project-verified known_hazards entry of 2026-11-07 in
+    config/products/page/python.yaml already discloses both the pre-populated page and the PsDocument/XpsDocument asymmetry
+    in get_product_reference(limitations), and get_symbol PsDocument now serves the docstring ''Create a new PS/EPS document
+    with a single empty page.''; re-run on the real PyPI aspose-page-foss 26.9.0: PsDocument.create() -> 1 page, add_page()
+    -> 2, create(is_eps=True) -> 1, XpsDocument.create() -> 0.'
+- id: PAGE-PYTHON-005
+  row: RD2-171
+  pilot: page/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.page.xps.editing.XpsGlyphs
+  expect:
+    found: true
+    result_contains:
+    - accepts any string, including a font part never added to the XPS package
+  evidence: 'No registry entry existed (the card said so; the 2026-11-07 known_hazards entry already disclosed it in limitations
+    only); re-verified by running the real PyPI aspose-page-foss 26.9.0 in a scratch directory (unregistered font_uri: save,
+    reload and to_pdf() all succeed, the PDF draws ''Hello XPS'' in its default font F1), added PAGE-PYTHON-005 (config/known_defects/page__python.yaml),
+    which now surfaces in get_symbol known_defects on XpsGlyphs.'
+- id: PAGE-PYTHON-006
+  row: RD2-172
+  pilot: page/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_product_reference
+    args:
+      section: limitations
+  expect:
+    found: true
+    result_contains:
+    - implicit namespace package (no __init__.py)
+    - pkgutil.iter_modules
+  evidence: 'Registry entry PAGE-PYTHON-006 (config/known_defects/page__python.yaml, subject.kind package, verified on aspose-page-foss
+    26.9.0 2026-10-29) surfaces live in get_product_reference(limitations) and report_index_freshness known_defects; re-run
+    on the real PyPI 26.9.0 wheel: aspose/page/common/ has color_resources.py and render_model.py but no __init__.py and pkgutil
+    lists image, mcp, pdf, ps, xps only.'
+- id: PDF-CPP-001
+  row: RD2-176
+  pilot: pdf/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose::Pdf::Document
+  expect:
+    found: true
+    result_contains:
+    - AESx256 produces a content stream that cannot be decrypted
+  evidence: Registry entry PDF-CPP-001 (config/known_defects/pdf__cpp.yaml, indexed_commit 4b83c9fe, verified 2026-10-29)
+    surfaces live in get_symbol known_defects on Document and on every find_examples result for the AES-256 examples ('Encrypt
+    a Document With AES-256', 'Open a Password-Protected Document With the Owner Password').
+- id: PDF-CPP-005
+  row: RD2-180
+  pilot: pdf/cpp
+  disposition: FIXED
+  probe:
+    tool: find_examples
+    args:
+      query: add text to a page
+  expect:
+    found: true
+    min_results: 1
+    result_contains:
+    - Build Positioned Text and Recover It With TextFragmentAbsorber After Reload
+    - Text::TextBuilder{page}.AppendText(frag)
+  evidence: 'No registry entry (the card said so) and none needed: TC-742 (ad7ad2a9) added the authored example ''Build Positioned
+    Text and Recover It With TextFragmentAbsorber After Reload'' (built and run to exit 0 by the ingestion verifier) which
+    places a TextFragment with Text::TextBuilder{page}.AppendText(frag) rather than Paragraphs().Add, and search_docs now
+    serves the developer_guide line ''Text::TextBuilder(page) - AppendText(fragment)''; both return live for a plain ''add
+    text to a page'' query before any compile error.'
+- id: PDF-JAVA-001
+  row: RD2-195
+  pilot: pdf/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: org.aspose.pdf.WatermarkArtifact
+  expect:
+    found: true
+    result_contains:
+    - produces no watermark anywhere in the saved PDF
+    - use TextStamp on a reopened Document
+  evidence: Registry entry PDF-JAVA-001 (config/known_defects/pdf__java.yaml, verified on org.aspose:aspose-pdf-foss 26.9.0
+    2026-10-29) surfaces live as the first line of list_members and in get_symbol known_defects on WatermarkArtifact and Page.
+- id: PDF-JAVA-002
+  row: RD2-196
+  pilot: pdf/java
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: org.aspose.pdf.TextStamp
+  expect:
+    found: true
+    result_contains:
+    - silently dropped when the stamp is added in the same Document session
+    - Save and reopen the Document before calling Page.addStamp(TextStamp)
+  evidence: Registry entry PDF-JAVA-002 (config/known_defects/pdf__java.yaml, verified on org.aspose:aspose-pdf-foss 26.9.0
+    2026-10-29) surfaces live in get_symbol known_defects on TextStamp and on Page.
+- id: PDF-PYTHON-004
+  row: RD2-213
+  pilot: pdf/python
+  disposition: FIXED
+  probe:
+    tool: find_examples
+    args:
+      query: bookmark
+  expect:
+    found: true
+    min_results: 1
+    result_contains:
+    - Build a Bookmark Outline With a Nested Child, Confirm After Reload
+    - from aspose_pdf.outlines import OutlineItem
+  evidence: 'No registry entry (the card said so) and none needed: TC-751 (ca3f865b) added the authored example ''Build a
+    Bookmark Outline With a Nested Child, Confirm After Reload'' (built and run to exit 0) which constructs OutlineItem with
+    the positional page_index, the working route the row asks an example to show; find_examples(''bookmark'') and (''outline'')
+    returned NoExampleFound at the audit and return it now. The destination annotation is still ''object | None'' (upstream,
+    unchanged).'
+- id: SLIDES-CPP-002
+  row: RD2-228
+  pilot: slides/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose::Slides::Foss::SlideCollection
+  expect:
+    found: true
+    result_contains:
+    - drops a cloned Table entirely
+    - blank untextured rectangle
+  evidence: Registry entry SLIDES-CPP-002 (config/known_defects/slides__cpp.yaml, indexed_commit 469ce77a, verified 2026-10-29)
+    surfaces live in get_symbol known_defects on SlideCollection, beside the upstream README text about add_clone losing shape
+    text in get_product_reference(limitations).
+- id: SLIDES-CPP-003
+  row: RD2-229
+  pilot: slides/cpp
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose::Slides::Foss::ShapeCollection
+  expect:
+    found: true
+    result_contains:
+    - add_table() at commit 469ce77a writes the table to the slide
+    - table_count()/table_at()
+  evidence: No registry entry existed (the card said so; the 2026-11-07 known_hazards entry in config/products/slides/cpp.yaml
+    already discloses it in get_product_reference(limitations)); re-verified by a static read of shape_collection.cpp at 469ce77a
+    (tables go to the separate tables_ vector, size() returns shapes_.size(); no code executed) and by the served verified
+    example that asserts shapes.size()==0 and table_count()==1, added SLIDES-CPP-003 (config/known_defects/slides__cpp.yaml),
+    which now surfaces in get_symbol known_defects on ShapeCollection.
+- id: SLIDES-NET-006
+  row: RD2-249
+  pilot: slides/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Slides.Foss.ILayoutSlide
+  expect:
+    found: true
+    result_contains:
+    - MasterSlide is null for a freshly-created presentation
+  evidence: Registry entry SLIDES-NET-006 (config/known_defects/slides__net.yaml, verified on Aspose.Slides.Foss 26.9.0 2026-10-29)
+    surfaces live in get_symbol known_defects on ILayoutSlide.
+- id: SLIDES-NET-007
+  row: RD2-250
+  pilot: slides/net
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: Aspose.Slides.Foss.IPlaceholder
+  expect:
+    found: true
+    result_contains:
+    - IShape.Placeholder at commit 86c441b5 is null for every shape
+  evidence: 'No registry entry and no other disclosure existed (the limitations text never mentions placeholders); a static
+    read of Aspose.Slides-FOSS-for-.NET at 86c441b5 (no code executed) found a stronger fact than the row: Shape.Placeholder
+    is ''=> null'', Connector overrides it with null and nothing constructs a Placeholder, so IShape.Placeholder is always
+    null; added SLIDES-NET-007 (config/known_defects/slides__net.yaml), which now surfaces in get_symbol known_defects on
+    IPlaceholder, Placeholder, IShape and Shape.'
+- id: SLIDES-PY-001
+  row: RD2-252
+  pilot: slides/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.slides_foss.SlideCollection
+  expect:
+    found: true
+    result_contains:
+    - raises RecursionError when cloning a slide that has a notes slide
+  evidence: Registry entry SLIDES-PY-001 (config/known_defects/slides__python.yaml, subject.kind package, verified on aspose-slides-foss
+    26.8.0 2026-10-29) surfaces live in get_symbol known_defects on SlideCollection and NotesSlideManager.
+- id: SLIDES-PY-005
+  row: RD2-256
+  pilot: slides/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.slides_foss.IShape
+  expect:
+    found: true
+    result_contains:
+    - shape.placeholder is None even for a real layout placeholder
+    - shape.text_frame.text
+  evidence: 'No registry entry existed (the card said so) and no other served text mentions placeholders (search_docs ''placeholder''
+    and agent_guidance are silent); re-verified by running the real PyPI aspose-slides-foss 26.8.0 in a scratch directory:
+    add_empty_slide(layout) gives AutoShapes named ''Title 1'' / ''Content Placeholder 2'' whose shape.placeholder is None
+    while text_frame.text round-trips, added SLIDES-PY-005 (config/known_defects/slides__python.yaml), which now surfaces
+    in get_symbol known_defects on IShape, Shape and AutoShape.'
+- id: TEX-PYTHON-001
+  row: RD2-258
+  pilot: tex/python
+  disposition: FIXED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose_tex.TeXJob
+  expect:
+    found: true
+    result_contains:
+    - aspose_tex.presentation.TeXJob
+    - run() -> bytes | None
+    result_not_contains:
+    - Known defect
+  evidence: 'Fixed upstream and re-pinned by TC-853 (6ab3d3fe): tex/python is served from release 26.11.1 (07db3203) and TEX-PYTHON-001
+    was retired after re-verification; re-measured here: all 59 .py files of the upstream commit AND of the real PyPI aspose-tex-foss
+    26.11.1 wheel pass ast.parse and ''from aspose_tex import TeXJob, TeXOptions, PdfDevice, create_input_source'' imports;
+    live get_symbol TeXJob returns the real class with known_defects empty and report_index_freshness shows indexed_types
+    16 of total_types 16.'
+- id: WORDS-PY-008
+  row: RD2-282
+  pilot: words/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.words_foss.document.Document
+  expect:
+    found: true
+    result_contains:
+    - Tables are included with cell text
+    - silently dropping all table cells and header/footer text
+  evidence: Registry entry WORDS-PY-008 (config/known_defects/words__python.yaml, verified on aspose-words-foss 26.7.0 2026-10-29)
+    surfaces live in get_symbol known_defects on Document; re-read of the upstream source at 2d2efee2 still shows the get_text()
+    docstring promising table text while Document.text says 'body paragraphs only'. (WORDS-PY-004, added by TC-856, is the
+    separate no-DocumentBuilder entry on the same pilot and does not cover this row.)
+- id: WORDS-PY-009
+  row: RD2-283
+  pilot: words/python
+  disposition: DISCLOSED
+  probe:
+    tool: get_symbol
+    args:
+      fqn: aspose.words_foss.light_document_model.Paragraph
+  expect:
+    found: true
+    result_contains:
+    - Paragraph(children=[Run(...)]) in aspose-words-foss 26.7.0 works only through a private pydantic wrap-validator
+  evidence: No registry entry existed (the card said so; the 2026-11-14 known_hazards entry in config/products/words/python.yaml
+    already disclosed it in get_product_reference(limitations)); re-verified by a static read of light_document_model.py at
+    2d2efee2 (26.7.0 is not on PyPI; private _children slot, _absorb_children wrap-validator, docstring 'intentionally not
+    part of the public attribute surface'; no code executed), added WORDS-PY-009 (config/known_defects/words__python.yaml),
+    which now surfaces in get_symbol known_defects on Paragraph.

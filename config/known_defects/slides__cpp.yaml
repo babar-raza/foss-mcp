@@ -23,3 +23,28 @@ defects:
       version: 469ce77
       date: '2026-10-29'
   status: open
+- id: SLIDES-CPP-003
+  subject:
+    kind: method
+    refs:
+    - Aspose::Slides::Foss::ShapeCollection
+  applies_to:
+    indexed_commit: 469ce77a07b988c49deb930632b8276c89ec6b66
+  summary: ShapeCollection::add_table() at commit 469ce77a writes the table to the slide, but shapes().size(),
+    operator[] and iteration never include it; tables are reachable only through table_count()/table_at().
+  user_action: 'Do not find or count tables with a shapes()-based loop: add_table() leaves shapes().size()
+    unchanged. Read tables back with table_count() and table_at(i) as a separate pass over the slide.'
+  evidence:
+    repro: 'Cloned Aspose.Slides-FOSS-for-Cpp at commit 469ce77a and read src/Aspose.Slides.Foss/shape_collection.cpp
+      statically (no upstream code was executed in this pass): add_table_impl push_backs (or inserts)
+      the new Table into the separate tables_ vector, and ShapeCollection::size() returns shapes_.size()
+      with begin()/end() iterating shapes_, so a table is never counted or iterated. The served authored
+      example ''Table Shapes Are Invisible to shapes() but Reachable via table_count/table_at'', built
+      and run by the ingestion verifier against the library at this commit, asserts shapes.size() == 0
+      and shapes.table_count() == 1 after add_table(). The same finding is disclosed in get_product_reference
+      limitations by the known_hazards entry in config/products/slides/cpp.yaml.'
+    verified_on:
+      package: aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp
+      version: 469ce77a07b988c49deb930632b8276c89ec6b66
+      date: '2026-11-23'
+  status: open
