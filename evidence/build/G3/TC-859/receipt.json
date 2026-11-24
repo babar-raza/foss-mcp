@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "card": "TC-859",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-24T06:33:13Z",
+  "base_rev": "4d330969dc47ab7cafe32d7004b26921aa9beec4",
+  "head_rev": "a171b27f850eafe0e9a637ea713bb162ff159e78",
+  "card_sha256": "678b83bf7c34711254085fb0939f83e4506a18a2adba1c73cc9afdf103d27faf",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/page__python.yaml",
+      "config/known_defects/slides__cpp.yaml",
+      "config/known_defects/slides__net.yaml",
+      "config/known_defects/slides__python.yaml",
+      "config/known_defects/words__python.yaml",
+      "docs/ROUND2_REVIEW.md",
+      "tests/audit/probes/ws_j_c.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/indexing/test_known_defects_data_pdf_slides.py",
+      "tests/indexing/test_known_defects_data_remaining.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 252.368,
+          "stdout_sha256": "c42bc1dcf3d10acea1a8ec00930fb77dd0ec47a79a450a1ffd72e07025d063c8",
+          "tests": 92,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 258.055,
+          "stdout_sha256": "c42bc1dcf3d10acea1a8ec00930fb77dd0ec47a79a450a1ffd72e07025d063c8",
+          "tests": 92,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-149 |'; assert s.count(old) == 1, 'row marker not found exactly once'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; p.write_text(s[:idx] + corrupted + s[line_end:], encoding='utf-8')\"\n",
+    "patch_sha256": "41436e8f796d5eb39ffa7355a3779bdd69a0bf32f4e5c426e1018741f5fb3fcd",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docs/ROUND2_REVIEW.md",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
